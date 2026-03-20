@@ -24,7 +24,12 @@ convex/_generated/
 .claude/
 .agent/
 .agents/
+.augment/
+.goose/
 .junie/
+.kilocode/
+.kiro/
+.pi/
 .windsurf/
 
 # Vercel

@@ -3,7 +3,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"]
+      "outputs": [".next/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_CONVEX_URL",
+        "WORKOS_CLIENT_ID",
+        "WORKOS_API_KEY",
+        "WORKOS_COOKIE_PASSWORD",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI"
+      ]
     },
     "dev": {
       "cache": false,

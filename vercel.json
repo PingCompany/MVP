@@ -2,5 +2,10 @@
   "buildCommand": "pnpm run build",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
 }

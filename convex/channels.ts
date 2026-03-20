@@ -64,7 +64,7 @@ export const list = query({
             const lastReadAt = membership.lastReadAt ?? 0;
             const unreadMessages = await ctx.db
               .query("messages")
-              .withIndex("by_channel_time", (q) =>
+              .withIndex("by_channel", (q) =>
                 q
                   .eq("channelId", channel._id)
                   .gt("_creationTime", lastReadAt),

@@ -75,7 +75,6 @@ export default defineSchema({
     isEdited: v.boolean(),
   })
     .index("by_channel", ["channelId"])
-    .index("by_channel_time", ["channelId", "_creationTime"])
     .index("by_author", ["authorId"])
     .searchIndex("search_body", {
       searchField: "body",

@@ -35,5 +35,5 @@ PING is being engineered for absolute speed and immediate enterprise readiness.
 
 This core engine is actively under development. 
 
-**Want to help kill the green dot?** 
+**Want to help kill the red dot?** 
 *Star this repository to follow our journey, and get ready to `docker-compose up` your company's new brain in the coming weeks.*

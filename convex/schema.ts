@@ -355,5 +355,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_user_status", ["userId", "status"])
-    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"]),
+    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
+    .index("by_source_alert", ["sourceAlertId"])
+    .index("by_source_summary", ["sourceSummaryId"]),
 });

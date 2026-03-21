@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+import { ThemeToggle } from "./ThemeToggle";
 import { SIDEBAR_WIDTH } from "@/lib/constants";
 
 function isEditableTarget(e: KeyboardEvent): boolean {
@@ -132,6 +133,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <TopBar
           onToggleSidebar={toggleSidebar}
           onOpenSearch={openSearch}
+          trailing={<ThemeToggle />}
         />
         <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
       </div>

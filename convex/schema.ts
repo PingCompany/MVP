@@ -59,6 +59,24 @@ export default defineSchema({
     workosOrgId: v.optional(v.string()),
     createdBy: v.optional(v.id("users")),
     integrations: v.optional(v.any()),
+    integrationConfig: v.optional(
+      v.object({
+        github: v.optional(
+          v.object({
+            connected: v.boolean(),
+            accountName: v.optional(v.string()),
+            connectedAt: v.optional(v.number()),
+          }),
+        ),
+        linear: v.optional(
+          v.object({
+            connected: v.boolean(),
+            orgName: v.optional(v.string()),
+            connectedAt: v.optional(v.number()),
+          }),
+        ),
+      }),
+    ),
     industry: v.optional(v.string()),
     companySize: v.optional(v.string()),
     companyDescription: v.optional(v.string()),
@@ -301,4 +319,19 @@ export default defineSchema({
   })
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
+
+  integrationRouting: defineTable({
+    channelId: v.id("channels"),
+    workspaceId: v.id("workspaces"),
+    integrationType: v.union(v.literal("github"), v.literal("linear")),
+    /** For GitHub: "owner/repo"; for Linear: project ID or slug */
+    externalTarget: v.string(),
+    /** Human-readable label shown in the UI */
+    externalTargetLabel: v.optional(v.string()),
+    createdBy: v.id("users"),
+  })
+    .index("by_channel", ["channelId"])
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_type", ["workspaceId", "integrationType"])
+    .index("by_channel_type_target", ["channelId", "integrationType", "externalTarget"]),
 });

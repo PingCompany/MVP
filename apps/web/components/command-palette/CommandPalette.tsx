@@ -18,11 +18,10 @@ import {
   User,
   Building2,
   MessageSquare,
+  ArrowDown,
   Check,
   X,
   UserPlus,
-  Clock,
-  LayoutDashboard,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -38,6 +37,10 @@ interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleSidebar?: () => void;
+  onNextDecision?: () => void;
+  onApproveDecision?: () => void;
+  onRejectDecision?: () => void;
+  onDelegateDecision?: () => void;
 }
 
 const PAGES = [
@@ -52,15 +55,15 @@ const PAGES = [
   { label: "Backoffice",      href: "/admin",                     icon: Shield },
 ];
 
-const DECISIONS = [
-  { label: "Go to Inbox Decisions", href: "/inbox", icon: LayoutDashboard },
-  { label: "Approve Decision",      href: "/inbox", icon: Check,           shortcut: "Y" },
-  { label: "Reject Decision",       href: "/inbox", icon: X,               shortcut: "N" },
-  { label: "Delegate Decision",     href: "/inbox", icon: UserPlus,        shortcut: "⇧D" },
-  { label: "Snooze Decision",       href: "/inbox", icon: Clock,           shortcut: "S" },
-];
-
-export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  onToggleSidebar,
+  onNextDecision,
+  onApproveDecision,
+  onRejectDecision,
+  onDelegateDecision,
+}: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState("");
@@ -158,13 +161,46 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
         )}
 
         <CommandGroup heading="Decisions">
-          {DECISIONS.map(({ label, href, icon: Icon, shortcut }) => (
-            <CommandItem key={label} onSelect={() => navigate(href)}>
-              <Icon className="h-3.5 w-3.5 text-white/40" />
-              <span>{label}</span>
-              {shortcut && <CommandShortcut>{shortcut}</CommandShortcut>}
-            </CommandItem>
-          ))}
+          <CommandItem
+            onSelect={() => {
+              onNextDecision?.();
+              onOpenChange(false);
+            }}
+          >
+            <ArrowDown className="h-3.5 w-3.5 text-white/40" />
+            <span>Go to next decision</span>
+            <CommandShortcut>D</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onApproveDecision?.();
+              onOpenChange(false);
+            }}
+          >
+            <Check className="h-3.5 w-3.5 text-white/40" />
+            <span>Approve current decision</span>
+            <CommandShortcut>Y</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onRejectDecision?.();
+              onOpenChange(false);
+            }}
+          >
+            <X className="h-3.5 w-3.5 text-white/40" />
+            <span>Reject current decision</span>
+            <CommandShortcut>N</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onDelegateDecision?.();
+              onOpenChange(false);
+            }}
+          >
+            <UserPlus className="h-3.5 w-3.5 text-white/40" />
+            <span>Delegate current decision</span>
+            <CommandShortcut>⇧D</CommandShortcut>
+          </CommandItem>
         </CommandGroup>
 
         <CommandGroup heading="Commands">

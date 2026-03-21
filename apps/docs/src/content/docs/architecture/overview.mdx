@@ -1,6 +1,169 @@
 ---
-title: Architecture Overview
-description: High-level architecture of the PING platform.
+title: System Overview
+description: High-level architecture of the PING platform, including component interactions, request flows, and AI pipelines.
+sidebar:
+  order: 1
 ---
 
-Content coming soon.
+import { Aside } from '@astrojs/starlight/components';
+
+PING is an AI-native workspace communication platform built as a Turborepo monorepo. It replaces traditional chat tools like Slack with an intelligent, proactive communication layer that ranks, summarizes, and acts on messages automatically.
+
+## Component Architecture
+
+The platform consists of three primary layers connected through real-time WebSocket channels and serverless function calls.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        PING Platform                            │
+│                                                                 │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌───────────┐  │
+│  │   Next.js 15     │    │  Convex Backend   │    │ External  │  │
+│  │   (App Router)   │◄──►│  (Serverless)     │◄──►│ Services  │  │
+│  │                  │    │                   │    │           │  │
+│  │  - React 19 UI   │    │  - Real-time DB   │    │ - WorkOS  │  │
+│  │  - Tailwind CSS  │    │  - Mutations      │    │ - OpenAI  │  │
+│  │  - Radix UI      │    │  - Queries        │    │ - GitHub  │  │
+│  │  - cmdk palette  │    │  - Actions        │    │ - Linear  │  │
+│  │                  │    │  - CRON jobs       │    │ - Graphiti│  │
+│  └──────────────────┘    └──────────────────┘    └───────────┘  │
+│           │                       │                     │       │
+│           │    WebSockets         │     Webhooks/API     │       │
+│           └───────────────────────┘─────────────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Frontend (Next.js 15)
+
+The web application uses the Next.js App Router with React 19. It connects to Convex via the `convex/react` bindings, which provide automatic real-time state synchronization without requiring Redux, Zustand, or any additional state management library.
+
+Route groups organize the application:
+
+- **`(auth)/`** — WorkOS OAuth login and callback handling
+- **`(dashboard)/`** — Main workspace: channels, DMs, inbox, settings
+- **`admin/`** — Administrative panel
+
+### Backend (Convex)
+
+All backend logic runs as Convex serverless functions. Convex replaces the need for a separate database, WebSocket server, and Redis pub/sub layer with a single reactive backend.
+
+Key capabilities:
+- **Real-time sync** — Automatic optimistic updates pushed to all connected clients
+- **Full-text search** — Built-in search indexes on message bodies
+- **Vector storage** — Indexes messages at write time for semantic search
+- **Background jobs** — Actions handle async tasks (AI calls, webhook processing) without blocking queries
+- **CRON scheduling** — Periodic jobs for inbox summaries and proactive alert scans
+
+### External Services
+
+- **WorkOS** — SSO, SAML, OAuth, and directory sync for enterprise auth
+- **OpenAI** — Powers AI summarization, Eisenhower ranking, and proactive alerts via Vercel AI SDK
+- **GitHub / Linear** — Integration webhooks provide PR and ticket data as actionable cards
+- **Graphiti** — Temporal knowledge graph for company memory and context retrieval
+
+## Request Flow
+
+A typical user interaction flows through the system as follows:
+
+```
+User Action                    Next.js Frontend              Convex Backend
+─────────────────────────────────────────────────────────────────────────────
+1. User sends message    ──►  Call mutation via             Store in DB
+                              convex/react binding    ──►   (optimistic update)
+                                                            │
+2. Real-time broadcast   ◄──  All subscribed clients  ◄──  Push via WebSocket
+                              re-render automatically       │
+                                                            │
+3. AI processing               (background)           ◄──  Trigger action:
+                                                            - Update inbox summaries
+                                                            - Check proactive alerts
+                                                            - Index in knowledge graph
+                                                            │
+4. AI results appear     ◄──  Inbox/alerts update     ◄──  Write results to DB
+                              reactively
+```
+
+<Aside type="tip">
+Convex handles optimistic updates automatically. When a user sends a message, it appears instantly in their UI before the server confirms the write. All other connected clients receive the update in real time via WebSocket subscriptions.
+</Aside>
+
+## AI Pipeline
+
+The AI system operates as a set of background processes triggered by message activity and scheduled CRON jobs.
+
+```
+                         ┌─────────────────────────┐
+                         │    Message Written       │
+                         └────────┬────────────────┘
+                                  │
+                    ┌─────────────┼─────────────────┐
+                    ▼             ▼                  ▼
+           ┌──────────────┐ ┌──────────┐  ┌─────────────────┐
+           │ Inbox Summary│ │ Proactive│  │ Knowledge Graph │
+           │ Generation   │ │ Alerts   │  │ Ingestion       │
+           └──────┬───────┘ └────┬─────┘  └────────┬────────┘
+                  │              │                  │
+                  ▼              ▼                  ▼
+           ┌──────────────┐ ┌──────────┐  ┌─────────────────┐
+           │ Eisenhower   │ │ Alert    │  │ Graphiti        │
+           │ Matrix       │ │ Types:   │  │ Temporal Graph  │
+           │ Ranking      │ │ -Unanswered│  │               │
+           │              │ │ -PR nudge│  │ Enables:        │
+           │ Quadrants:   │ │ -Incident│  │ -Fact checking  │
+           │ -Urgent+Imp  │ │ -Blocker │  │ -Context sync   │
+           │ -Important   │ │ -Fact chk│  │ -@KnowledgeBot  │
+           │ -Urgent      │ │ -Xteam   │  │                 │
+           │ -FYI         │ │          │  │                 │
+           └──────┬───────┘ └────┬─────┘  └────────┬────────┘
+                  │              │                  │
+                  └──────────────┼──────────────────┘
+                                 ▼
+                    ┌────────────────────────┐
+                    │ Results written to DB  │
+                    │ (real-time push to UI) │
+                    └────────────────────────┘
+```
+
+### Inbox Summaries
+
+Messages are periodically summarized and ranked using the Eisenhower Matrix (urgent/important, important, urgent, FYI). Each summary produces ranked bullet points with links to source messages, giving users a prioritized view of workspace activity.
+
+### Proactive Alerts
+
+Six alert types are generated automatically:
+
+| Alert Type | Trigger |
+|---|---|
+| `unanswered_question` | A question in a channel goes unanswered beyond a threshold |
+| `pr_review_nudge` | A GitHub PR is stale and needs review |
+| `incident_route` | An incident is posted and needs routing to the right engineer |
+| `blocked_task` | A blocking dependency (e.g., PR) is resolved |
+| `fact_check` | AI detects a factual inconsistency in a discussion |
+| `cross_team_sync` | Relevant context from another channel should be surfaced |
+
+### Knowledge Graph
+
+Every message is ingested into a Graphiti temporal knowledge graph. This enables the `@KnowledgeBot` to answer questions about company history with cited sources, and powers proactive fact-checking and cross-team context syncing.
+
+## Monorepo Structure
+
+```
+platform/
+├── turbo.json              # Build orchestration
+├── package.json            # Root workspace config
+├── pnpm-workspace.yaml     # pnpm workspace definition
+├── apps/
+│   ├── web/                # Next.js 15 frontend
+│   └── docs/               # Documentation (Astro Starlight)
+├── convex/                 # Convex serverless backend
+│   ├── schema.ts           # Database schema (source of truth)
+│   ├── auth.ts             # Authentication helpers
+│   ├── auth.config.ts      # WorkOS JWT configuration
+│   ├── channels.ts         # Channel CRUD + queries
+│   ├── messages.ts         # Message mutations + search
+│   ├── inboxSummaries.ts   # AI inbox generation
+│   ├── proactiveAlerts.ts  # AI alert detection
+│   └── http.ts             # Webhook endpoints
+└── packages/
+    └── shared/             # Shared TypeScript types
+```

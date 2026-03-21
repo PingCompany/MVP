@@ -13,7 +13,7 @@ export const getOnboardingState = query({
       role: user.role,
       userName: user.name,
       userEmail: user.email,
-      workspaceName: workspace?.name ?? "",
+      workspaceName: workspace?.name,
       workspaceId: user.workspaceId,
     };
   },
@@ -49,15 +49,14 @@ export const saveCompanyContext = mutation({
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
     if (user.role !== "admin") {
-      throw new Error("Only admins can set company context");
+      throw new Error("Only admins can update company context");
     }
 
     const updates: Record<string, unknown> = {};
-    if (args.companyName !== undefined) updates.name = args.companyName;
     if (args.industry !== undefined) updates.industry = args.industry;
     if (args.companySize !== undefined) updates.companySize = args.companySize;
-    if (args.companyDescription !== undefined)
-      updates.companyDescription = args.companyDescription;
+    if (args.companyDescription !== undefined) updates.companyDescription = args.companyDescription;
+    if (args.companyName !== undefined) updates.name = args.companyName;
 
     await ctx.db.patch(user.workspaceId, updates);
   },
@@ -73,10 +72,9 @@ export const createDefaultChannels = mutation({
       throw new Error("Only admins can create default channels");
     }
 
-    const created: string[] = [];
+    const createdNames: string[] = [];
 
     for (const name of args.channelNames) {
-      // Skip if channel already exists
       const existing = await ctx.db
         .query("channels")
         .withIndex("by_workspace_name", (q) =>
@@ -100,13 +98,12 @@ export const createDefaultChannels = mutation({
         userId: user._id,
       });
 
-      created.push(name);
+      createdNames.push(name);
     }
 
-    // Store which channels were created during onboarding
-    await ctx.db.patch(user.workspaceId, { defaultChannels: created });
-
-    return created;
+    await ctx.db.patch(user.workspaceId, {
+      defaultChannels: createdNames,
+    });
   },
 });
 
@@ -114,11 +111,7 @@ export const saveAiPrefs = mutation({
   args: {
     aiPrefs: v.object({
       summaryDetail: v.union(v.literal("concise"), v.literal("detailed")),
-      proactiveLevel: v.union(
-        v.literal("minimal"),
-        v.literal("balanced"),
-        v.literal("aggressive"),
-      ),
+      proactiveLevel: v.union(v.literal("minimal"), v.literal("balanced"), v.literal("aggressive")),
       autoTriage: v.boolean(),
     }),
   },
@@ -138,9 +131,7 @@ export const saveCommunicationPrefs = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
-    await ctx.db.patch(user._id, {
-      communicationPrefs: args.communicationPrefs,
-    });
+    await ctx.db.patch(user._id, { communicationPrefs: args.communicationPrefs });
   },
 });
 

@@ -13,33 +13,32 @@ export const send = mutation({
       throw new Error("Only admins can send invitations");
     }
 
-    // Check if invitation already exists for this email in this workspace
-    const existing = await ctx.db
-      .query("invitations")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .take(10);
-
-    const alreadyInvited = existing.find(
-      (inv) =>
-        inv.workspaceId === user.workspaceId && inv.status === "pending",
-    );
-    if (alreadyInvited) {
-      throw new Error("This email has already been invited");
-    }
-
-    // Check if user already exists in this workspace
-    const existingUser = await ctx.db
+    const existingUsers = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
-      .unique();
-    if (existingUser && existingUser.workspaceId === user.workspaceId) {
-      throw new Error("This user is already in your workspace");
+      .collect();
+    const existingMember = existingUsers.find(
+      (u) => u.workspaceId === user.workspaceId && u.status !== "deactivated",
+    );
+    if (existingMember) {
+      throw new Error("User is already a member of this workspace");
+    }
+
+    const existingInvitations = await ctx.db
+      .query("invitations")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .collect();
+    const duplicateInvitation = existingInvitations.find(
+      (inv) => inv.workspaceId === user.workspaceId && inv.status === "pending",
+    );
+    if (duplicateInvitation) {
+      throw new Error("An invitation has already been sent to this email");
     }
 
     const token = crypto.randomUUID();
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
-    await ctx.db.insert("invitations", {
+    const invitationId = await ctx.db.insert("invitations", {
       workspaceId: user.workspaceId,
       email: args.email,
       invitedBy: user._id,
@@ -49,7 +48,7 @@ export const send = mutation({
       expiresAt: Date.now() + sevenDays,
     });
 
-    return { token };
+    return invitationId;
   },
 });
 
@@ -61,7 +60,7 @@ export const list = query({
     const invitations = await ctx.db
       .query("invitations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", user.workspaceId))
-      .take(100);
+      .collect();
 
     return invitations.filter((inv) => inv.status === "pending");
   },
@@ -73,28 +72,40 @@ export const findPendingByEmail = internalQuery({
     const invitations = await ctx.db
       .query("invitations")
       .withIndex("by_email", (q) => q.eq("email", args.email))
-      .take(10);
+      .collect();
 
+    const now = Date.now();
     return invitations.find(
-      (inv) => inv.status === "pending" && inv.expiresAt > Date.now(),
+      (inv) => inv.status === "pending" && inv.expiresAt > now,
     ) ?? null;
   },
 });
 
 export const accept = mutation({
-  args: { invitationId: v.id("invitations") },
+  args: {
+    token: v.string(),
+  },
   handler: async (ctx, args) => {
-    const invitation = await ctx.db.get(args.invitationId);
-    if (!invitation) throw new Error("Invitation not found");
-    if (invitation.status !== "pending") {
-      throw new Error("Invitation is no longer pending");
+    const invitation = await ctx.db
+      .query("invitations")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .unique();
+
+    if (!invitation) {
+      throw new Error("Invitation not found");
     }
+
+    if (invitation.status !== "pending") {
+      throw new Error("Invitation is no longer valid");
+    }
+
     if (invitation.expiresAt < Date.now()) {
-      await ctx.db.patch(args.invitationId, { status: "expired" });
+      await ctx.db.patch(invitation._id, { status: "expired" });
       throw new Error("Invitation has expired");
     }
 
-    await ctx.db.patch(args.invitationId, { status: "accepted" });
+    await ctx.db.patch(invitation._id, { status: "accepted" });
+
     return invitation;
   },
 });

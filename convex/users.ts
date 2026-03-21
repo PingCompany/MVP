@@ -29,13 +29,11 @@ export async function createOrUpdateUserHandler(
     return { userId: existing._id, isNew: false as const };
   }
 
-  // Check if there's a pending invitation for this email
-  const pendingInvitations = await ctx.db
+  const pendingInvitation = await ctx.db
     .query("invitations")
     .withIndex("by_email", (q) => q.eq("email", args.email))
-    .take(10);
-
-  const invitation = pendingInvitations.find(
+    .collect();
+  const invitation = pendingInvitation.find(
     (inv) => inv.status === "pending" && inv.expiresAt > Date.now(),
   );
 
@@ -122,7 +120,7 @@ async function provisionInvitedUser(
   },
 ) {
   const workspace = await ctx.db.get(invitation.workspaceId);
-  if (!workspace) throw new Error("Invited workspace no longer exists");
+  if (!workspace) throw new Error("Invitation workspace not found");
 
   const userId = await ctx.db.insert("users", {
     workosUserId: args.workosUserId,
@@ -136,10 +134,8 @@ async function provisionInvitedUser(
     onboardingStatus: "pending",
   });
 
-  // Mark invitation as accepted
   await ctx.db.patch(invitation._id, { status: "accepted" });
 
-  // Auto-join default #general channel
   const generalChannel = await ctx.db
     .query("channels")
     .withIndex("by_workspace_name", (q) =>
@@ -154,11 +150,7 @@ async function provisionInvitedUser(
     });
   }
 
-  return {
-    userId,
-    workspaceId: invitation.workspaceId,
-    workspaceName: workspace.name,
-  };
+  return { userId, workspaceId: invitation.workspaceId, workspaceName: workspace.name };
 }
 
 export const getMe = query({
@@ -283,57 +275,6 @@ export const listByWorkspace = internalQuery({
       .query("users")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .collect();
-  },
-});
-
-export const inviteUser = mutation({
-  args: {
-    email: v.string(),
-    role: v.optional(v.union(v.literal("admin"), v.literal("member"))),
-  },
-  handler: async (ctx, args) => {
-    const currentUser = await requireAuth(ctx);
-    if (currentUser.role !== "admin") {
-      throw new Error("Only admins can invite users");
-    }
-
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .collect();
-    const existingInWorkspace = existing.find(
-      (u) => u.workspaceId === currentUser.workspaceId,
-    );
-    if (existingInWorkspace) {
-      throw new Error("A user with this email already exists in this workspace");
-    }
-
-    const name = args.email.split("@")[0];
-    const userId = await ctx.db.insert("users", {
-      workosUserId: `invited_${args.email}_${Date.now()}`,
-      email: args.email,
-      name,
-      role: args.role ?? "member",
-      workspaceId: currentUser.workspaceId,
-      status: "invited",
-    });
-
-    // Add invited user to the default channel
-    const defaultChannel = await ctx.db
-      .query("channels")
-      .withIndex("by_workspace", (q) =>
-        q.eq("workspaceId", currentUser.workspaceId),
-      )
-      .filter((q) => q.eq(q.field("isDefault"), true))
-      .first();
-    if (defaultChannel) {
-      await ctx.db.insert("channelMembers", {
-        channelId: defaultChannel._id,
-        userId,
-      });
-    }
-
-    return { userId, email: args.email };
   },
 });
 

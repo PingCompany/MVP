@@ -91,9 +91,9 @@ export const list = query({
     const channels = await ctx.db
       .query("channels")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(500);
+      .collect();
 
-    // Get unread counts for each channel
+    // Get unread counts from denormalized channelMembers field
     const channelsWithUnread = await Promise.all(
       channels
         .filter((c) => !c.isArchived && (!c.type || c.type === "public"))
@@ -105,24 +105,10 @@ export const list = query({
             )
             .unique();
 
-          let unreadCount = 0;
-          if (membership) {
-            const lastReadAt = membership.lastReadAt ?? 0;
-            const unreadMessages = await ctx.db
-              .query("messages")
-              .withIndex("by_channel", (q) =>
-                q
-                  .eq("channelId", channel._id)
-                  .gt("_creationTime", lastReadAt),
-              )
-              .take(100);
-            unreadCount = unreadMessages.length;
-          }
-
           return {
             ...channel,
             isMember: !!membership,
-            unreadCount,
+            unreadCount: membership?.unreadCount ?? 0,
           };
         }),
     );
@@ -157,7 +143,10 @@ export const markRead = mutation({
       .unique();
 
     if (membership) {
-      await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
+      await ctx.db.patch(membership._id, {
+        lastReadAt: Date.now(),
+        unreadCount: 0,
+      });
     }
   },
 });
@@ -169,7 +158,7 @@ export const memberCount = query({
     const members = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .take(1000);
+      .collect();
     return members.length;
   },
 });
@@ -314,7 +303,7 @@ export const listMembers = query({
     const memberships = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .take(1000);
+      .collect();
 
     const members = await Promise.all(
       memberships.map(async (membership) => {

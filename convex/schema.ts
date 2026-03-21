@@ -83,6 +83,7 @@ export default defineSchema({
     channelId: v.id("channels"),
     userId: v.id("users"),
     lastReadAt: v.optional(v.number()),
+    unreadCount: v.optional(v.number()),
   })
     .index("by_channel", ["channelId"])
     .index("by_user", ["userId"])

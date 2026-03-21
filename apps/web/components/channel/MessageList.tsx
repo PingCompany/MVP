@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, Paperclip, AtSign, ChevronDown, Pin, Users, MessageSquare } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Send, Bot, Paperclip, AtSign, ChevronDown, Pin, Users } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
@@ -16,33 +17,20 @@ export interface Message {
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
-  replyCount?: number;
-  lastRepliers?: Array<{ name: string; avatarUrl?: string }>;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 interface MessageItemProps {
   message: Message;
   showAvatar: boolean;
-  onReply?: (messageId: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, onReply }: MessageItemProps) {
+export function MessageItem({ message, showAvatar }: MessageItemProps) {
   const isBot = message.type === "bot";
-  const hasReplies = (message.replyCount ?? 0) > 0;
 
   return (
     <div
       className={cn(
-        "group relative flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
+        "group flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
         showAvatar ? "mt-3" : "mt-0"
       )}
     >
@@ -98,46 +86,7 @@ export function MessageItem({ message, showAvatar, onReply }: MessageItemProps) 
         {message.citations && (
           <CitationRow citations={message.citations} />
         )}
-
-        {/* Thread reply count indicator */}
-        {hasReplies && (
-          <button
-            onClick={() => onReply?.(message.id)}
-            className="mt-1 flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs text-ping-purple transition-colors hover:bg-ping-purple/10"
-          >
-            {/* Last replier avatars */}
-            <div className="flex items-center -space-x-1">
-              {message.lastRepliers?.slice(0, 3).map((replier, i) => (
-                <div
-                  key={i}
-                  className="flex h-4 w-4 items-center justify-center rounded-full border border-background bg-surface-3 text-[8px] font-medium text-foreground"
-                  title={replier.name}
-                >
-                  {getInitials(replier.name)}
-                </div>
-              ))}
-            </div>
-            <span className="font-medium">
-              {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}
-            </span>
-          </button>
-        )}
-
       </div>
-
-      {/* Reply button on hover */}
-      {onReply && (
-        <div className="absolute right-2 top-0 hidden group-hover:flex">
-          <button
-            onClick={() => onReply(message.id)}
-            className="flex items-center gap-1 rounded border border-subtle bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground shadow-sm transition-colors hover:bg-surface-3 hover:text-foreground"
-            title="Reply in thread"
-          >
-            <MessageSquare className="h-3 w-3" />
-            Reply
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -199,8 +148,6 @@ interface MessageListProps {
   typingUsers?: TypingUser[];
   /** Called on input keystrokes for typing indicator */
   onTyping?: () => void;
-  /** Called when user wants to reply to a message */
-  onReply?: (messageId: string) => void;
 }
 
 export function MessageList({
@@ -213,14 +160,35 @@ export function MessageList({
   isDM = false,
   typingUsers = [],
   onTyping,
-  onReply,
 }: MessageListProps) {
   const [input, setInput] = useState("");
   const [showNewMessages, setShowNewMessages] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef(messages.length);
+  const hasInitiallyScrolledRef = useRef(false);
+
+  // Pre-compute which messages should show avatars so the virtualizer can use it
+  const showAvatarFlags = useMemo(() => {
+    return messages.map((msg, i) => {
+      const prev = messages[i - 1];
+      return (
+        !prev ||
+        prev.author !== msg.author ||
+        msg.timestamp.getTime() - prev.timestamp.getTime() > 5 * 60 * 1000
+      );
+    });
+  }, [messages]);
+
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => {
+      // Messages with avatars are taller due to the author header and top margin
+      return showAvatarFlags[index] ? 64 : 32;
+    },
+    overscan: 20,
+  });
 
   const isAtBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -228,7 +196,18 @@ export function MessageList({
     return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }, []);
 
-  // Auto-scroll when new messages arrive (only if at bottom)
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      if (messages.length === 0) return;
+      virtualizer.scrollToIndex(messages.length - 1, {
+        align: "end",
+        behavior,
+      });
+    },
+    [virtualizer, messages.length]
+  );
+
+  // Auto-scroll when new messages arrive (only if already at bottom)
   useEffect(() => {
     const newCount = messages.length;
     const prevCount = prevMessageCountRef.current;
@@ -236,23 +215,27 @@ export function MessageList({
 
     if (newCount > prevCount) {
       if (isAtBottom()) {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        scrollToBottom("smooth");
         setShowNewMessages(false);
       } else {
         setShowNewMessages(true);
       }
     }
-  }, [messages, isAtBottom]);
+  }, [messages, isAtBottom, scrollToBottom]);
 
-  // Initial scroll to bottom
+  // Initial scroll to bottom once loading completes
   useEffect(() => {
-    if (!isLoading) {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+    if (!isLoading && messages.length > 0 && !hasInitiallyScrolledRef.current) {
+      hasInitiallyScrolledRef.current = true;
+      // Use requestAnimationFrame to ensure the virtualizer has rendered
+      requestAnimationFrame(() => {
+        scrollToBottom("instant");
+      });
     }
-  }, [isLoading]);
+  }, [isLoading, messages.length, scrollToBottom]);
 
   const handleScrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom("smooth");
     setShowNewMessages(false);
   };
 
@@ -266,7 +249,7 @@ export function MessageList({
     onSend?.(trimmed);
     setInput("");
     // Scroll to bottom after send
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    setTimeout(() => scrollToBottom("smooth"), 50);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -275,6 +258,8 @@ export function MessageList({
       handleSend();
     }
   };
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div className="flex h-full flex-col">
@@ -318,24 +303,36 @@ export function MessageList({
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => <MessageSkeleton key={i} />)
         ) : (
-          messages.map((msg, i) => {
-            const prev = messages[i - 1];
-            const showAvatar =
-              !prev ||
-              prev.author !== msg.author ||
-              msg.timestamp.getTime() - prev.timestamp.getTime() > 5 * 60 * 1000;
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const msg = messages[virtualRow.index];
+              const showAvatar = showAvatarFlags[virtualRow.index];
 
-            return (
-              <MessageItem
-                key={msg.id}
-                message={msg}
-                showAvatar={showAvatar}
-                onReply={onReply}
-              />
-            );
-          })
+              return (
+                <div
+                  key={msg.id}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <MessageItem message={msg} showAvatar={showAvatar} />
+                </div>
+              );
+            })}
+          </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* New messages pill */}

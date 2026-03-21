@@ -66,6 +66,24 @@ nav.sidebar {
 
 .sidebar-content a {
   border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Tighter sidebar group headings */
+.sidebar-content summary,
+.sidebar-content .top-level > li > details > summary {
+  font-size: 0.8125rem;
+  padding-block: 0.25rem;
+}
+
+/* Reduce gap between sidebar groups */
+.sidebar-content .top-level > li {
+  margin-top: 0.25rem;
+}
+
+.sidebar-content .top-level > li:first-child {
+  margin-top: 0;
 }
 
 /* Cleaner header bar */
@@ -92,6 +110,11 @@ header.header {
 /* Reset the auto margin-top Starlight adds between children */
 [data-has-hero] .sl-container > * + * {
   margin-top: 0;
+}
+
+/* Hide oversized heading anchor icons on splash page */
+[data-has-hero] .sl-markdown-content h2 a[aria-label] {
+  display: none;
 }
 
 /* Content link styling */

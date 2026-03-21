@@ -6,32 +6,13 @@ sidebar:
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import DataModelDiagram from '../../../components/diagrams/DataModelDiagram.astro';
 
 PING's data model is defined in `convex/schema.ts` using the Convex schema definition API. The database contains 15 tables covering users, workspaces, messaging, AI features, and integrations.
 
 ## Entity Relationship Overview
 
-```
-workspaces
-  ├── users (workspaceId → workspaces)
-  │     ├── channelMembers (userId → users)
-  │     ├── directConversationMembers (userId → users)
-  │     ├── inboxSummaries (userId → users)
-  │     ├── proactiveAlerts (userId → users)
-  │     ├── drafts (userId → users)
-  │     ├── sessions (userId → users)
-  │     ├── reactions (userId → users)
-  │     └── typingIndicators (userId → users)
-  ├── channels (workspaceId → workspaces)
-  │     ├── messages (channelId → channels)
-  │     ├── channelMembers (channelId → channels)
-  │     └── typingIndicators (channelId → channels)
-  ├── directConversations (workspaceId → workspaces)
-  │     ├── directMessages (conversationId → directConversations)
-  │     └── directConversationMembers (conversationId → directConversations)
-  ├── integrationObjects (workspaceId → workspaces)
-  └── proactiveAlerts (workspaceId → workspaces)
-```
+<DataModelDiagram />
 
 ## Tables
 

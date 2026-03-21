@@ -7,7 +7,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "PING Docs",
-      logo: { src: "./src/assets/ping-logo.svg" },
+      logo: { src: "./src/assets/ping-logo.svg", replacesTitle: true },
       customCss: ["./src/styles/custom.css"],
       social: [
         {

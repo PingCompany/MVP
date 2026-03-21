@@ -1,0 +1,127 @@
+---
+---
+
+<div class="turbo-diagram">
+  <div class="turbo-node turbo-node-top">
+    <span class="turbo-node-icon">&#128230;</span>
+    <div>
+      <div class="turbo-node-name">packages/shared</div>
+      <div class="turbo-node-task">build</div>
+    </div>
+  </div>
+
+  <div class="turbo-edge">
+    <div class="turbo-edge-line"></div>
+    <span class="turbo-edge-label">^build</span>
+  </div>
+
+  <div class="turbo-node turbo-node-bottom">
+    <span class="turbo-node-icon">&#127760;</span>
+    <div>
+      <div class="turbo-node-name">apps/web</div>
+      <div class="turbo-node-task">build</div>
+    </div>
+  </div>
+
+  <div class="turbo-parallel">
+    <div class="turbo-parallel-label">lint</div>
+    <span class="turbo-parallel-desc">all packages &mdash; run in parallel, no dependencies</span>
+  </div>
+</div>
+
+<style>
+  .turbo-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: var(--ping-surface-raised);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.75rem;
+  }
+
+  .turbo-node {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background: var(--ping-surface);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s ease;
+    cursor: default;
+  }
+
+  .turbo-node:hover {
+    border-color: var(--ping-accent);
+    box-shadow: 0 2px 8px rgba(94, 106, 210, 0.12);
+  }
+
+  .turbo-node-icon {
+    font-size: 1.25rem;
+  }
+
+  .turbo-node-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ping-text);
+  }
+
+  .turbo-node-task {
+    font-size: 0.6875rem;
+    color: var(--ping-text-muted);
+    font-family: var(--sl-font-mono);
+  }
+
+  .turbo-edge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0;
+  }
+
+  .turbo-edge-line {
+    width: 1px;
+    height: 1.5rem;
+    background: var(--ping-border);
+  }
+
+  .turbo-edge-label {
+    font-size: 0.625rem;
+    font-family: var(--sl-font-mono);
+    color: var(--ping-accent);
+    background: var(--sl-color-accent-low);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 999px;
+  }
+
+  .turbo-parallel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--ping-border);
+    width: 100%;
+    justify-content: center;
+  }
+
+  .turbo-parallel-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: var(--sl-font-mono);
+    color: var(--ping-text);
+    background: var(--ping-surface);
+    border: 1px solid var(--ping-border);
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.25rem;
+  }
+
+  .turbo-parallel-desc {
+    font-size: 0.75rem;
+    color: var(--ping-text-muted);
+  }
+</style>

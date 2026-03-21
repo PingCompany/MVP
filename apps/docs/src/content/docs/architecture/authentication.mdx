@@ -6,28 +6,13 @@ sidebar:
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import AuthFlowDiagram from '../../../components/diagrams/AuthFlowDiagram.astro';
 
 PING uses WorkOS for authentication, providing enterprise-ready SSO and OAuth from day one. JWTs issued by WorkOS are verified by the Convex backend on every function call.
 
 ## Overview
 
-```
-User                  Next.js               WorkOS              Convex
-─────────────────────────────────────────────────────────────────────────
-1. Click Login  ──►  Redirect to     ──►   OAuth/SSO
-                     WorkOS login           provider
-                                              │
-2. Callback     ◄──  /callback       ◄──   JWT + user info
-                     page receives          │
-                     auth token             │
-                                              │
-3. API calls    ──►  Include JWT     ──►   Verify JWT
-                     in Convex              via JWKS
-                     client config          endpoint
-                                              │
-4. Authorized   ◄──  Real-time       ◄──   Function
-                     data updates           executes
-```
+<AuthFlowDiagram />
 
 ## WorkOS Integration
 

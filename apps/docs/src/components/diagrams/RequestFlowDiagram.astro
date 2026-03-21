@@ -1,0 +1,179 @@
+---
+---
+
+<div class="flow-diagram">
+  <div class="flow-step" data-step="1">
+    <div class="flow-step-number">1</div>
+    <div class="flow-step-content">
+      <div class="flow-step-title">User sends message</div>
+      <div class="flow-step-cols">
+        <div class="flow-step-col">
+          <span class="flow-label">Frontend</span>
+          <span class="flow-desc">Call mutation via convex/react binding</span>
+        </div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step-col">
+          <span class="flow-label">Backend</span>
+          <span class="flow-desc">Store in DB (optimistic update)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-step" data-step="2">
+    <div class="flow-step-number">2</div>
+    <div class="flow-step-content">
+      <div class="flow-step-title">Real-time broadcast</div>
+      <div class="flow-step-cols">
+        <div class="flow-step-col">
+          <span class="flow-label">Frontend</span>
+          <span class="flow-desc">All subscribed clients re-render automatically</span>
+        </div>
+        <div class="flow-arrow">&#8592;</div>
+        <div class="flow-step-col">
+          <span class="flow-label">Backend</span>
+          <span class="flow-desc">Push via WebSocket</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-step" data-step="3">
+    <div class="flow-step-number">3</div>
+    <div class="flow-step-content">
+      <div class="flow-step-title">AI processing</div>
+      <div class="flow-step-cols">
+        <div class="flow-step-col">
+          <span class="flow-label tag-bg">Background</span>
+        </div>
+        <div class="flow-arrow">&#8592;</div>
+        <div class="flow-step-col">
+          <span class="flow-label">Backend</span>
+          <span class="flow-desc">Trigger actions: inbox summaries, proactive alerts, knowledge graph</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-step" data-step="4">
+    <div class="flow-step-number">4</div>
+    <div class="flow-step-content">
+      <div class="flow-step-title">AI results appear</div>
+      <div class="flow-step-cols">
+        <div class="flow-step-col">
+          <span class="flow-label">Frontend</span>
+          <span class="flow-desc">Inbox and alerts update reactively</span>
+        </div>
+        <div class="flow-arrow">&#8592;</div>
+        <div class="flow-step-col">
+          <span class="flow-label">Backend</span>
+          <span class="flow-desc">Write results to DB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .flow-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: 0.75rem;
+    background: var(--ping-surface-raised);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.2s ease;
+    cursor: default;
+  }
+
+  .flow-step:hover {
+    border-color: var(--ping-accent);
+    box-shadow: 0 2px 8px rgba(94, 106, 210, 0.1);
+  }
+
+  .flow-step-number {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--sl-color-accent-low);
+    color: var(--ping-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .flow-step:hover .flow-step-number {
+    background: var(--ping-accent);
+    color: #fff;
+  }
+
+  .flow-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .flow-step-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ping-text);
+    margin-bottom: 0.5rem;
+  }
+
+  .flow-step-cols {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .flow-step-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .flow-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ping-text-muted);
+  }
+
+  .flow-label.tag-bg {
+    color: var(--ping-accent);
+  }
+
+  .flow-desc {
+    font-size: 0.8125rem;
+    color: var(--ping-text-muted);
+    line-height: 1.4;
+  }
+
+  .flow-arrow {
+    flex-shrink: 0;
+    color: var(--ping-accent);
+    font-size: 1rem;
+    padding-top: 0.5rem;
+    opacity: 0.5;
+  }
+
+  .flow-step:hover .flow-arrow {
+    opacity: 1;
+  }
+
+  @media (max-width: 480px) {
+    .flow-step-cols { flex-direction: column; gap: 0.25rem; }
+    .flow-arrow { display: none; }
+  }
+</style>

@@ -251,11 +251,11 @@ Only include messages with clear factual claims, not opinions or questions. Retu
 async function checkClaimAgainstKnowledge(
   claim: string,
 ): Promise<{ contradiction: string | null; confidence: number }> {
-  const graphitiUrl = process.env.GRAPHITI_URL ?? "https://ping-knowledge-engine.fly.dev";
+  const graphitiUrl = process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { contradiction: null, confidence: 0 };
 
-  // Search the knowledge graph for facts related to this claim
+  // Search the Graphiti knowledge graph for facts related to this claim
   const searchResponse = await fetch(`${graphitiUrl}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -268,12 +268,12 @@ async function checkClaimAgainstKnowledge(
   }
 
   const searchData = await searchResponse.json();
-  const facts: Array<{ fact?: string; content?: string }> =
-    searchData?.facts ?? searchData?.results ?? [];
+  const facts: Array<{ uuid: string; name: string; fact: string; valid_at: string | null; invalid_at: string | null }> =
+    searchData?.facts ?? [];
   if (facts.length === 0) return { contradiction: null, confidence: 0 };
 
   const factsText = facts
-    .map((f, i) => `[${i}] ${f.fact ?? f.content ?? JSON.stringify(f)}`)
+    .map((f, i) => `[${i}] ${f.fact}${f.invalid_at ? " [superseded]" : ""}`)
     .join("\n");
 
   // Ask GPT whether any retrieved fact contradicts the claim

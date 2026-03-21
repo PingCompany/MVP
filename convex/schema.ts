@@ -302,49 +302,60 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
 
-  emailAccounts: defineTable({
+  decisions: defineTable({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
-    provider: v.literal("gmail"),
-    email: v.string(),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
-    syncCursor: v.optional(v.string()),
-    status: v.union(
-      v.literal("active"),
-      v.literal("disconnected"),
-      v.literal("error"),
+    type: v.union(
+      v.literal("pr_review"),
+      v.literal("ticket_triage"),
+      v.literal("question_answer"),
+      v.literal("blocked_unblock"),
+      v.literal("fact_verify"),
+      v.literal("cross_team_ack"),
+      v.literal("channel_summary"),
     ),
-    lastSyncedAt: v.optional(v.number()),
-    errorMessage: v.optional(v.string()),
+    title: v.string(),
+    summary: v.string(),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("decided"),
+      v.literal("delegated"),
+      v.literal("snoozed"),
+      v.literal("expired"),
+    ),
+    sourceAlertId: v.optional(v.id("proactiveAlerts")),
+    sourceSummaryId: v.optional(v.id("inboxSummaries")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    sourceMessageId: v.optional(v.id("messages")),
+    channelId: v.optional(v.id("channels")),
+    outcome: v.optional(
+      v.object({
+        action: v.string(),
+        comment: v.optional(v.string()),
+        delegatedTo: v.optional(v.id("users")),
+        decidedAt: v.number(),
+      }),
+    ),
+    agentExecutionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+    agentExecutionResult: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
   })
-    .index("by_user", ["userId"])
-    .index("by_workspace", ["workspaceId"])
-    .index("by_status", ["status"])
-    .index("by_user_email", ["userId", "email"]),
-
-  emails: defineTable({
-    emailAccountId: v.id("emailAccounts"),
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    gmailId: v.string(),
-    threadId: v.string(),
-    subject: v.string(),
-    from: v.string(),
-    to: v.array(v.string()),
-    cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
-    body: v.string(),
-    snippet: v.optional(v.string()),
-    receivedAt: v.number(),
-    isRead: v.boolean(),
-    labels: v.array(v.string()),
-  })
-    .index("by_email_account", ["emailAccountId"])
-    .index("by_user", ["userId"])
-    .index("by_workspace", ["workspaceId"])
-    .index("by_gmail_id", ["gmailId"])
-    .index("by_thread", ["emailAccountId", "threadId"])
-    .index("by_received", ["emailAccountId", "receivedAt"]),
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
+    .index("by_source_alert", ["sourceAlertId"])
+    .index("by_source_summary", ["sourceSummaryId"]),
 });

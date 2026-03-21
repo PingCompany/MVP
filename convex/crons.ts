@@ -22,9 +22,15 @@ crons.interval(
 );
 
 crons.interval(
-  "email-sync",
+  "generate-decisions-from-alerts",
   { minutes: 5 },
-  internal.emailSync.syncAllAccounts,
+  internal.decisionGenerator.generateFromAlerts,
+);
+
+crons.interval(
+  "generate-decisions-from-summaries",
+  { minutes: 5 },
+  internal.decisionGenerator.generateFromSummaries,
 );
 
 export default crons;

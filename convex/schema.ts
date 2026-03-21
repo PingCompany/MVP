@@ -83,7 +83,6 @@ export default defineSchema({
     channelId: v.id("channels"),
     userId: v.id("users"),
     lastReadAt: v.optional(v.number()),
-    unreadCount: v.optional(v.number()),
   })
     .index("by_channel", ["channelId"])
     .index("by_user", ["userId"])
@@ -352,14 +351,10 @@ export default defineSchema({
       ),
     ),
     agentExecutionResult: v.optional(v.string()),
-    delegatedTo: v.optional(v.id("users")),
-    snoozedUntil: v.optional(v.number()),
-    sourceChannelId: v.optional(v.id("channels")),
     expiresAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user_status", ["userId", "status"])
-    .index("by_user_workspace", ["userId", "workspaceId"])
     .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
     .index("by_source_alert", ["sourceAlertId"])
     .index("by_source_summary", ["sourceSummaryId"]),
@@ -368,67 +363,74 @@ export default defineSchema({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
     provider: v.union(v.literal("gmail"), v.literal("outlook")),
-    emailAddress: v.string(),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
-    // Gmail push notification channel info
-    pushChannelId: v.optional(v.string()),
-    pushResourceId: v.optional(v.string()),
-    pushExpiresAt: v.optional(v.number()),
-    // Sync state
-    lastSyncedAt: v.optional(v.number()),
+    email: v.string(),
+    accessToken: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
     syncCursor: v.optional(v.string()),
-    isActive: v.boolean(),
+    status: v.union(
+      v.literal("connected"),
+      v.literal("disconnected"),
+      v.literal("error"),
+    ),
+    lastSyncedAt: v.optional(v.number()),
+    createdAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_user_workspace", ["userId", "workspaceId"])
-    .index("by_email", ["emailAddress"])
-    .index("by_push_channel", ["pushChannelId"]),
+    .index("by_workspace", ["workspaceId"]),
 
   emails: defineTable({
-    emailAccountId: v.id("emailAccounts"),
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
+    emailAccountId: v.id("emailAccounts"),
     externalId: v.string(),
-    threadId: v.optional(v.string()),
-    from: v.string(),
-    to: v.array(v.string()),
-    cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
+    threadId: v.string(),
     subject: v.string(),
-    bodyPlain: v.optional(v.string()),
-    bodyHtml: v.optional(v.string()),
-    snippet: v.optional(v.string()),
-    labels: v.optional(v.array(v.string())),
-    isRead: v.boolean(),
-    isStarred: v.boolean(),
-    receivedAt: v.number(),
-    inReplyTo: v.optional(v.string()),
-    references: v.optional(v.array(v.string())),
-    attachments: v.optional(
+    from: v.object({
+      name: v.optional(v.string()),
+      email: v.string(),
+    }),
+    to: v.array(
+      v.object({
+        name: v.optional(v.string()),
+        email: v.string(),
+      }),
+    ),
+    cc: v.optional(
       v.array(
         v.object({
-          filename: v.string(),
-          mimeType: v.string(),
-          size: v.number(),
-          externalAttachmentId: v.string(),
-          storageId: v.optional(v.id("_storage")),
+          name: v.optional(v.string()),
+          email: v.string(),
         }),
       ),
     ),
-    // Sender rules / VIP
-    senderCategory: v.optional(
-      v.union(v.literal("vip"), v.literal("normal"), v.literal("muted")),
+    snippet: v.string(),
+    bodyHtml: v.optional(v.string()),
+    bodyText: v.optional(v.string()),
+    receivedAt: v.number(),
+    isRead: v.boolean(),
+    isArchived: v.boolean(),
+    isStarred: v.boolean(),
+    labels: v.optional(v.array(v.string())),
+    eisenhowerQuadrant: v.optional(
+      v.union(
+        v.literal("urgent-important"),
+        v.literal("important"),
+        v.literal("urgent"),
+        v.literal("fyi"),
+      ),
     ),
+    aiSummary: v.optional(v.string()),
   })
-    .index("by_account", ["emailAccountId"])
     .index("by_user", ["userId"])
-    .index("by_user_workspace", ["userId", "workspaceId"])
+    .index("by_user_read", ["userId", "isRead"])
+    .index("by_user_archived", ["userId", "isArchived"])
+    .index("by_thread", ["userId", "threadId"])
     .index("by_external_id", ["externalId"])
-    .index("by_thread", ["threadId"])
-    .searchIndex("search_body", {
-      searchField: "bodyPlain",
+    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
+    .searchIndex("search_subject", {
+      searchField: "subject",
       filterFields: ["userId"],
     }),
 
@@ -436,23 +438,25 @@ export default defineSchema({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
     emailAccountId: v.id("emailAccounts"),
-    to: v.array(v.string()),
-    cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
-    subject: v.string(),
-    body: v.string(),
-    // Reply/forward metadata
-    mode: v.union(
-      v.literal("compose"),
-      v.literal("reply"),
-      v.literal("reply_all"),
-      v.literal("forward"),
+    threadId: v.optional(v.string()),
+    inReplyTo: v.optional(v.id("emails")),
+    to: v.array(
+      v.object({
+        name: v.optional(v.string()),
+        email: v.string(),
+      }),
     ),
-    replyToEmailId: v.optional(v.id("emails")),
-    // Agent quick-reply
-    suggestedAction: v.optional(v.string()),
-    // Attachments
-    attachmentIds: v.optional(v.array(v.id("_storage"))),
+    cc: v.optional(
+      v.array(
+        v.object({
+          name: v.optional(v.string()),
+          email: v.string(),
+        }),
+      ),
+    ),
+    subject: v.string(),
+    bodyHtml: v.optional(v.string()),
+    bodyText: v.optional(v.string()),
     status: v.union(
       v.literal("draft"),
       v.literal("sending"),
@@ -463,26 +467,5 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_status", ["userId", "status"])
-    .index("by_account", ["emailAccountId"]),
-
-  emailSenderRules: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    senderAddress: v.string(),
-    category: v.union(
-      v.literal("vip"),
-      v.literal("normal"),
-      v.literal("muted"),
-    ),
-    autoArchive: v.optional(v.boolean()),
-    autoLabel: v.optional(v.string()),
-    suggestUnsubscribe: v.optional(v.boolean()),
-    notes: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_sender", ["userId", "senderAddress"])
-    .index("by_user_category", ["userId", "category"]),
+    .index("by_user_status", ["userId", "status"]),
 });

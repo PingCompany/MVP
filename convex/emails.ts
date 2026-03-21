@@ -1,76 +1,63 @@
-import { query, mutation, QueryCtx, MutationCtx } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
-import { Id } from "./_generated/dataModel";
 import { requireUser } from "./auth";
-
-const quadrantValidator = v.union(
-  v.literal("urgent-important"),
-  v.literal("important"),
-  v.literal("urgent"),
-  v.literal("fyi"),
-);
-
-async function requireOwnEmail(
-  ctx: QueryCtx | MutationCtx,
-  emailId: Id<"emails">,
-) {
-  const user = await requireUser(ctx);
-  const email = await ctx.db.get(emailId);
-  if (!email || email.userId !== user._id) {
-    throw new Error("Email not found");
-  }
-  return { user, email };
-}
 
 export const list = query({
   args: {
-    paginationOpts: paginationOptsValidator,
-    quadrant: v.optional(quadrantValidator),
+    quadrant: v.optional(
+      v.union(
+        v.literal("urgent-important"),
+        v.literal("important"),
+        v.literal("urgent"),
+        v.literal("fyi"),
+      ),
+    ),
     isRead: v.optional(v.boolean()),
-    isArchived: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    const limit = args.limit ?? 50;
 
-    let baseQuery;
-
-    if (args.quadrant !== undefined) {
-      baseQuery = ctx.db
+    if (args.quadrant) {
+      const emails = await ctx.db
         .query("emails")
         .withIndex("by_user_quadrant", (q) =>
           q.eq("userId", user._id).eq("eisenhowerQuadrant", args.quadrant!),
-        );
-    } else if (args.isRead !== undefined) {
-      baseQuery = ctx.db
-        .query("emails")
-        .withIndex("by_user_unread", (q) =>
-          q.eq("userId", user._id).eq("isRead", args.isRead!),
-        );
-    } else {
-      baseQuery = ctx.db
-        .query("emails")
-        .withIndex("by_user", (q) => q.eq("userId", user._id));
+        )
+        .order("desc")
+        .take(limit);
+      return emails.filter((e) => !e.isArchived);
     }
 
-    const results = await baseQuery.order("desc").paginate(args.paginationOpts);
+    if (args.isRead !== undefined) {
+      const emails = await ctx.db
+        .query("emails")
+        .withIndex("by_user_read", (q) =>
+          q.eq("userId", user._id).eq("isRead", args.isRead!),
+        )
+        .order("desc")
+        .take(limit);
+      return emails.filter((e) => !e.isArchived);
+    }
 
-    const filtered = results.page.filter((email) => {
-      if (args.isArchived !== undefined && email.isArchived !== args.isArchived)
-        return false;
-      if (args.quadrant !== undefined && args.isRead !== undefined && email.isRead !== args.isRead)
-        return false;
-      return true;
-    });
-
-    return { ...results, page: filtered };
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .take(limit);
+    return emails.filter((e) => !e.isArchived);
   },
 });
 
 export const get = query({
   args: { emailId: v.id("emails") },
   handler: async (ctx, args) => {
-    const { email } = await requireOwnEmail(ctx, args.emailId);
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      return null;
+    }
     return email;
   },
 });
@@ -79,51 +66,14 @@ export const listByThread = query({
   args: { threadId: v.string() },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-
     const emails = await ctx.db
       .query("emails")
-      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .withIndex("by_thread", (q) =>
+        q.eq("userId", user._id).eq("threadId", args.threadId),
+      )
+      .order("asc")
       .take(100);
-
-    return emails.filter((email) => email.userId === user._id);
-  },
-});
-
-export const markRead = mutation({
-  args: { emailId: v.id("emails") },
-  handler: async (ctx, args) => {
-    await requireOwnEmail(ctx, args.emailId);
-    await ctx.db.patch(args.emailId, { isRead: true });
-  },
-});
-
-export const archive = mutation({
-  args: { emailId: v.id("emails") },
-  handler: async (ctx, args) => {
-    await requireOwnEmail(ctx, args.emailId);
-    await ctx.db.patch(args.emailId, { isArchived: true });
-  },
-});
-
-export const updateQuadrant = mutation({
-  args: {
-    emailId: v.id("emails"),
-    quadrant: quadrantValidator,
-  },
-  handler: async (ctx, args) => {
-    await requireOwnEmail(ctx, args.emailId);
-    await ctx.db.patch(args.emailId, { eisenhowerQuadrant: args.quadrant });
-  },
-});
-
-export const setReminder = mutation({
-  args: {
-    emailId: v.id("emails"),
-    reminderAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await requireOwnEmail(ctx, args.emailId);
-    await ctx.db.patch(args.emailId, { reminderAt: args.reminderAt });
+    return emails;
   },
 });
 
@@ -131,14 +81,101 @@ export const search = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-
-    const results = await ctx.db
+    const emails = await ctx.db
       .query("emails")
-      .withSearchIndex("search_body", (q) =>
-        q.search("bodyPlain", args.query).eq("userId", user._id),
+      .withSearchIndex("search_subject", (q) =>
+        q.search("subject", args.query).eq("userId", user._id),
       )
-      .take(50);
+      .take(20);
+    return emails;
+  },
+});
 
-    return results;
+export const markRead = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.emailId, { isRead: true });
+  },
+});
+
+export const markUnread = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.emailId, { isRead: false });
+  },
+});
+
+export const archive = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.emailId, { isArchived: true });
+  },
+});
+
+export const toggleStar = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.emailId, { isStarred: !email.isStarred });
+  },
+});
+
+export const unreadCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const unread = await ctx.db
+      .query("emails")
+      .withIndex("by_user_read", (q) =>
+        q.eq("userId", user._id).eq("isRead", false),
+      )
+      .take(100);
+    return unread.filter((e) => !e.isArchived).length;
+  },
+});
+
+export const listAccounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    return await ctx.db
+      .query("emailAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+  },
+});
+
+export const disconnectAccount = mutation({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const account = await ctx.db.get(args.accountId);
+    if (!account || account.userId !== user._id) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.accountId, {
+      status: "disconnected",
+      accessToken: undefined,
+      refreshToken: undefined,
+    });
   },
 });

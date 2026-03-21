@@ -1,0 +1,15 @@
+{
+  "name": "@ping/docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "NODE_OPTIONS='--experimental-transform-types' astro dev",
+    "build": "NODE_OPTIONS='--experimental-transform-types' astro build",
+    "preview": "NODE_OPTIONS='--experimental-transform-types' astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.7.0",
+    "@astrojs/starlight": "^0.34.0",
+    "sharp": "^0.33.0"
+  }
+}

@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, Bot, Paperclip, AtSign, ChevronDown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
+import { MarkdownContent } from "@/components/channel/MarkdownContent";
 import { cn } from "@/lib/utils";
 import { MentionPopover, type MentionUser } from "./MentionPopover";
 
@@ -17,6 +24,55 @@ export interface Message {
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHr < 24) return `${diffHr}h`;
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatFullDatetime(date: Date): string {
+  return date.toLocaleString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function RelativeTimestamp({ date }: { date: Date }) {
+  const relative = useMemo(() => formatRelativeTime(date), [date]);
+  const full = useMemo(() => formatFullDatetime(date), [date]);
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-default text-2xs text-white/25">
+            {relative}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-2xs">
+          {full}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 interface MessageItemProps {
@@ -64,24 +120,17 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
                 AI
               </span>
             )}
-            <span className="text-2xs text-white/25">
-              {message.timestamp.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
-            </span>
+            <RelativeTimestamp date={message.timestamp} />
           </div>
         )}
 
-        <div
+        <MarkdownContent
+          content={message.content}
           className={cn(
             "text-sm leading-relaxed",
             isBot ? "text-foreground" : "text-foreground/90"
           )}
-        >
-          {message.content}
-        </div>
+        />
 
         {message.citations && (
           <CitationRow citations={message.citations} />

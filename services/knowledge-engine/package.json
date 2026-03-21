@@ -1,0 +1,27 @@
+{
+  "name": "@ping/knowledge-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Knowledge engine service with entity resolution, proactive queries, and stress testing",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "stress-test": "tsx src/stress-test.ts",
+    "seed": "tsx src/seed.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "neo4j-driver": "^5.25.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

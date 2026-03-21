@@ -22,10 +22,7 @@ function WaitForUser({ children }: { children: React.ReactNode }) {
   }
 
   // Redirect to onboarding if status is "pending" (undefined = legacy user, treat as completed)
-  if (
-    user.onboardingStatus === "pending" &&
-    !pathname.startsWith("/onboarding")
-  ) {
+  if (user.onboardingStatus === "pending" && !pathname.startsWith("/onboarding")) {
     router.replace("/onboarding");
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">

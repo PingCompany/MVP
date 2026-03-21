@@ -5,24 +5,8 @@ import { Send, Bot, Paperclip, AtSign, ChevronDown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
-import {
-  GitHubPRCard,
-  type GitHubPRStatus,
-  type CIStatus,
-  LinearTicketCard,
-  type LinearStatus,
-  type LinearPriority,
-} from "@/components/integrations";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
-
-export interface IntegrationObjectData {
-  type: "github_pr" | "linear_ticket";
-  title: string;
-  status: string;
-  url: string;
-  author: string;
-  metadata: Record<string, unknown>;
-}
 
 export interface Message {
   id: string;
@@ -33,7 +17,6 @@ export interface Message {
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
-  integrationObject?: IntegrationObjectData | null;
 }
 
 interface MessageItemProps {
@@ -103,39 +86,6 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
         {message.citations && (
           <CitationRow citations={message.citations} />
         )}
-
-        {message.integrationObject?.type === "github_pr" && (
-          <GitHubPRCard
-            repo={(message.integrationObject.metadata.repo as string) ?? ""}
-            title={message.integrationObject.title}
-            number={(message.integrationObject.metadata.number as number) ?? 0}
-            status={message.integrationObject.status as GitHubPRStatus}
-            additions={message.integrationObject.metadata.additions as number | undefined}
-            deletions={message.integrationObject.metadata.deletions as number | undefined}
-            reviewers={
-              (message.integrationObject.metadata.reviewers as
-                | { name: string; avatarUrl?: string }[]
-                | undefined) ?? []
-            }
-            ciStatus={message.integrationObject.metadata.ciStatus as CIStatus | undefined}
-            url={message.integrationObject.url}
-          />
-        )}
-
-        {message.integrationObject?.type === "linear_ticket" && (
-          <LinearTicketCard
-            ticketId={(message.integrationObject.metadata.ticketId as string) ?? ""}
-            title={message.integrationObject.title}
-            status={(message.integrationObject.metadata.linearStatus as LinearStatus) ?? "todo"}
-            priority={(message.integrationObject.metadata.priority as LinearPriority) ?? "none"}
-            assignee={
-              message.integrationObject.metadata.assignee
-                ? (message.integrationObject.metadata.assignee as { name: string; avatarUrl?: string })
-                : undefined
-            }
-            url={message.integrationObject.url}
-          />
-        )}
       </div>
     </div>
   );
@@ -162,6 +112,7 @@ interface MessageListProps {
   messages: Message[];
   onSend?: (content: string) => void;
   memberCount?: number;
+  onlineCount?: number;
   isLoading?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
@@ -174,6 +125,7 @@ export function MessageList({
   messages,
   onSend,
   memberCount,
+  onlineCount,
   isLoading,
   hasMore,
   onLoadMore,
@@ -250,6 +202,12 @@ export function MessageList({
         {memberCount !== undefined && (
           <span className="rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground">
             {memberCount} member{memberCount !== 1 ? "s" : ""}
+          </span>
+        )}
+        {onlineCount !== undefined && onlineCount > 0 && (
+          <span className="flex items-center gap-1">
+            <StatusDot variant="online" size="xs" />
+            <span className="text-2xs text-muted-foreground">{onlineCount} online</span>
           </span>
         )}
       </div>

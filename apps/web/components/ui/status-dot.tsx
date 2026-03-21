@@ -8,8 +8,8 @@ const variantStyles: Record<StatusVariant, string> = {
   warning: "bg-status-warning shadow-[0_0_6px_rgba(245,158,11,0.4)]",
   info:    "bg-status-info",
   merged:  "bg-status-merged",
-  offline: "bg-white/20",
-  pending: "bg-white/40 animate-pulse",
+  offline: "bg-foreground/20",
+  pending: "bg-foreground/40 animate-pulse",
 };
 
 interface StatusDotProps {

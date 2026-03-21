@@ -33,4 +33,10 @@ crons.interval(
   internal.decisionGenerator.generateFromSummaries,
 );
 
+crons.interval(
+  "cleanup-typing-indicators",
+  { seconds: 30 },
+  internal.typing.cleanupExpired,
+);
+
 export default crons;

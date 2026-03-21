@@ -35,7 +35,7 @@ export function AgentCard({ agent, onToggle, onConfigure }: AgentCardProps) {
     <div
       className={cn(
         "group flex flex-col rounded border border-subtle bg-surface-1 p-4",
-        "transition-all duration-150 hover:border-white/10 hover:bg-surface-2"
+        "transition-all duration-150 hover:border-foreground/10 hover:bg-surface-2"
       )}
     >
       {/* Header */}
@@ -69,7 +69,7 @@ export function AgentCard({ agent, onToggle, onConfigure }: AgentCardProps) {
         {agent.scopes.map((scope) => (
           <span
             key={scope}
-            className="rounded border border-subtle bg-surface-3 px-1.5 py-px text-2xs text-white/50"
+            className="rounded border border-subtle bg-surface-3 px-1.5 py-px text-2xs text-foreground/50"
           >
             #{scope}
           </span>
@@ -94,7 +94,7 @@ export function AgentCard({ agent, onToggle, onConfigure }: AgentCardProps) {
           <Button
             variant="outline"
             size="sm"
-            className="h-6 gap-1 border-subtle px-2 text-2xs hover:border-white/15"
+            className="h-6 gap-1 border-subtle px-2 text-2xs hover:border-foreground/15"
             onClick={() => onConfigure?.(agent.id)}
           >
             <Settings className="h-2.5 w-2.5" />
@@ -176,34 +176,34 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave }: AgentC
         <div className="space-y-4 pt-2">
           {/* Name */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               Name
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. KnowledgeBot"
-              className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+              className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
               autoFocus
             />
           </div>
 
           {/* System prompt */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               System Prompt
             </label>
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={4}
-              className="w-full resize-none rounded border border-subtle bg-surface-3 px-2.5 py-1.5 font-mono text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+              className="w-full resize-none rounded border border-subtle bg-surface-3 px-2.5 py-1.5 font-mono text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
             />
           </div>
 
           {/* Knowledge scope */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               Knowledge Scope
             </label>
             <p className="mb-2 text-2xs text-muted-foreground">
@@ -220,7 +220,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave }: AgentC
                       "rounded border px-2 py-0.5 text-2xs transition-colors",
                       included
                         ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                        : "border-subtle bg-surface-3 text-white/30 hover:text-white/50"
+                        : "border-subtle bg-surface-3 text-foreground/30 hover:text-foreground/50"
                     )}
                   >
                     #{ch}

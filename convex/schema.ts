@@ -111,9 +111,17 @@ export default defineSchema({
     mentions: v.optional(v.array(v.string())),
     graphitiEpisodeId: v.optional(v.string()),
     isEdited: v.boolean(),
+    // Thread fields
+    threadId: v.optional(v.id("messages")),
+    alsoSentToChannel: v.optional(v.boolean()),
+    threadReplyCount: v.optional(v.number()),
+    threadLastReplyAt: v.optional(v.number()),
+    threadLastReplyAuthorId: v.optional(v.id("users")),
+    threadParticipantIds: v.optional(v.array(v.id("users"))),
   })
     .index("by_channel", ["channelId"])
     .index("by_author", ["authorId"])
+    .index("by_thread", ["threadId"])
     .searchIndex("search_body", {
       searchField: "body",
       filterFields: ["channelId"],
@@ -269,17 +277,39 @@ export default defineSchema({
     body: v.string(),
     type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
     isEdited: v.boolean(),
+    graphitiEpisodeId: v.optional(v.string()),
+    // Thread fields
+    threadId: v.optional(v.id("directMessages")),
+    alsoSentToConversation: v.optional(v.boolean()),
+    threadReplyCount: v.optional(v.number()),
+    threadLastReplyAt: v.optional(v.number()),
+    threadLastReplyAuthorId: v.optional(v.id("users")),
+    threadParticipantIds: v.optional(v.array(v.id("users"))),
   })
     .index("by_conversation", ["conversationId"])
-    .index("by_author", ["authorId"]),
+    .index("by_author", ["authorId"])
+    .index("by_thread", ["threadId"])
+    .searchIndex("search_body", {
+      searchField: "body",
+      filterFields: ["conversationId"],
+    }),
 
   typingIndicators: defineTable({
-    channelId: v.id("channels"),
+    channelId: v.optional(v.id("channels")),
+    conversationId: v.optional(v.id("directConversations")),
+    threadMessageId: v.optional(v.id("messages")),
+    threadDmMessageId: v.optional(v.id("directMessages")),
     userId: v.id("users"),
     expiresAt: v.number(),
   })
     .index("by_channel", ["channelId"])
-    .index("by_channel_user", ["channelId", "userId"]),
+    .index("by_channel_user", ["channelId", "userId"])
+    .index("by_conversation", ["conversationId"])
+    .index("by_conversation_user", ["conversationId", "userId"])
+    .index("by_thread_message", ["threadMessageId"])
+    .index("by_thread_message_user", ["threadMessageId", "userId"])
+    .index("by_thread_dm", ["threadDmMessageId"])
+    .index("by_thread_dm_user", ["threadDmMessageId", "userId"]),
 
   invitations: defineTable({
     workspaceId: v.id("workspaces"),

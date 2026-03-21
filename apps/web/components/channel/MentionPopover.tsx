@@ -134,7 +134,7 @@ export function MentionPopover({
       }}
     >
       <div className="px-2 py-1.5 border-b border-subtle">
-        <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
+        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
           Mention someone
         </span>
       </div>
@@ -175,7 +175,7 @@ export function MentionPopover({
                 AI
               </span>
             ) : user.role === "admin" ? (
-              <span className="rounded border border-white/10 bg-white/5 px-1 py-px text-2xs text-white/40">
+              <span className="rounded border border-foreground/10 bg-foreground/5 px-1 py-px text-2xs text-foreground/40">
                 admin
               </span>
             ) : null}

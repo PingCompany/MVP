@@ -71,7 +71,7 @@ export default function KnowledgeGraphPage() {
               toast("Knowledge graph synced — 13,009 nodes updated", "success");
             }, 1500);
           }}
-          className="flex items-center gap-1.5 rounded border border-subtle px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/10 hover:text-foreground"
+          className="flex items-center gap-1.5 rounded border border-subtle px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/10 hover:text-foreground"
         >
           <RefreshCw className={cn("h-3 w-3", syncing && "animate-spin")} />
           {syncing ? "Syncing..." : "Sync now"}
@@ -94,13 +94,13 @@ export default function KnowledgeGraphPage() {
       {/* Search */}
       <div className="mb-4 flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/25" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/25" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && setSearched(true)}
             placeholder="Search relationships... (e.g. 'auth refactor', 'ENG-441')"
-            className="h-8 w-full rounded border border-subtle bg-surface-2 pl-8 pr-3 text-xs text-foreground placeholder:text-white/25 focus:border-white/15 focus:outline-none"
+            className="h-8 w-full rounded border border-subtle bg-surface-2 pl-8 pr-3 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/15 focus:outline-none"
           />
         </div>
         <button
@@ -185,7 +185,7 @@ export default function KnowledgeGraphPage() {
         </div>
 
         <div className="border-t border-subtle px-4 py-2">
-          <p className="text-2xs text-white/25">
+          <p className="text-2xs text-foreground/25">
             Hover nodes to inspect · Nodes represent entities in your knowledge graph · Lines show relationships
           </p>
         </div>
@@ -206,7 +206,7 @@ export default function KnowledgeGraphPage() {
           <div className="overflow-hidden rounded border border-subtle">
             <div className="grid grid-cols-[1fr_100px_1fr_60px] gap-4 border-b border-subtle bg-surface-1 px-4 py-2">
               {["Entity", "Type", "Connected To", "Updated"].map((h) => (
-                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-white/25">
+                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
                   {h}
                 </span>
               ))}
@@ -221,16 +221,16 @@ export default function KnowledgeGraphPage() {
                   <span className="text-2xs text-muted-foreground">{result.type}</span>
                   <div className="flex flex-wrap gap-1">
                     {result.connections.map((c) => (
-                      <span key={c} className="rounded border border-subtle bg-surface-3 px-1 py-px text-2xs text-white/50">
+                      <span key={c} className="rounded border border-subtle bg-surface-3 px-1 py-px text-2xs text-foreground/50">
                         {c}
                       </span>
                     ))}
                   </div>
-                  <span className="text-2xs text-white/30">{result.updated}</span>
+                  <span className="text-2xs text-foreground/30">{result.updated}</span>
                 </div>
                 {expandedRow === result.entity && (
                   <div className="animate-fade-in border-b border-subtle bg-surface-2 px-4 py-3">
-                    <p className="text-2xs font-medium uppercase tracking-widest text-white/25 mb-1.5">Details</p>
+                    <p className="text-2xs font-medium uppercase tracking-widest text-foreground/25 mb-1.5">Details</p>
                     <p className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">{result.entity}</span> ({result.type}) · {result.connections.length} connections · Last updated {result.updated}
                     </p>

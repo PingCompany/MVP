@@ -101,7 +101,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
         <CommandGroup heading="Pages">
           {PAGES.map(({ label, href, icon: Icon, shortcut }) => (
             <CommandItem key={href} onSelect={() => navigate(href)}>
-              <Icon className="h-3.5 w-3.5 text-white/40" />
+              <Icon className="h-3.5 w-3.5 text-foreground/40" />
               <span>{label}</span>
               {shortcut && <CommandShortcut>{shortcut}</CommandShortcut>}
             </CommandItem>
@@ -115,7 +115,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                 key={channel._id}
                 onSelect={() => navigate(`/channel/${channel._id}`)}
               >
-                <Hash className="h-3.5 w-3.5 text-white/40" />
+                <Hash className="h-3.5 w-3.5 text-foreground/40" />
                 <span>{channel.name}</span>
               </CommandItem>
             ))}
@@ -143,7 +143,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
                   {isAgent ? (
                     <Bot className="h-3.5 w-3.5 text-ping-purple" />
                   ) : (
-                    <MessageSquare className="h-3.5 w-3.5 text-white/40" />
+                    <MessageSquare className="h-3.5 w-3.5 text-foreground/40" />
                   )}
                   <span>{displayName}</span>
                   {isAgent && (
@@ -174,7 +174,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
               onOpenChange(false);
             }}
           >
-            <PanelLeftClose className="h-3.5 w-3.5 text-white/40" />
+            <PanelLeftClose className="h-3.5 w-3.5 text-foreground/40" />
             <span>Toggle sidebar</span>
             <CommandShortcut>⌘B</CommandShortcut>
           </CommandItem>

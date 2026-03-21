@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Check, ArrowRight, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-import { formatRelativeTime } from "@/lib/utils";
+import { cn, formatRelativeTime, avatarGradient } from "@/lib/utils";
 
 export type EisenhowerQuadrant = "urgent-important" | "important" | "urgent" | "fyi";
 
@@ -35,7 +34,7 @@ const priorityConfig: Record<
   "urgent-important": { borderColor: "bg-priority-urgent",    borderWidth: "w-[3px]", bg: "bg-priority-urgent/8",    label: "URGENT",            textColor: "text-priority-urgent",    dimmed: false, bold: true,  pulse: true  },
   "important":        { borderColor: "bg-priority-important", borderWidth: "w-0.5",   bg: "bg-priority-important/8", label: "IMPORTANT",         textColor: "text-priority-important", dimmed: false, bold: false, pulse: false },
   "urgent":           { borderColor: "bg-blue-500",           borderWidth: "w-0.5",   bg: "bg-blue-500/8",           label: "URGENT",            textColor: "text-blue-400",           dimmed: false, bold: false, pulse: false },
-  "fyi":              { borderColor: "bg-white/20",           borderWidth: "w-0.5",   bg: "bg-white/5",              label: "FYI",               textColor: "text-white/30",           dimmed: true,  bold: false, pulse: false },
+  "fyi":              { borderColor: "bg-foreground/20",           borderWidth: "w-0.5",   bg: "bg-foreground/5",              label: "FYI",               textColor: "text-foreground/30",           dimmed: true,  bold: false, pulse: false },
 };
 
 // Sort order for Eisenhower quadrants
@@ -82,7 +81,7 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
 
       {/* Avatar */}
       <Avatar className="mt-0.5 h-6 w-6 shrink-0">
-        <AvatarFallback className="bg-surface-3 text-2xs font-medium text-foreground">
+        <AvatarFallback className={cn("text-2xs font-medium text-white bg-gradient-to-br", avatarGradient(item.id + item.authorInitials))}>
           {item.authorInitials}
         </AvatarFallback>
       </Avatar>
@@ -92,9 +91,9 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
         {/* Header row */}
         <div className="flex items-center gap-2 pb-0.5">
           <span className="text-xs font-medium text-foreground">{item.author}</span>
-          <span className="text-2xs text-white/25">·</span>
+          <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">#{item.channel}</span>
-          <span className="text-2xs text-white/25">·</span>
+          <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(item.timestamp)}
           </span>
@@ -137,7 +136,7 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
                 "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
                 action.primary
                   ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                  : "bg-surface-3 text-foreground hover:bg-white/10"
+                  : "bg-surface-3 text-foreground hover:bg-foreground/10"
               )}
             >
               {action.primary && <ArrowRight className="h-3 w-3" />}
@@ -148,21 +147,21 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={() => onMarkRead?.(item.id)}
-              className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Mark as read"
             >
               <Check className="h-3 w-3" />
             </button>
             <button
               onClick={() => onArchive?.(item.id)}
-              className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Archive"
             >
               <Archive className="h-3 w-3" />
             </button>
             <button
               onClick={() => router.push(`/channel/${item.channel}`)}
-              className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Go to channel"
             >
               <ExternalLink className="h-3 w-3" />

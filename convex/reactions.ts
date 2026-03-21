@@ -116,7 +116,7 @@ export const getByMessages = query({
 
     const result: Record<
       string,
-      Array<{ emoji: string; count: number; userIds: string[] }>
+      Array<{ emoji: string; count: number; userIds: string[]; userNames: string[] }>
     > = {};
 
     await Promise.all(
@@ -128,11 +128,17 @@ export const getByMessages = query({
 
         const grouped = groupReactionsByEmoji(reactions);
 
-        result[messageId] = Array.from(grouped.entries()).map(
-          ([emoji, emojiReactions]) => ({
-            emoji,
-            count: emojiReactions.length,
-            userIds: emojiReactions.map((r) => r.userId as string),
+        result[messageId] = await Promise.all(
+          Array.from(grouped.entries()).map(async ([emoji, emojiReactions]) => {
+            const users = await Promise.all(
+              emojiReactions.map((r) => ctx.db.get(r.userId)),
+            );
+            return {
+              emoji,
+              count: emojiReactions.length,
+              userIds: emojiReactions.map((r) => r.userId as string),
+              userNames: users.map((u) => u?.name ?? "Unknown"),
+            };
           }),
         );
       }),

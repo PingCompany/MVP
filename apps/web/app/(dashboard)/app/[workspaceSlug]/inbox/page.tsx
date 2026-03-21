@@ -102,7 +102,7 @@ export default function InboxPage() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
@@ -112,7 +112,7 @@ export default function InboxPage() {
   if (totalCount === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in">
-        <CheckCircle2 className="h-10 w-10 text-white/15" />
+        <CheckCircle2 className="h-10 w-10 text-foreground/15" />
         <h2 className="text-sm font-medium text-foreground">You&apos;re all caught up</h2>
         <p className="text-xs text-muted-foreground">
           New summaries and action items will appear here
@@ -136,7 +136,7 @@ export default function InboxPage() {
           <span className="text-xs text-muted-foreground">
             {totalCount} item{totalCount !== 1 ? "s" : ""}
           </span>
-          <span className="text-2xs text-white/20">·</span>
+          <span className="text-2xs text-foreground/20">·</span>
           <span className="text-2xs text-muted-foreground">Eisenhower Matrix</span>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function InboxPage() {
       {drafts.length > 0 && (
         <div>
           <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-            <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
+            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
               Unsent Drafts
             </span>
           </div>
@@ -167,7 +167,7 @@ export default function InboxPage() {
       {unansweredQuestions.length > 0 && (
         <div>
           <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-            <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
+            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
               Needs Your Answer
             </span>
           </div>
@@ -245,7 +245,7 @@ export default function InboxPage() {
         return (
           <div key={quadrant}>
             <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-              <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
+              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
                 {SECTION_LABELS[quadrant]}
               </span>
             </div>

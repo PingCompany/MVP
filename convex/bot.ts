@@ -26,6 +26,19 @@ export const getBotUser = internalQuery({
   },
 });
 
+export const getConversationContext = internalQuery({
+  args: { conversationId: v.id("directConversations") },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return null;
+    return {
+      conversationName: conversation.name ?? "Direct Message",
+      workspaceId: conversation.workspaceId,
+      kind: conversation.kind,
+    };
+  },
+});
+
 export const insertBotMessage = internalMutation({
   args: {
     channelId: v.id("channels"),
@@ -156,5 +169,175 @@ export const respond = internalAction({
       body: answer,
       citations: citations.length > 0 ? citations : undefined,
     });
+  },
+});
+
+// ── DM bot support ─────────────────────────────────────────────────
+
+export const insertBotDirectMessage = internalMutation({
+  args: {
+    conversationId: v.id("directConversations"),
+    authorId: v.id("users"),
+    body: v.string(),
+    citations: v.optional(
+      v.array(
+        v.object({
+          text: v.string(),
+          sourceUrl: v.optional(v.string()),
+          sourceTitle: v.optional(v.string()),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("directMessages", {
+      conversationId: args.conversationId,
+      authorId: args.authorId,
+      body: args.body,
+      type: "bot",
+      isEdited: false,
+    });
+  },
+});
+
+export const respondDM = internalAction({
+  args: {
+    conversationId: v.id("directConversations"),
+    query: v.string(),
+    triggerMessageId: v.id("directMessages"),
+    triggerUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const graphitiUrl =
+      process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error("[bot] OPENAI_API_KEY not set");
+      return;
+    }
+
+    const convCtx = await ctx.runQuery(
+      internal.bot.getConversationContext,
+      { conversationId: args.conversationId },
+    );
+    if (!convCtx) return;
+
+    const botUser = await ctx.runQuery(internal.bot.getBotUser, {
+      workspaceId: convCtx.workspaceId,
+    });
+    if (!botUser) return;
+
+    // Build group_ids — DM-scoped by default
+    const groupIds: string[] = [`dm:${args.conversationId}`];
+
+    // For agent conversations, expand search to user's channel memberships
+    if (convCtx.kind === "agent_1to1" || convCtx.kind === "agent_group") {
+      const channelMemberships = await ctx.runQuery(
+        internal.bot.getUserChannelIds,
+        { userId: args.triggerUserId },
+      );
+      groupIds.push(...channelMemberships);
+    }
+
+    // 1. Search Graphiti for relevant facts
+    const searchResponse = await fetch(`${graphitiUrl}/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        group_ids: groupIds,
+        query: args.query,
+        max_facts: 10,
+      }),
+    });
+
+    let facts: Array<{
+      uuid: string;
+      name: string;
+      fact: string;
+      valid_at: string | null;
+      invalid_at: string | null;
+    }> = [];
+    if (searchResponse.ok) {
+      const data = await searchResponse.json();
+      facts = data.facts ?? [];
+    } else {
+      console.warn(`[bot] Graphiti search failed: ${searchResponse.status}`);
+    }
+
+    // 2. Generate cited answer via OpenAI
+    const factsContext =
+      facts.length > 0
+        ? facts
+            .map(
+              (f, i) =>
+                `[${i + 1}] ${f.fact}${f.valid_at ? ` (as of ${f.valid_at})` : ""}${f.invalid_at ? ` [superseded]` : ""}`,
+            )
+            .join("\n")
+        : "No relevant facts found in the knowledge graph.";
+
+    const response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are KnowledgeBot in a direct message conversation. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
+            },
+            {
+              role: "user",
+              content: `Question: ${args.query}\n\nKnowledge graph facts:\n${factsContext}`,
+            },
+          ],
+          temperature: 0.2,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      console.error(`[bot] OpenAI failed: ${response.status}`);
+      return;
+    }
+
+    const data = await response.json();
+    const answer =
+      data.choices[0]?.message?.content ??
+      "Sorry, I couldn't generate a response.";
+
+    // 3. Build citations from referenced facts
+    const citedIndices = [...answer.matchAll(/\[(\d+)\]/g)].map(
+      (m: RegExpMatchArray) => parseInt(m[1], 10) - 1,
+    );
+    const citations = citedIndices
+      .filter((i: number) => i >= 0 && i < facts.length)
+      .map((i: number) => ({
+        text: facts[i].fact,
+        sourceTitle: facts[i].name,
+      }));
+
+    // 4. Insert bot message
+    await ctx.runMutation(internal.bot.insertBotDirectMessage, {
+      conversationId: args.conversationId,
+      authorId: botUser._id,
+      body: answer,
+      citations: citations.length > 0 ? citations : undefined,
+    });
+  },
+});
+
+export const getUserChannelIds = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const memberships = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    return memberships.map((m) => m.channelId as string);
   },
 });

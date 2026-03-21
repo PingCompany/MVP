@@ -1,12 +1,15 @@
 "use client";
 
-import { use, useEffect, useMemo } from "react";
+import { use, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
 import { AlertBanner } from "@/components/proactive/AlertBanner";
 import { useTopBar } from "@/hooks/useTopBar";
+import { useChannelTyping } from "@/hooks/useTyping";
+import { useThreadPanel } from "@/hooks/useThreadPanel";
+import { useReactions } from "@/hooks/useReactions";
 
 function getInitials(name: string): string {
   return name
@@ -32,10 +35,15 @@ export default function ChannelPage({ params }: Props) {
     isAuthenticated ? { channelId: typedChannelId } : "skip",
   );
   const sendMessage = useMutation(api.messages.send);
+  const editMessage = useMutation(api.messages.edit);
+  const deleteMessage = useMutation(api.messages.remove);
   const markRead = useMutation(api.channels.markRead);
   const memberCount = useQuery(api.channels.memberCount, isAuthenticated ? { channelId: typedChannelId } : "skip");
   const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
   const dismissAlert = useMutation(api.proactiveAlerts.dismiss);
+  const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId);
+  const { openThreadPanel, closeThreadPanel } = useThreadPanel();
+  const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
 
   const { setSubtitle } = useTopBar();
 
@@ -43,6 +51,11 @@ export default function ChannelPage({ params }: Props) {
     if (!isAuthenticated) return;
     markRead({ channelId: typedChannelId });
   }, [isAuthenticated, markRead, typedChannelId]);
+
+  // Close thread panel when navigating to a different channel
+  useEffect(() => {
+    closeThreadPanel();
+  }, [channelId, closeThreadPanel]);
 
   // Inject member count into TopBar
   useEffect(() => {
@@ -61,6 +74,7 @@ export default function ChannelPage({ params }: Props) {
     return [...results].reverse().map((msg) => ({
       id: msg._id,
       type: msg.type === "bot" ? ("bot" as const) : ("user" as const),
+      authorId: msg.authorId,
       author: msg.author?.name ?? "Unknown",
       authorInitials: getInitials(msg.author?.name ?? "?"),
       content: msg.body,
@@ -71,12 +85,48 @@ export default function ChannelPage({ params }: Props) {
         url: c.sourceUrl,
       })),
       botName: msg.type === "bot" ? "KnowledgeBot" : undefined,
+      threadReplyCount: msg.threadReplyCount,
+      threadLastReplyAt: msg.threadLastReplyAt,
+      threadParticipants: msg.threadParticipants,
+      threadId: msg.threadId,
+      alsoSentToChannel: msg.alsoSentToChannel,
+      isEdited: msg.isEdited,
     }));
   }, [results]);
 
+  const messageIds = useMemo(
+    () => messages.map((m) => m.id as Id<"messages">),
+    [messages],
+  );
+  const { reactionsByMessage, toggleReaction } = useReactions({
+    messageIds,
+    enabled: isAuthenticated,
+  });
+
   const handleSend = (content: string) => {
     sendMessage({ channelId: typedChannelId, body: content });
+    onSendClear();
   };
+
+  const handleEditMessage = useCallback((messageId: string, newBody: string) => {
+    editMessage({ messageId: messageId as Id<"messages">, body: newBody });
+  }, [editMessage]);
+
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    deleteMessage({ messageId: messageId as Id<"messages"> });
+  }, [deleteMessage]);
+
+  const handleOpenThread = useCallback(
+    (messageId: string) => {
+      openThreadPanel({
+        parentMessageId: messageId,
+        messageTable: "messages",
+        channelId,
+        contextName: channel?.name ?? channelId,
+      });
+    },
+    [openThreadPanel, channelId, channel?.name],
+  );
 
   const firstAlert = alerts?.[0];
 
@@ -87,6 +137,14 @@ export default function ChannelPage({ params }: Props) {
         messages={messages}
         onSend={handleSend}
         isLoading={results === undefined}
+        typingUsers={typingUsers}
+        onTyping={onTyping}
+        onOpenThread={handleOpenThread}
+        onToggleReaction={toggleReaction}
+        currentUserId={currentUser?._id}
+        reactionsByMessage={reactionsByMessage}
+        onEditMessage={handleEditMessage}
+        onDeleteMessage={handleDeleteMessage}
       />
 
       {firstAlert && (

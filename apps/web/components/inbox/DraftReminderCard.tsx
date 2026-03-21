@@ -51,9 +51,9 @@ export function DraftReminderCard({
         {/* Header */}
         <div className="flex items-center gap-2 pb-0.5">
           <span className="text-xs font-medium text-foreground">Draft reminder</span>
-          <span className="text-2xs text-white/25">·</span>
+          <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">#{channelName}</span>
-          <span className="text-2xs text-white/25">·</span>
+          <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(updatedAt)}
           </span>
@@ -96,7 +96,7 @@ export function DraftReminderCard({
           {suggestedCompletion && (
             <button
               onClick={() => router.push(`/channel/${channelId}`)}
-              className="flex items-center gap-1 rounded bg-surface-3 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-white/10"
+              className="flex items-center gap-1 rounded bg-surface-3 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-foreground/10"
             >
               <Sparkles className="h-3 w-3" />
               Use AI suggestion
@@ -105,7 +105,7 @@ export function DraftReminderCard({
           <div className="ml-auto">
             <button
               onClick={() => onDismiss?.(draftId)}
-              className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Dismiss"
             >
               <X className="h-3 w-3" />

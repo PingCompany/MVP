@@ -30,7 +30,7 @@ const STATUS_CONFIG: Record<
   open: { color: "text-green-400", label: "Open" },
   merged: { color: "text-purple-400", label: "Merged" },
   closed: { color: "text-red-400", label: "Closed" },
-  draft: { color: "text-white/40", label: "Draft" },
+  draft: { color: "text-foreground/40", label: "Draft" },
 };
 
 const CI_CONFIG: Record<
@@ -40,7 +40,7 @@ const CI_CONFIG: Record<
   success: { icon: CheckCircle2, color: "text-green-400" },
   failure: { icon: XCircle, color: "text-red-400" },
   pending: { icon: Loader2, color: "text-amber-400" },
-  neutral: { icon: CheckCircle2, color: "text-white/30" },
+  neutral: { icon: CheckCircle2, color: "text-foreground/30" },
 };
 
 export function GitHubPRCard({
@@ -91,15 +91,15 @@ export function GitHubPRCard({
 
         <div className="mt-0.5 flex items-center gap-2 text-2xs text-muted-foreground">
           <span>{repoName}</span>
-          <span className="text-white/20">·</span>
+          <span className="text-foreground/20">·</span>
           <span>{author}</span>
 
           {/* Diff stats */}
           {(additions !== undefined || deletions !== undefined) && (
             <>
-              <span className="text-white/20">·</span>
+              <span className="text-foreground/20">·</span>
               <span className="flex items-center gap-0.5">
-                <FileDiff className="h-3 w-3 text-white/30" />
+                <FileDiff className="h-3 w-3 text-foreground/30" />
                 {additions !== undefined && (
                   <span className="text-green-400">+{additions}</span>
                 )}
@@ -113,7 +113,7 @@ export function GitHubPRCard({
           {/* Review comment count */}
           {reviewCommentCount !== undefined && reviewCommentCount > 0 && (
             <>
-              <span className="text-white/20">·</span>
+              <span className="text-foreground/20">·</span>
               <span className="flex items-center gap-0.5">
                 <span aria-hidden>💬</span>
                 <span>{reviewCommentCount}</span>
@@ -124,7 +124,7 @@ export function GitHubPRCard({
           {/* CI status */}
           {CiIcon && ciCfg && (
             <>
-              <span className="text-white/20">·</span>
+              <span className="text-foreground/20">·</span>
               <CiIcon
                 className={cn(
                   "h-3.5 w-3.5",

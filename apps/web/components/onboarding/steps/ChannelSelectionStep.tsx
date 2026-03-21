@@ -97,7 +97,7 @@ export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionSt
               "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
               selected.has(channel._id)
                 ? "border-ping-purple bg-ping-purple/10"
-                : "border-subtle bg-surface-2 hover:border-white/20",
+                : "border-subtle bg-surface-2 hover:border-foreground/20",
             )}
           >
             <Hash className="h-4 w-4 text-muted-foreground" />
@@ -114,7 +114,7 @@ export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionSt
                 "flex h-4 w-4 items-center justify-center rounded border transition-colors",
                 selected.has(channel._id)
                   ? "border-ping-purple bg-ping-purple text-white"
-                  : "border-white/20",
+                  : "border-foreground/20",
               )}
             >
               {selected.has(channel._id) && (

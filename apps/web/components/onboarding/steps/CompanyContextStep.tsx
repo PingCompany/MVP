@@ -106,7 +106,7 @@ export function CompanyContextStep({
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Company Name
           </label>
           <Input
@@ -122,7 +122,7 @@ export function CompanyContextStep({
         </div>
 
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Workspace URL
           </label>
           <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export function CompanyContextStep({
         </div>
 
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Company Size
           </label>
           <div className="flex flex-wrap gap-2">
@@ -158,7 +158,7 @@ export function CompanyContextStep({
                 className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                   companySize === size
                     ? "border-ping-purple bg-ping-purple/15 text-ping-purple"
-                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/20"
+                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/20"
                 }`}
               >
                 {size}
@@ -168,7 +168,7 @@ export function CompanyContextStep({
         </div>
 
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Industry
           </label>
           <div className="flex flex-wrap gap-2">
@@ -180,7 +180,7 @@ export function CompanyContextStep({
                 className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                   industry === ind
                     ? "border-ping-purple bg-ping-purple/15 text-ping-purple"
-                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/20"
+                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/20"
                 }`}
               >
                 {ind}
@@ -190,7 +190,7 @@ export function CompanyContextStep({
         </div>
 
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Company Description
           </label>
           <Textarea

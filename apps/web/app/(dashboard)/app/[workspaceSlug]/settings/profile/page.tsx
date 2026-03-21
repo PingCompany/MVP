@@ -42,7 +42,7 @@ export default function ProfilePage() {
   if (user === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
@@ -59,19 +59,19 @@ export default function ProfilePage() {
       <div className="space-y-5">
         {/* Display name */}
         <div>
-          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Display name
           </label>
           <input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full rounded border border-subtle bg-surface-2 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+            className="w-full rounded border border-subtle bg-surface-2 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
           />
         </div>
 
         {/* Email */}
         <div>
-          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Email
           </label>
           <input
@@ -79,12 +79,12 @@ export default function ProfilePage() {
             disabled
             className="w-full rounded border border-subtle bg-surface-1 px-2.5 py-1.5 text-xs text-muted-foreground"
           />
-          <p className="mt-1 text-2xs text-white/20">Managed by WorkOS SCIM — cannot be changed</p>
+          <p className="mt-1 text-2xs text-foreground/20">Managed by WorkOS SCIM — cannot be changed</p>
         </div>
 
         {/* Notifications */}
         <div>
-          <label className="mb-2 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-2 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Notifications
           </label>
           <div className="space-y-2">
@@ -130,7 +130,7 @@ export default function ProfilePage() {
 
         {/* Theme */}
         <div>
-          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Theme
           </label>
           <div className="rounded border border-subtle bg-surface-1 px-3 py-2">

@@ -42,7 +42,7 @@ export default function WorkspacePage() {
   if (workspace === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
@@ -59,19 +59,19 @@ export default function WorkspacePage() {
       <div className="space-y-5">
         {/* Workspace Name */}
         <div>
-          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Workspace name
           </label>
           <input
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
-            className="w-full rounded border border-subtle bg-surface-2 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+            className="w-full rounded border border-subtle bg-surface-2 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
           />
         </div>
 
         {/* Workspace Slug */}
         <div>
-          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Workspace slug
           </label>
           <input
@@ -79,12 +79,12 @@ export default function WorkspacePage() {
             disabled
             className="w-full rounded border border-subtle bg-surface-1 px-2.5 py-1.5 text-xs text-muted-foreground"
           />
-          <p className="mt-1 text-2xs text-white/20">Read-only identifier</p>
+          <p className="mt-1 text-2xs text-foreground/20">Read-only identifier</p>
         </div>
 
         {/* Integrations */}
         <div>
-          <label className="mb-2 block text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="mb-2 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
             <span className="flex items-center gap-1.5">
               <Link className="h-3 w-3" />
               Integrations
@@ -94,7 +94,7 @@ export default function WorkspacePage() {
             {/* GitHub */}
             <div className="flex items-center justify-between rounded border border-subtle bg-surface-1 px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <Github className="h-3.5 w-3.5 text-white/50" />
+                <Github className="h-3.5 w-3.5 text-foreground/50" />
                 <div>
                   <p className="text-xs text-foreground">GitHub</p>
                   <div className="flex items-center gap-1.5">
@@ -108,7 +108,7 @@ export default function WorkspacePage() {
             {/* Linear */}
             <div className="flex items-center justify-between rounded border border-subtle bg-surface-1 px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <Building2 className="h-3.5 w-3.5 text-white/50" />
+                <Building2 className="h-3.5 w-3.5 text-foreground/50" />
                 <div>
                   <p className="text-xs text-foreground">Linear</p>
                   <div className="flex items-center gap-1.5">
@@ -122,7 +122,7 @@ export default function WorkspacePage() {
             {/* Slack */}
             <div className="flex items-center justify-between rounded border border-subtle bg-surface-1 px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <svg className="h-3.5 w-3.5 text-white/50" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="h-3.5 w-3.5 text-foreground/50" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.165 0a2.528 2.528 0 0 1 2.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 0 1 2.522 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.527 2.527 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.522h-6.313z" />
                 </svg>
                 <div>

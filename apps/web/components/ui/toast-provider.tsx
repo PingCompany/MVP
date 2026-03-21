@@ -35,7 +35,7 @@ const variantStyle: Record<ToastVariant, string> = {
 };
 
 const variantIconColor: Record<ToastVariant, string> = {
-  default: "text-white/40",
+  default: "text-foreground/40",
   success: "text-status-online",
   error: "text-status-danger",
 };
@@ -76,7 +76,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <span className="flex-1 text-xs text-foreground">{t.message}</span>
               <button
                 onClick={() => removeToast(t.id)}
-                className="shrink-0 rounded p-0.5 text-white/25 hover:text-white/60"
+                className="shrink-0 rounded p-0.5 text-foreground/25 hover:text-foreground/60"
               >
                 <X className="h-3 w-3" />
               </button>

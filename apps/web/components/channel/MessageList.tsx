@@ -1,55 +1,145 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, Paperclip, AtSign, ChevronDown, Pin, Users } from "lucide-react";
+import { Bot, ChevronDown, Pin, Users, MessageSquare, SmilePlus, Pencil, Trash2 } from "lucide-react";
+import { RichTextComposer, type RichTextComposerHandle } from "@/components/channel/RichTextComposer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
-import { cn } from "@/lib/utils";
+import { MessageReactions, EmojiPickerPopover, type ReactionGroup } from "@/components/channel/MessageReactions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { MarkdownContent } from "@/components/channel/MarkdownContent";
+import { cn, avatarGradient, formatRelativeTime } from "@/lib/utils";
 
 export interface Message {
   id: string;
   type: "user" | "bot";
+  authorId: string;
   author: string;
   authorInitials: string;
   content: string;
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
+  threadReplyCount?: number;
+  threadLastReplyAt?: number;
+  threadParticipants?: Array<{ _id: string; name: string; avatarUrl?: string | null }>;
+  threadId?: string;
+  alsoSentToChannel?: boolean;
+  reactions?: ReactionGroup[];
+  isEdited?: boolean;
 }
 
 interface MessageItemProps {
   message: Message;
   showAvatar: boolean;
+  onOpenThread?: (messageId: string) => void;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
+  currentUserId?: string;
+  onEditMessage?: (messageId: string, newBody: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export function MessageItem({ message, showAvatar }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage }: MessageItemProps) {
   const isBot = message.type === "bot";
+  const hasThread = (message.threadReplyCount ?? 0) > 0;
+  const isThreadReplyInFeed = message.threadId && message.alsoSentToChannel;
+  const isOwnUserMessage = currentUserId === message.authorId && message.type === "user";
+  const showActionBar = onOpenThread || onToggleReaction || isOwnUserMessage;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+
+  const handleSaveEdit = useCallback((newContent: string) => {
+    if (!newContent || newContent === message.content) {
+      setIsEditing(false);
+      return;
+    }
+    onEditMessage?.(message.id, newContent);
+    setIsEditing(false);
+  }, [message.id, message.content, onEditMessage]);
 
   return (
     <div
       className={cn(
-        "group flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
+        "group relative flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
         showAvatar ? "mt-3" : "mt-0"
       )}
     >
+      {/* Hover action bar */}
+      {showActionBar && !isEditing && (
+        <div className={cn(
+          "absolute -top-2 right-4 z-10 rounded border border-subtle bg-surface-2 shadow-sm",
+          emojiPickerOpen ? "flex" : "hidden group-hover:flex"
+        )}>
+          {onToggleReaction && (
+            <EmojiPickerPopover onSelect={(emoji) => onToggleReaction(message.id, emoji)} onOpenChange={setEmojiPickerOpen}>
+              <button
+                className="flex items-center gap-1 px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+                title="Add reaction"
+              >
+                <SmilePlus className="h-3 w-3" />
+              </button>
+            </EmojiPickerPopover>
+          )}
+          {onOpenThread && (
+            <button
+              onClick={() => onOpenThread(message.threadId ?? message.id)}
+              className="flex items-center gap-1 px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+              title="Reply in thread"
+            >
+              <MessageSquare className="h-3 w-3" />
+            </button>
+          )}
+          {isOwnUserMessage && onEditMessage && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1 px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+              title="Edit message"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+          {isOwnUserMessage && onDeleteMessage && (
+            <button
+              onClick={() => setDeleteDialogOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-destructive"
+              title="Delete message"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Avatar column */}
       <div className="w-6 shrink-0 pt-0.5">
-        {showAvatar ? (
+        {showAvatar && (
           <Avatar className="h-6 w-6">
             <AvatarFallback
               className={cn(
                 "text-2xs font-medium",
                 isBot
                   ? "bg-ping-purple/20 text-ping-purple"
-                  : "bg-surface-3 text-foreground"
+                  : `bg-gradient-to-br ${avatarGradient(message.authorId + message.authorInitials)} text-white`
               )}
             >
               {isBot ? <Bot className="h-3 w-3" /> : message.authorInitials}
             </AvatarFallback>
           </Avatar>
-        ) : null}
+        )}
       </div>
+      {/* Hover timestamp — absolute so it never affects row height */}
+      {!showAvatar && (
+        <span className="pointer-events-none absolute left-0 top-[8px] w-[calc(1rem+24px+0.75rem)] select-none text-center text-[10px] text-foreground/25 opacity-0 group-hover:opacity-100">
+          {message.timestamp.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          })}
+        </span>
+      )}
 
       {/* Content */}
       <div className="min-w-0 flex-1">
@@ -63,29 +153,137 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
                 AI
               </span>
             )}
-            <span className="text-2xs text-white/25">
+            <span className="text-2xs text-foreground/25">
               {message.timestamp.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
                 hour12: false,
               })}
             </span>
+            {message.isEdited && (
+              <span className="text-2xs text-foreground/25">(edited)</span>
+            )}
           </div>
         )}
 
-        <div
-          className={cn(
-            "text-sm leading-relaxed",
-            isBot ? "text-foreground" : "text-foreground/90"
-          )}
-        >
-          {message.content}
-        </div>
+        {/* "Replied to thread" label for thread replies shown in main feed */}
+        {isThreadReplyInFeed && onOpenThread && (
+          <button
+            onClick={() => onOpenThread(message.threadId!)}
+            className="mb-0.5 flex items-center gap-1 text-2xs text-ping-purple hover:underline"
+          >
+            <MessageSquare className="h-2.5 w-2.5" />
+            Replied to a thread
+          </button>
+        )}
+
+        {isEditing ? (
+          <div className="flex flex-col gap-1">
+            <RichTextComposer
+              initialContent={message.content}
+              enterToSave
+              onSave={handleSaveEdit}
+              onEscape={() => setIsEditing(false)}
+              showToolbar
+              autoFocus
+            />
+            <div className="flex items-center gap-2 text-2xs">
+              <span className="text-muted-foreground">
+                Enter to save · Escape to cancel
+              </span>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="rounded px-2 py-0.5 text-muted-foreground hover:bg-surface-3"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <MarkdownContent
+            content={message.content}
+            className={cn(
+              "text-sm leading-relaxed",
+              isBot ? "text-foreground" : "text-foreground/90"
+            )}
+          />
+        )}
 
         {message.citations && (
           <CitationRow citations={message.citations} />
         )}
+
+        {message.reactions && message.reactions.length > 0 && onToggleReaction && currentUserId && (
+          <MessageReactions
+            reactions={message.reactions}
+            currentUserId={currentUserId}
+            onToggle={(emoji) => onToggleReaction(message.id, emoji)}
+          />
+        )}
+
+        {/* Thread reply badge */}
+        {hasThread && onOpenThread && (
+          <button
+            onClick={() => onOpenThread(message.id)}
+            className="mt-1 flex items-center gap-2 rounded px-1 py-0.5 text-2xs text-ping-purple transition-colors hover:bg-surface-3"
+          >
+            {/* Avatar stack — up to 3 */}
+            {message.threadParticipants && message.threadParticipants.length > 0 && (
+              <span className="flex -space-x-1.5">
+                {message.threadParticipants.slice(0, 3).map((p) => (
+                  <Avatar key={p._id} className="h-4 w-4 border border-background">
+                    <AvatarFallback
+                      className={cn(
+                        "text-[8px] font-medium bg-gradient-to-br text-white",
+                        avatarGradient(p._id + p.name),
+                      )}
+                    >
+                      {p.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+              </span>
+            )}
+            <span className="font-medium">
+              {message.threadReplyCount} {message.threadReplyCount === 1 ? "reply" : "replies"}
+            </span>
+            {message.threadLastReplyAt && (
+              <span className="text-muted-foreground">
+                {formatRelativeTime(message.threadLastReplyAt)}
+              </span>
+            )}
+          </button>
+        )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete message</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this message? This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteDialogOpen(false)}
+              className="rounded border border-subtle px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-3"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                onDeleteMessage?.(message.id);
+                setDeleteDialogOpen(false);
+              }}
+              className="rounded bg-status-danger px-3 py-1.5 text-sm text-white transition-colors hover:bg-status-danger/90"
+            >
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -112,7 +310,7 @@ export interface TypingUser {
   avatarUrl?: string | null;
 }
 
-function TypingIndicator({ users }: { users: TypingUser[] }) {
+export function TypingIndicator({ users }: { users: TypingUser[] }) {
   if (users.length === 0) return null;
 
   const label =
@@ -147,6 +345,16 @@ interface MessageListProps {
   typingUsers?: TypingUser[];
   /** Called on input keystrokes for typing indicator */
   onTyping?: () => void;
+  /** Called when user opens a thread on a message */
+  onOpenThread?: (messageId: string) => void;
+  /** Called when user toggles a reaction on a message */
+  onToggleReaction?: (messageId: string, emoji: string) => void;
+  /** Current user's ID for highlighting own reactions */
+  currentUserId?: string;
+  /** Reactions grouped by message ID */
+  reactionsByMessage?: Record<string, Array<ReactionGroup>>;
+  onEditMessage?: (messageId: string, newBody: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
 export function MessageList({
@@ -159,12 +367,17 @@ export function MessageList({
   isDM = false,
   typingUsers = [],
   onTyping,
+  onOpenThread,
+  onToggleReaction,
+  currentUserId,
+  reactionsByMessage,
+  onEditMessage,
+  onDeleteMessage,
 }: MessageListProps) {
-  const [input, setInput] = useState("");
   const [showNewMessages, setShowNewMessages] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<RichTextComposerHandle>(null);
   const prevMessageCountRef = useRef(messages.length);
 
   const isAtBottom = useCallback(() => {
@@ -205,21 +418,12 @@ export function MessageList({
     if (isAtBottom()) setShowNewMessages(false);
   };
 
-  const handleSend = () => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    onSend?.(trimmed);
-    setInput("");
+  const handleSend = useCallback((content: string) => {
+    if (!content) return;
+    onSend?.(content);
     // Scroll to bottom after send
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  }, [onSend]);
 
   return (
     <div className="flex h-full flex-col">
@@ -245,8 +449,9 @@ export function MessageList({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="relative flex-1 overflow-y-auto py-2 scrollbar-thin"
+        className="relative flex flex-1 flex-col overflow-y-auto scrollbar-thin"
       >
+        <div className="mt-auto py-2">
         {/* Load more */}
         {hasMore && (
           <div className="flex justify-center py-2">
@@ -262,20 +467,44 @@ export function MessageList({
         {/* Skeletons */}
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => <MessageSkeleton key={i} />)
+        ) : messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+            <span className="text-4xl">🦗</span>
+            <p className="text-sm text-muted-foreground">
+              {isDM
+                ? "No messages yet. Don\u2019t be shy, say hi!"
+                : `This is the very beginning of #${channelName}. It\u2019s so quiet you can hear the electrons flowing.`}
+            </p>
+            <p className="text-2xs text-foreground/20">Be the first to break the silence</p>
+          </div>
         ) : (
           messages.map((msg, i) => {
             const prev = messages[i - 1];
             const showAvatar =
               !prev ||
-              prev.author !== msg.author ||
+              prev.authorId !== msg.authorId ||
               msg.timestamp.getTime() - prev.timestamp.getTime() > 5 * 60 * 1000;
 
+            const msgWithReactions = reactionsByMessage?.[msg.id]
+              ? { ...msg, reactions: reactionsByMessage[msg.id] }
+              : msg;
+
             return (
-              <MessageItem key={msg.id} message={msg} showAvatar={showAvatar} />
+              <MessageItem
+                key={msg.id}
+                message={msgWithReactions}
+                showAvatar={showAvatar}
+                onOpenThread={onOpenThread}
+                onToggleReaction={onToggleReaction}
+                currentUserId={currentUserId}
+                onEditMessage={onEditMessage}
+                onDeleteMessage={onDeleteMessage}
+              />
             );
           })
         )}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* New messages pill */}
@@ -296,59 +525,15 @@ export function MessageList({
 
       {/* Composer */}
       <div className="border-t border-subtle p-3">
-        <div className="flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              onTyping?.();
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
-            rows={1}
-            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-white/25 focus:outline-none"
-            style={{ height: "20px" }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = "20px";
-              el.style.height = `${el.scrollHeight}px`;
-            }}
-          />
-          <div className="flex shrink-0 items-center gap-1 pb-0.5">
-            {!isDM && (
-              <button
-                onClick={() => {
-                  setInput((prev) => prev + "@");
-                  textareaRef.current?.focus();
-                }}
-                className="rounded p-1 text-white/25 hover:bg-surface-3 hover:text-white/60"
-              >
-                <AtSign className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button
-              disabled
-              title="File attachments coming soon"
-              className="rounded p-1 text-white/25 opacity-50 cursor-not-allowed"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className={cn(
-                "rounded p-1 transition-colors",
-                input.trim()
-                  ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                  : "text-white/20"
-              )}
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-        <p className="mt-1 text-2xs text-white/20">
+        <RichTextComposer
+          ref={composerRef}
+          placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
+          onSend={handleSend}
+          onTyping={onTyping}
+          showActions
+          isDM={isDM}
+        />
+        <p className="mt-1 text-2xs text-foreground/20">
           Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
         </p>
       </div>

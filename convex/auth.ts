@@ -1,6 +1,21 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
+export async function requireDMmember(
+  ctx: QueryCtx | MutationCtx,
+  conversationId: Id<"directConversations">,
+  userId: Id<"users">,
+) {
+  const membership = await ctx.db
+    .query("directConversationMembers")
+    .withIndex("by_conversation_user", (q) =>
+      q.eq("conversationId", conversationId).eq("userId", userId),
+    )
+    .unique();
+  if (!membership) throw new Error("Not a member of this conversation");
+  return membership;
+}
+
 export async function requireUser(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");

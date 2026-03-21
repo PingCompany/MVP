@@ -29,7 +29,7 @@ http.route({
           avatarUrl: profile_picture_url ?? undefined,
         });
 
-        if (result.isNew) {
+        if (result.isNew && !result.wasInvited) {
           await ctx.runAction(internal.workos.createOrganization, {
             workspaceId: result.workspaceId,
             name: result.workspaceName,

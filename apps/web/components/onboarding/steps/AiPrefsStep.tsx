@@ -84,7 +84,7 @@ export function AiPrefsStep({ onNext }: AiPrefsStepProps) {
       <div className="space-y-5">
         {/* Summary Detail */}
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             <Brain className="mr-1 inline-block h-3 w-3" />
             Summary Detail
           </label>
@@ -98,7 +98,7 @@ export function AiPrefsStep({ onNext }: AiPrefsStepProps) {
                   "rounded-lg border p-3 text-left transition-colors",
                   summaryDetail === opt.value
                     ? "border-ping-purple bg-ping-purple/10"
-                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/20",
+                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/20",
                 )}
               >
                 <div className="text-xs font-medium">{opt.title}</div>
@@ -112,7 +112,7 @@ export function AiPrefsStep({ onNext }: AiPrefsStepProps) {
 
         {/* Proactive Alert Level */}
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             <Bell className="mr-1 inline-block h-3 w-3" />
             Proactive Alert Level
           </label>
@@ -126,7 +126,7 @@ export function AiPrefsStep({ onNext }: AiPrefsStepProps) {
                   "rounded-lg border p-3 text-left transition-colors",
                   proactiveLevel === opt.value
                     ? "border-ping-purple bg-ping-purple/10"
-                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/20",
+                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/20",
                 )}
               >
                 <div className="text-xs font-medium">{opt.title}</div>
@@ -156,7 +156,7 @@ export function AiPrefsStep({ onNext }: AiPrefsStepProps) {
             onClick={() => setAutoTriage(!autoTriage)}
             className={cn(
               "relative h-5 w-9 rounded-full transition-colors",
-              autoTriage ? "bg-ping-purple" : "bg-white/20",
+              autoTriage ? "bg-ping-purple" : "bg-foreground/20",
             )}
           >
             <span

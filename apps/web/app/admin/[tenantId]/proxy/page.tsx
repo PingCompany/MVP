@@ -39,7 +39,7 @@ export default function ProxyPage({ params }: Props) {
             <ArrowLeft className="h-3 w-3" />
             Security
           </Link>
-          <span className="text-2xs text-white/20">›</span>
+          <span className="text-2xs text-foreground/20">›</span>
           <span className="text-2xs text-foreground">Impersonation</span>
         </div>
 
@@ -57,7 +57,7 @@ export default function ProxyPage({ params }: Props) {
         <div className="space-y-4">
           {/* Tenant */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               Workspace
             </label>
             <div className="rounded border border-subtle bg-surface-2 px-3 py-2">
@@ -67,7 +67,7 @@ export default function ProxyPage({ params }: Props) {
 
           {/* Reason */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               Reason for access <span className="text-status-danger">*</span>
             </label>
             <textarea
@@ -75,13 +75,13 @@ export default function ProxyPage({ params }: Props) {
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Customer reported misconfigured agent — investigating knowledge scope"
               rows={3}
-              className="w-full resize-none rounded border border-subtle bg-surface-2 px-3 py-2 text-xs text-foreground placeholder:text-white/20 focus:border-white/15 focus:outline-none"
+              className="w-full resize-none rounded border border-subtle bg-surface-2 px-3 py-2 text-xs text-foreground placeholder:text-foreground/20 focus:border-foreground/15 focus:outline-none"
             />
           </div>
 
           {/* Duration */}
           <div>
-            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+            <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
               Session Duration
             </label>
             <div className="flex gap-2">
@@ -93,7 +93,7 @@ export default function ProxyPage({ params }: Props) {
                     "flex-1 rounded border py-1.5 text-xs font-medium transition-colors",
                     duration === d
                       ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                      : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/10"
+                      : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/10"
                   )}
                 >
                   {d}
@@ -183,13 +183,13 @@ export default function ProxyPage({ params }: Props) {
           {/* Members table (proxied) */}
           <div className="overflow-hidden rounded border border-subtle">
             <div className="border-b border-subtle bg-surface-1 px-4 py-2">
-              <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
+              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
                 Team Members
               </span>
             </div>
             <div className="grid grid-cols-[1fr_1fr_80px_80px] gap-4 border-b border-subtle bg-surface-1/50 px-4 py-2">
               {["Name", "Email", "Role", "Status"].map((h) => (
-                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-white/25">
+                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
                   {h}
                 </span>
               ))}
@@ -199,7 +199,7 @@ export default function ProxyPage({ params }: Props) {
                 key={user.email}
                 className="grid grid-cols-[1fr_1fr_80px_80px] items-center gap-4 border-b border-subtle px-4 py-2.5 last:border-0"
               >
-                <span className={cn("text-xs", !piiVisible && "font-mono text-white/50")}>
+                <span className={cn("text-xs", !piiVisible && "font-mono text-foreground/50")}>
                   {piiVisible ? user.name.replace(/\*/g, "a").replace(/\*\*\*/g, "lex Chen") : user.name}
                 </span>
                 <span className={cn("text-xs text-muted-foreground", !piiVisible && "font-mono")}>
@@ -211,7 +211,7 @@ export default function ProxyPage({ params }: Props) {
             ))}
           </div>
 
-          <p className="mt-4 text-2xs text-white/20">
+          <p className="mt-4 text-2xs text-foreground/20">
             All actions in this session are logged · Session ID: proxy_{Date.now().toString(36)}
           </p>
         </div>

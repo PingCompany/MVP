@@ -1,6 +1,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
+import { cleanupEmptyPersonalWorkspaces } from "./invitations";
 
 export const listMyWorkspaces = query({
   args: {},
@@ -174,7 +175,13 @@ export const acceptInvite = mutation({
       .unique();
 
     if (!invite) throw new Error("Invite not found");
-    if (invite.status !== "pending") throw new Error("Invite already used");
+    if (invite.status !== "pending") {
+      if (invite.status === "accepted") {
+        const workspace = await ctx.db.get(invite.workspaceId);
+        return { workspaceId: invite.workspaceId, slug: workspace?.slug ?? "" };
+      }
+      throw new Error("Invite already used");
+    }
     if (invite.expiresAt < Date.now()) {
       await ctx.db.patch(invite._id, { status: "expired" });
       throw new Error("Invite has expired");
@@ -198,6 +205,8 @@ export const acceptInvite = mutation({
     }
 
     await ctx.db.patch(invite._id, { status: "accepted" });
+
+    await cleanupEmptyPersonalWorkspaces(ctx, user._id, invite.workspaceId);
 
     const workspace = await ctx.db.get(invite.workspaceId);
     return { workspaceId: invite.workspaceId, slug: workspace?.slug ?? "" };

@@ -64,7 +64,7 @@ export function PersonalContextStep({
 
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Display Name
           </label>
           <Input
@@ -76,7 +76,7 @@ export function PersonalContextStep({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Job Title
           </label>
           <Input
@@ -88,7 +88,7 @@ export function PersonalContextStep({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Department
           </label>
           <Input
@@ -100,7 +100,7 @@ export function PersonalContextStep({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             What do you work on?
           </label>
           <Textarea
@@ -115,7 +115,7 @@ export function PersonalContextStep({
         {role === "member" && (
           <>
             <div className="space-y-1.5">
-              <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+              <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
                 Expertise Areas
               </label>
               <Input
@@ -127,7 +127,7 @@ export function PersonalContextStep({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+              <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
                 Short Bio
               </label>
               <Textarea

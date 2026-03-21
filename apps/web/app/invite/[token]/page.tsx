@@ -27,9 +27,7 @@ export default function InvitePage({ params }: Props) {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      // Store token and redirect to sign in
-      sessionStorage.setItem("pendingInviteToken", token);
-      window.location.href = "/sign-in";
+      window.location.href = `/sign-in?returnTo=${encodeURIComponent(`/invite/${token}`)}`;
       return;
     }
 

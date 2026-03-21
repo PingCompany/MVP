@@ -29,10 +29,10 @@ export function CitationPill({ citation, className }: CitationPillProps) {
   const content = (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded border border-white/8 bg-white/5",
-        "px-1.5 py-0.5 text-2xs text-white/55",
+        "inline-flex items-center gap-1 rounded border border-foreground/8 bg-foreground/5",
+        "px-1.5 py-0.5 text-2xs text-foreground/55",
         "transition-all duration-100",
-        citation.url && "cursor-pointer hover:border-white/15 hover:bg-white/10 hover:text-white/80",
+        citation.url && "cursor-pointer hover:border-foreground/15 hover:bg-foreground/10 hover:text-foreground/80",
         className
       )}
     >

@@ -39,8 +39,8 @@ function KpiCard({ icon: Icon, label, value, delta, sub }: KpiCardProps) {
     <div className="rounded border border-subtle bg-surface-1 px-4 py-3">
       <div className="flex items-center justify-between pb-1.5">
         <div className="flex items-center gap-1.5">
-          <Icon className="h-3.5 w-3.5 text-white/30" />
-          <span className="text-2xs font-medium uppercase tracking-widest text-white/30">{label}</span>
+          <Icon className="h-3.5 w-3.5 text-foreground/30" />
+          <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">{label}</span>
         </div>
         {delta && (
           <span className="text-2xs font-medium text-status-online">↑ {delta}%</span>
@@ -115,7 +115,7 @@ export default function AnalyticsPage() {
         {/* Agent leaderboard */}
         <div className="rounded border border-subtle bg-surface-1 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <Bot className="h-3.5 w-3.5 text-white/30" />
+            <Bot className="h-3.5 w-3.5 text-foreground/30" />
             <span className="text-xs font-medium text-foreground">Agent Leaderboard</span>
           </div>
 
@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
               <div key={agent.name}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 text-right text-2xs text-white/25">#{i + 1}</span>
+                    <span className="w-4 text-right text-2xs text-foreground/25">#{i + 1}</span>
                     <span className="text-xs text-foreground">{agent.name}</span>
                   </div>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -145,7 +145,7 @@ export default function AnalyticsPage() {
         {/* Token usage breakdown */}
         <div className="rounded border border-subtle bg-surface-1 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <TrendingUp className="h-3.5 w-3.5 text-white/30" />
+            <TrendingUp className="h-3.5 w-3.5 text-foreground/30" />
             <span className="text-xs font-medium text-foreground">Token Breakdown</span>
           </div>
 
@@ -175,7 +175,7 @@ export default function AnalyticsPage() {
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     {segment.tokens.toLocaleString()}
                   </span>
-                  <span className="w-8 text-right font-mono text-2xs text-white/30">
+                  <span className="w-8 text-right font-mono text-2xs text-foreground/30">
                     {segment.pct}%
                   </span>
                 </div>

@@ -12,16 +12,26 @@ const SHORTCUTS = [
   { section: "Navigation", items: [
     { keys: ["⌘", "K"], description: "Open command palette" },
     { keys: ["⌘", "B"], description: "Toggle sidebar" },
+    { keys: ["⌘", "["], description: "Go back" },
+    { keys: ["⌘", "]"], description: "Go forward" },
+    { keys: ["⌥", "↑"], description: "Previous channel / DM" },
+    { keys: ["⌥", "↓"], description: "Next channel / DM" },
+    { keys: ["⌥", "⇧", "↑"], description: "Previous unread" },
+    { keys: ["⌥", "⇧", "↓"], description: "Next unread" },
     { keys: ["G", "I"], description: "Go to Inbox" },
     { keys: ["G", "T"], description: "Go to Team settings" },
+    { keys: ["G", "C"], description: "Go to first channel" },
+    { keys: ["G", "D"], description: "Go to DMs" },
   ]},
-  { section: "Chat", items: [
+  { section: "Messages", items: [
+    { keys: ["↑"], description: "Edit last message (empty composer)" },
     { keys: ["Enter"], description: "Send message" },
     { keys: ["⇧", "Enter"], description: "New line" },
     { keys: ["@"], description: "Mention user or agent" },
+    { keys: ["⇧", "Esc"], description: "Mark channel as read" },
   ]},
   { section: "General", items: [
-    { keys: ["Esc"], description: "Close dialog / modal" },
+    { keys: ["Esc"], description: "Close thread / dialog" },
     { keys: ["?"], description: "Show keyboard shortcuts" },
   ]},
 ];
@@ -29,7 +39,7 @@ const SHORTCUTS = [
 export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcutsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-subtle bg-surface-2 sm:max-w-sm">
+      <DialogContent className="border-subtle bg-surface-2 sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">Keyboard shortcuts</DialogTitle>
         </DialogHeader>
@@ -37,16 +47,16 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         <div className="space-y-4 pt-1">
           {SHORTCUTS.map(({ section, items }) => (
             <div key={section}>
-              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-white/25">
+              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-foreground/25">
                 {section}
               </p>
               <div className="space-y-1.5">
                 {items.map(({ keys, description }) => (
-                  <div key={keys.join("-")} className="flex items-center justify-between">
+                  <div key={description} className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{description}</span>
                     <div className="flex items-center gap-1">
-                      {keys.map((k) => (
-                        <Kbd key={k}>{k}</Kbd>
+                      {keys.map((k, i) => (
+                        <Kbd key={`${k}-${i}`}>{k}</Kbd>
                       ))}
                     </div>
                   </div>

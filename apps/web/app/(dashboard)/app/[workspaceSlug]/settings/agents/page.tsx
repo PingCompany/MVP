@@ -93,14 +93,14 @@ export default function AgentsPage() {
         {/* Create new */}
         <button
           onClick={() => setCreating(true)}
-          className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-white/10 bg-transparent py-10 text-center transition-colors hover:border-white/20 hover:bg-surface-2"
+          className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-foreground/10 bg-transparent py-10 text-center transition-colors hover:border-foreground/20 hover:bg-surface-2"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-white/15">
-            <Plus className="h-4 w-4 text-white/30" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-foreground/15">
+            <Plus className="h-4 w-4 text-foreground/30" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Create agent</p>
-            <p className="text-2xs text-white/25">Custom AI for your workflow</p>
+            <p className="text-2xs text-foreground/25">Custom AI for your workflow</p>
           </div>
         </button>
       </div>

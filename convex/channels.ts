@@ -115,6 +115,7 @@ export const list = query({
                   .eq("channelId", channel._id)
                   .gt("_creationTime", lastReadAt),
               )
+              .filter((q) => q.neq(q.field("authorId"), user._id))
               .collect();
             unreadCount = unreadMessages.length;
           }

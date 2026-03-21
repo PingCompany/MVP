@@ -104,7 +104,7 @@ export function WorkspaceSetupStep({ workspaceId, onNext }: WorkspaceSetupStepPr
           <Hash className="h-4 w-4 text-muted-foreground" />
           <div className="flex-1">
             <span className="text-sm text-foreground">general</span>
-            <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-2xs text-muted-foreground">
+            <span className="ml-2 rounded bg-foreground/10 px-1.5 py-0.5 text-2xs text-muted-foreground">
               Default
             </span>
           </div>
@@ -114,7 +114,7 @@ export function WorkspaceSetupStep({ workspaceId, onNext }: WorkspaceSetupStepPr
         {SUGGESTED_CHANNELS.map((channel) => (
           <label
             key={channel.name}
-            className="flex cursor-pointer items-center gap-3 rounded-md border border-subtle bg-surface-2 px-3 py-2.5 transition-colors hover:border-white/20"
+            className="flex cursor-pointer items-center gap-3 rounded-md border border-subtle bg-surface-2 px-3 py-2.5 transition-colors hover:border-foreground/20"
           >
             <input
               type="checkbox"

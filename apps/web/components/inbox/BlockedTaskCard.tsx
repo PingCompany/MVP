@@ -58,7 +58,7 @@ export function BlockedTaskCard({
           <span className="text-xs font-medium text-foreground">
             Blocked Task
           </span>
-          <span className="text-2xs text-white/25">·</span>
+          <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(createdAt)}
           </span>
@@ -116,7 +116,7 @@ export function BlockedTaskCard({
 
           <button
             onClick={() => router.push(`/channel/${channelId}`)}
-            className="flex items-center gap-1 rounded bg-surface-3 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-white/10"
+            className="flex items-center gap-1 rounded bg-surface-3 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-foreground/10"
           >
             <AtSign className="h-3 w-3" />
             Ask @person
@@ -125,7 +125,7 @@ export function BlockedTaskCard({
           <div className="ml-auto">
             <button
               onClick={() => onDismiss?.(alertId)}
-              className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Dismiss"
             >
               <X className="h-3 w-3" />

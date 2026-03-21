@@ -33,7 +33,7 @@ function WorkspaceRedirect() {
   if (workspaces === undefined || workspaces === null) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
         <p className="text-sm text-muted-foreground">
           {workspaces === null ? "Setting up your workspace…" : "Loading…"}
         </p>
@@ -45,7 +45,7 @@ function WorkspaceRedirect() {
   if (workspaces.length === 1) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
@@ -79,7 +79,7 @@ function WorkspaceRedirect() {
               <p className="truncate text-sm font-medium text-foreground">{ws.name}</p>
               <p className="text-2xs text-muted-foreground">{ws.slug}</p>
             </div>
-            <span className="rounded border border-white/15 bg-white/5 px-1.5 py-px text-2xs text-white/60">
+            <span className="rounded border border-foreground/15 bg-foreground/5 px-1.5 py-px text-2xs text-foreground/60">
               {ws.role}
             </span>
           </button>
@@ -129,13 +129,13 @@ const stats = [
 function LandingPage() {
   return (
     <div className="min-h-screen bg-surface-0 text-foreground">
-      <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-surface-0/80 backdrop-blur-lg">
+      <nav className="sticky top-0 z-50 border-b border-foreground/[0.06] bg-surface-0/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
             PING
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/pricing" className="text-sm text-muted-foreground transition-colors hover:text-white">
+            <Link href="/pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Pricing
             </Link>
             <Link href="/sign-in" className="inline-flex h-8 items-center rounded-md bg-ping-purple px-4 text-sm font-medium text-white transition-colors hover:bg-ping-purple-hover">
@@ -148,11 +148,11 @@ function LandingPage() {
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(94,106,210,0.15),transparent_70%)]" />
         <div className="mx-auto max-w-5xl px-6 pb-24 pt-28 text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-surface-2 px-3 py-1 text-xs text-muted-foreground">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-foreground/[0.08] bg-surface-2 px-3 py-1 text-xs text-muted-foreground">
             <Zap className="h-3 w-3 text-ping-purple" />
             AI-native workspace messaging
           </div>
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
             Your team&rsquo;s messages,{" "}
             <span className="text-ping-purple">intelligently prioritized</span>
           </h1>
@@ -166,15 +166,15 @@ function LandingPage() {
               Get started
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="#features" className="inline-flex h-10 items-center rounded-md border border-white/[0.08] bg-surface-1 px-6 text-sm font-medium text-muted-foreground transition-colors hover:border-white/[0.12] hover:text-white">
+            <Link href="#features" className="inline-flex h-10 items-center rounded-md border border-foreground/[0.08] bg-surface-1 px-6 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/[0.12] hover:text-foreground">
               Learn more
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-white/[0.06] bg-surface-1">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-white/[0.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <section className="border-y border-foreground/[0.06] bg-surface-1">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-foreground/[0.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {stats.map((stat) => (
             <div key={stat.label} className="px-6 py-8 text-center">
               <div className="text-3xl font-bold text-ping-purple">{stat.value}</div>
@@ -186,7 +186,7 @@ function LandingPage() {
 
       <section id="features" className="mx-auto max-w-5xl px-6 py-24">
         <div className="mb-12 text-center">
-          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             Built for how teams actually work
           </h2>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -195,20 +195,20 @@ function LandingPage() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           {features.map((feature) => (
-            <div key={feature.title} className="group rounded-xl border border-white/[0.06] bg-surface-1 p-6 transition-colors hover:border-white/[0.1]">
+            <div key={feature.title} className="group rounded-xl border border-foreground/[0.06] bg-surface-1 p-6 transition-colors hover:border-foreground/[0.1]">
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
                 <feature.icon className={`h-5 w-5 ${feature.color}`} />
               </div>
-              <h3 className="text-md font-medium text-white">{feature.title}</h3>
+              <h3 className="text-md font-medium text-foreground">{feature.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="border-t border-white/[0.06] bg-surface-1">
+      <section className="border-t border-foreground/[0.06] bg-surface-1">
         <div className="mx-auto max-w-5xl px-6 py-24">
-          <h2 className="mb-12 text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          <h2 className="mb-12 text-center text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             How PING works
           </h2>
           <div className="grid gap-8 sm:grid-cols-3">
@@ -219,7 +219,7 @@ function LandingPage() {
             ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-ping-purple/10 text-sm font-semibold text-ping-purple">{item.step}</div>
-                <h3 className="text-md font-medium text-white">{item.title}</h3>
+                <h3 className="text-md font-medium text-foreground">{item.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
               </div>
             ))}
@@ -228,7 +228,7 @@ function LandingPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-24 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           Ready to take back your focus?
         </h2>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -240,12 +240,12 @@ function LandingPage() {
         </Link>
       </section>
 
-      <footer className="border-t border-white/[0.06] bg-surface-1">
+      <footer className="border-t border-foreground/[0.06] bg-surface-1">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
           <span className="text-xs text-muted-foreground">&copy; 2026 Ping. All rights reserved.</span>
           <div className="flex gap-4">
-            <Link href="/pricing" className="text-xs text-muted-foreground hover:text-white">Pricing</Link>
-            <Link href="/sign-in" className="text-xs text-muted-foreground hover:text-white">Sign in</Link>
+            <Link href="/pricing" className="text-xs text-muted-foreground hover:text-foreground">Pricing</Link>
+            <Link href="/sign-in" className="text-xs text-muted-foreground hover:text-foreground">Sign in</Link>
           </div>
         </div>
       </footer>

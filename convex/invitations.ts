@@ -1,5 +1,6 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuth, requireUser } from "./auth";
 
 export const send = mutation({
@@ -93,6 +94,64 @@ export const findPendingByEmail = internalQuery({
   },
 });
 
+/**
+ * Remove empty auto-created personal workspaces for a user, keeping the
+ * workspace they were just invited to. Only deletes workspaces where the user
+ * is the sole member, the creator, and no messages have been sent.
+ */
+export async function cleanupEmptyPersonalWorkspaces(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  keepWorkspaceId: Id<"workspaces">,
+) {
+  const allMemberships = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  for (const membership of allMemberships) {
+    if (membership.workspaceId === keepWorkspaceId) continue;
+
+    const ws = await ctx.db.get(membership.workspaceId);
+    if (!ws || ws.createdBy !== userId) continue;
+
+    const members = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", ws._id))
+      .collect();
+    if (members.length > 1) continue;
+
+    const channels = await ctx.db
+      .query("channels")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", ws._id))
+      .collect();
+
+    let hasMessages = false;
+    for (const ch of channels) {
+      const msg = await ctx.db
+        .query("messages")
+        .withIndex("by_channel", (q) => q.eq("channelId", ch._id))
+        .first();
+      if (msg) {
+        hasMessages = true;
+        break;
+      }
+    }
+    if (hasMessages) continue;
+
+    for (const ch of channels) {
+      const cms = await ctx.db
+        .query("channelMembers")
+        .withIndex("by_channel", (q) => q.eq("channelId", ch._id))
+        .collect();
+      for (const cm of cms) await ctx.db.delete(cm._id);
+      await ctx.db.delete(ch._id);
+    }
+    await ctx.db.delete(membership._id);
+    await ctx.db.delete(ws._id);
+  }
+}
+
 export const accept = mutation({
   args: {
     token: v.string(),
@@ -110,6 +169,10 @@ export const accept = mutation({
     }
 
     if (invitation.status !== "pending") {
+      if (invitation.status === "accepted") {
+        const workspace = await ctx.db.get(invitation.workspaceId);
+        return { workspaceId: invitation.workspaceId, slug: workspace?.slug ?? "" };
+      }
       throw new Error("Invitation is no longer valid");
     }
 
@@ -151,6 +214,8 @@ export const accept = mutation({
     }
 
     await ctx.db.patch(invitation._id, { status: "accepted" });
+
+    await cleanupEmptyPersonalWorkspaces(ctx, user._id, invitation.workspaceId);
 
     const workspace = await ctx.db.get(invitation.workspaceId);
     return { workspaceId: invitation.workspaceId, slug: workspace?.slug ?? "" };

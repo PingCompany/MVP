@@ -42,6 +42,7 @@ export async function createOrUpdateUserHandler(
     return {
       userId: result.userId,
       isNew: true as const,
+      wasInvited: true as const,
       workspaceId: result.workspaceId,
       workspaceName: result.workspaceName,
     };
@@ -51,6 +52,7 @@ export async function createOrUpdateUserHandler(
   return {
     userId: result.userId,
     isNew: true as const,
+    wasInvited: false as const,
     workspaceId: result.workspaceId,
     workspaceName: result.workspaceName,
   };

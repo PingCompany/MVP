@@ -32,12 +32,12 @@ const KIND_CONFIG: Record<
   "1to1": {
     label: "Direct",
     icon: User,
-    className: "border-white/15 bg-white/5 text-white/60",
+    className: "border-foreground/15 bg-foreground/5 text-foreground/60",
   },
   group: {
     label: "Group",
     icon: Users,
-    className: "border-white/15 bg-white/5 text-white/60",
+    className: "border-foreground/15 bg-foreground/5 text-foreground/60",
   },
   agent_1to1: {
     label: "Agent",
@@ -118,7 +118,7 @@ export default function DMsPage() {
   if (conversations === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export default function DMsPage() {
       {/* Conversations list */}
       {conversations.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center gap-3">
-          <MessageSquare className="h-10 w-10 text-white/15" />
+          <MessageSquare className="h-10 w-10 text-foreground/15" />
           <h2 className="text-sm font-medium text-foreground">No conversations yet</h2>
           <p className="text-xs text-muted-foreground">
             Start a direct message or group chat
@@ -218,7 +218,7 @@ export default function DMsPage() {
                   </div>
                   {conv.lastMessage && (
                     <p className="mt-0.5 truncate text-2xs text-muted-foreground">
-                      <span className="text-white/40">
+                      <span className="text-foreground/40">
                         {conv.lastMessage.authorName}:
                       </span>{" "}
                       {conv.lastMessage.body}
@@ -229,7 +229,7 @@ export default function DMsPage() {
                 {/* Meta */}
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {conv.lastMessage && (
-                    <span className="text-2xs text-white/30">
+                    <span className="text-2xs text-foreground/30">
                       {formatTime(conv.lastMessage.timestamp)}
                     </span>
                   )}
@@ -256,7 +256,7 @@ export default function DMsPage() {
           <div className="space-y-3 pt-1">
             {/* Kind selector */}
             <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
                 Type
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -276,7 +276,7 @@ export default function DMsPage() {
                         "flex items-center gap-1.5 rounded border py-1.5 px-2 text-xs font-medium transition-colors",
                         newKind === k
                           ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                          : "border-subtle bg-surface-3 text-muted-foreground hover:border-white/10",
+                          : "border-subtle bg-surface-3 text-muted-foreground hover:border-foreground/10",
                       )}
                     >
                       <Icon className="h-3 w-3" />
@@ -290,27 +290,27 @@ export default function DMsPage() {
             {/* Group name */}
             {(newKind === "group" || newKind === "agent_group") && (
               <div>
-                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
                   Group name (optional)
                 </label>
                 <input
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="e.g. Project Alpha"
-                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
                 />
               </div>
             )}
 
             {/* Member picker */}
             <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
                 Members
               </label>
               <div className="max-h-40 space-y-1 overflow-y-auto scrollbar-thin">
                 {allUsers === undefined ? (
                   <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-white/20" />
+                    <Loader2 className="h-4 w-4 animate-spin text-foreground/20" />
                   </div>
                 ) : (
                   allUsers
@@ -318,7 +318,7 @@ export default function DMsPage() {
                     .map((u) => (
                       <label
                         key={u._id}
-                        className="flex cursor-pointer items-center gap-2 rounded border border-subtle bg-surface-3 px-2.5 py-1.5 transition-colors hover:border-white/10"
+                        className="flex cursor-pointer items-center gap-2 rounded border border-subtle bg-surface-3 px-2.5 py-1.5 transition-colors hover:border-foreground/10"
                       >
                         <input
                           type="checkbox"
@@ -334,7 +334,7 @@ export default function DMsPage() {
                             {u.name}
                           </span>
                         </div>
-                        <span className="text-2xs text-white/30">{u.email}</span>
+                        <span className="text-2xs text-foreground/30">{u.email}</span>
                       </label>
                     ))
                 )}

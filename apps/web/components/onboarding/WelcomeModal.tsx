@@ -102,7 +102,7 @@ export default function WelcomeModal() {
                 key={i}
                 className={cn(
                   "h-1.5 w-1.5 rounded-full transition-colors",
-                  i === step ? "bg-ping-purple" : "bg-white/20"
+                  i === step ? "bg-ping-purple" : "bg-foreground/20"
                 )}
               />
             ))}

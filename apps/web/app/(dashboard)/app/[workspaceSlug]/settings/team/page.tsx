@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { UserPlus, MoreHorizontal, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Copy, Check } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { avatarGradient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import {
@@ -55,7 +56,7 @@ function mapStatus(status: "active" | "invited" | "deactivated"): Status {
 
 const roleConfig: Record<Role, { label: string; className: string }> = {
   admin:  { label: "Admin",  className: "border-ping-purple/40 bg-ping-purple/10 text-ping-purple" },
-  member: { label: "Member", className: "border-white/15 bg-white/5 text-white/60" },
+  member: { label: "Member", className: "border-foreground/15 bg-foreground/5 text-foreground/60" },
 };
 
 const statusConfig: Record<Status, { dot: "online" | "pending" | "offline"; label: string }> = {
@@ -190,7 +191,7 @@ export default function TeamPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleSync}
-            className="flex items-center gap-1.5 rounded border border-subtle px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/10 hover:text-foreground"
+            className="flex items-center gap-1.5 rounded border border-subtle px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/10 hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             Sync
@@ -238,10 +239,10 @@ export default function TeamPage() {
               <button
                 key={key}
                 onClick={() => toggleSort(key)}
-                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-white/25 transition-colors hover:text-white/50 cursor-pointer"
+                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-foreground/25 transition-colors hover:text-foreground/50 cursor-pointer"
               >
                 {label}
-                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-white/40" : "text-white/15")} />
+                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-foreground/40" : "text-foreground/15")} />
               </button>
             );
           })}
@@ -268,7 +269,7 @@ export default function TeamPage() {
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Avatar className="h-6 w-6 shrink-0">
-                  <AvatarFallback className="bg-surface-3 text-2xs font-medium text-foreground">
+                  <AvatarFallback className={`text-2xs font-medium text-white bg-gradient-to-br ${avatarGradient(member.id + member.initials)}`}>
                     {member.initials}
                   </AvatarFallback>
                 </Avatar>
@@ -288,7 +289,7 @@ export default function TeamPage() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex h-6 w-6 items-center justify-center rounded text-white/25 transition-colors hover:bg-surface-3 hover:text-foreground">
+                  <button className="flex h-6 w-6 items-center justify-center rounded text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </button>
                 </DropdownMenuTrigger>
@@ -307,7 +308,7 @@ export default function TeamPage() {
                       Resend invite (coming soon)
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuSeparator className="bg-foreground/5" />
                   <DropdownMenuItem
                     className="text-xs text-destructive focus:text-destructive cursor-pointer"
                     onClick={() => { setDeprovisionTarget(member); setDeprovisionOpen(true); }}
@@ -321,7 +322,7 @@ export default function TeamPage() {
         })}
       </div>
 
-      <p className="mt-3 text-2xs text-white/20">
+      <p className="mt-3 text-2xs text-foreground/20">
         {members.length} total members · Real-time sync via Convex
       </p>
 
@@ -340,7 +341,7 @@ export default function TeamPage() {
                   "flex w-full items-center justify-between rounded border px-3 py-2 text-xs transition-colors",
                   roleTarget?.role === r
                     ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                    : "border-subtle bg-surface-3 text-foreground hover:border-white/10"
+                    : "border-subtle bg-surface-3 text-foreground hover:border-foreground/10"
                 )}
               >
                 <span className="capitalize font-medium">{r}</span>
@@ -447,7 +448,7 @@ export default function TeamPage() {
           ) : (
             <div className="space-y-3 pt-1">
               <div>
-                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
                   Email address
                 </label>
                 <input
@@ -455,11 +456,11 @@ export default function TeamPage() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@company.com"
-                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
+                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
+                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-foreground/40">
                   Role
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -471,7 +472,7 @@ export default function TeamPage() {
                         "rounded border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
                         inviteRole === r
                           ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                          : "border-subtle bg-surface-3 text-muted-foreground hover:border-white/10"
+                          : "border-subtle bg-surface-3 text-muted-foreground hover:border-foreground/10"
                       )}
                     >
                       {r}

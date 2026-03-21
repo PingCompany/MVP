@@ -81,7 +81,7 @@ export function AlertBanner({
           </div>
           <button
             onClick={onDismiss}
-            className="shrink-0 rounded p-0.5 text-white/30 hover:bg-surface-3 hover:text-foreground"
+            className="shrink-0 rounded p-0.5 text-foreground/30 hover:bg-surface-3 hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>
@@ -101,7 +101,7 @@ export function AlertBanner({
                   "rounded px-2 py-1 text-2xs font-medium transition-colors",
                   action.primary
                     ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                    : "bg-surface-3 text-foreground hover:bg-white/10"
+                    : "bg-surface-3 text-foreground hover:bg-foreground/10"
                 )}
               >
                 {action.label}

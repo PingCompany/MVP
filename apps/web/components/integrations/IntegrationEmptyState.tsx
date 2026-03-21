@@ -19,7 +19,7 @@ export function IntegrationEmptyState({
 }: IntegrationEmptyStateProps) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-subtle bg-surface-1 px-6 py-6 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/5">
         <Icon className="h-5 w-5 text-muted-foreground" />
       </div>
 

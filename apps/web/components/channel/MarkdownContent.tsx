@@ -72,7 +72,7 @@ const components: Components = {
     }
 
     return (
-      <code className="rounded border border-white/8 bg-white/8 px-1 py-0.5 text-[12px] font-mono text-pink-300/90">
+      <code className="rounded border border-foreground/8 bg-foreground/8 px-1 py-0.5 text-[12px] font-mono text-pink-300/90">
         {children}
       </code>
     );
@@ -161,25 +161,25 @@ const components: Components = {
 
   // Horizontal rule
   hr() {
-    return <hr className="my-2 border-white/8" />;
+    return <hr className="my-2 border-foreground/8" />;
   },
 
   // Tables
   table({ children }) {
     return (
-      <div className="my-2 overflow-x-auto rounded border border-white/8">
+      <div className="my-2 overflow-x-auto rounded border border-foreground/8">
         <table className="w-full text-sm">{children}</table>
       </div>
     );
   },
   thead({ children }) {
-    return <thead className="border-b border-white/8 bg-white/4">{children}</thead>;
+    return <thead className="border-b border-foreground/8 bg-foreground/4">{children}</thead>;
   },
   th({ children }) {
     return <th className="px-3 py-1.5 text-left text-2xs font-semibold text-foreground/80">{children}</th>;
   },
   td({ children }) {
-    return <td className="border-t border-white/4 px-3 py-1.5 text-foreground/70">{children}</td>;
+    return <td className="border-t border-foreground/4 px-3 py-1.5 text-foreground/70">{children}</td>;
   },
 
   // Strikethrough

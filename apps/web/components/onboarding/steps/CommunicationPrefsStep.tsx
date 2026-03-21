@@ -60,7 +60,7 @@ export function CommunicationPrefsStep({ onNext }: CommunicationPrefsStepProps) 
 
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Timezone
           </label>
           <Input
@@ -72,7 +72,7 @@ export function CommunicationPrefsStep({ onNext }: CommunicationPrefsStepProps) 
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Preferred Working Hours
           </label>
           <Input
@@ -84,7 +84,7 @@ export function CommunicationPrefsStep({ onNext }: CommunicationPrefsStepProps) 
         </div>
 
         <div className="space-y-2">
-          <label className="text-2xs font-medium uppercase tracking-widest text-white/40">
+          <label className="text-2xs font-medium uppercase tracking-widest text-foreground/40">
             Response Time Goal
           </label>
           <div className="flex flex-wrap gap-2">
@@ -97,7 +97,7 @@ export function CommunicationPrefsStep({ onNext }: CommunicationPrefsStepProps) 
                   "rounded-full border px-3 py-1 text-xs transition-colors",
                   responseTimeGoal === option
                     ? "border-ping-purple bg-ping-purple/15 text-ping-purple"
-                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-white/20",
+                    : "border-subtle bg-surface-2 text-muted-foreground hover:border-foreground/20",
                 )}
               >
                 {option}

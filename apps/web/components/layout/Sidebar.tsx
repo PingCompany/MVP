@@ -7,7 +7,6 @@ import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import {
   Inbox,
-  Hash,
   Plus,
   Search,
   Users,
@@ -128,7 +127,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
       setNewChannelPrivate(false);
       setAddChannelOpen(false);
       router.push(`/channel/${channelId}`);
-    } catch (e: any) {
+    } catch {
       // Channel name taken — ignore
     }
   };

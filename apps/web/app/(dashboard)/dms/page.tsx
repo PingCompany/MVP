@@ -152,7 +152,6 @@ export default function DMsPage() {
         <div>
           {conversations.map((conv) => {
             const kindConf = KIND_CONFIG[conv.kind as ConversationKind];
-            const KindIcon = kindConf.icon;
             const otherMembers = conv.members.filter(
               (m) => m.userId !== currentUser?._id,
             );

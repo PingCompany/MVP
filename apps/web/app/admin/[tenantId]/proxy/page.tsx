@@ -19,10 +19,6 @@ const MOCK_USERS = [
   { name: "M*** R***", email: "m***@acme.com", role: "Member", status: "active",  joined: "Mar 2024" },
 ];
 
-function obfuscate(value: string, show: boolean) {
-  return show ? value : value;
-}
-
 export default function ProxyPage({ params }: Props) {
   const { tenantId } = use(params);
   const [step, setStep] = useState<Step>("authorize");

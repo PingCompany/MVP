@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { InboxCard, type InboxItem, type EisenhowerQuadrant, QUADRANT_ORDER } from "@/components/inbox/InboxCard";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
 import { UnansweredQuestionCard } from "@/components/inbox/UnansweredQuestionCard";
@@ -69,15 +70,15 @@ export default function InboxPage() {
   }, [summaries, router, markReadMutation]);
 
   const handleMarkRead = (id: string) => {
-    markReadMutation({ summaryId: id as any });
+    markReadMutation({ summaryId: id as Id<"inboxSummaries"> });
   };
 
   const handleArchive = (id: string) => {
-    archiveMutation({ summaryId: id as any });
+    archiveMutation({ summaryId: id as Id<"inboxSummaries"> });
   };
 
   const handleDismissAlert = (alertId: string) => {
-    dismissAlertMutation({ alertId: alertId as any });
+    dismissAlertMutation({ alertId: alertId as Id<"proactiveAlerts"> });
   };
 
   const isLoading = summaries === undefined || drafts === undefined;

@@ -32,13 +32,6 @@ const EDGES = [
   ["n1", "n3"], ["gh", "lin"],
 ];
 
-const ICON_MAP = {
-  github:  GitBranch,
-  linear:  Zap,
-  chat:    MessageSquare,
-  pr:      GitPullRequest,
-};
-
 const STATS = [
   { label: "GitHub Events",    value: "2,847", color: "#E5E7EB", icon: GitBranch },
   { label: "Linear Tickets",   value: "1,203", color: "#5E6AD2", icon: Zap },

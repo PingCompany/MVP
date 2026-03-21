@@ -53,12 +53,19 @@ export default function InboxPage() {
         },
         ...(s.actionItems ?? []).map((ai) => ({
           label: ai.text,
-          onClick: () => toast(ai.text, "success"),
+          onClick: () => {
+            if (ai.integrationUrl) {
+              window.open(ai.integrationUrl, "_blank");
+            } else {
+              router.push(`/channel/${s.channelId}`);
+            }
+            markReadMutation({ summaryId: s._id });
+          },
         })),
       ],
       isRead: s.isRead,
     }));
-  }, [summaries, router, toast]);
+  }, [summaries, router, toast, markReadMutation]);
 
   const handleMarkRead = (id: string) => {
     markReadMutation({ summaryId: id as any });

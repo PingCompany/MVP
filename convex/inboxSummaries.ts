@@ -26,9 +26,23 @@ export const list = query({
     const enriched = await Promise.all(
       all.map(async (summary) => {
         const channel = await ctx.db.get(summary.channelId);
+
+        const actionItemsEnriched = summary.actionItems
+          ? await Promise.all(
+              summary.actionItems.map(async (ai) => {
+                if (ai.relatedIntegrationObjectId) {
+                  const obj = await ctx.db.get(ai.relatedIntegrationObjectId);
+                  return { ...ai, integrationUrl: obj?.url ?? null };
+                }
+                return { ...ai, integrationUrl: null as string | null };
+              }),
+            )
+          : undefined;
+
         return {
           ...summary,
           channelName: channel?.name ?? "unknown",
+          actionItems: actionItemsEnriched,
         };
       }),
     );

@@ -18,7 +18,7 @@ const SHORTCUTS = [
     { keys: ["⌥", "↓"], description: "Next channel / DM" },
     { keys: ["⌥", "⇧", "↑"], description: "Previous unread" },
     { keys: ["⌥", "⇧", "↓"], description: "Next unread" },
-    { keys: ["G", "I"], description: "Go to Inbox" },
+    { keys: ["G", "I"], description: "Go to My Deck" },
     { keys: ["G", "T"], description: "Go to Team settings" },
     { keys: ["G", "C"], description: "Go to first channel" },
     { keys: ["G", "D"], description: "Go to DMs" },

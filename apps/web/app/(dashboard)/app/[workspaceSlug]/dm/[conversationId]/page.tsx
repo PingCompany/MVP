@@ -130,6 +130,15 @@ export default function DMPage({ params }: Props) {
     setProfileUserId(authorId as Id<"users">);
   }, []);
 
+  const handleClickMention = useCallback((name: string) => {
+    const member = conversation?.members.find(
+      (m) => m.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (member) {
+      setProfileUserId(member.userId as Id<"users">);
+    }
+  }, [conversation?.members]);
+
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
     toast("Link copied", "success");
@@ -181,6 +190,7 @@ export default function DMPage({ params }: Props) {
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
         onClickAuthor={handleClickAuthor}
+        onClickMention={handleClickMention}
         highlightMessageId={highlightMessageId}
       />
 

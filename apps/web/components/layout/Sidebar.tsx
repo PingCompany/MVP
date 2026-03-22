@@ -24,6 +24,8 @@ import {
   Check,
   Sparkles,
   Bot,
+  Star,
+  AtSign,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -137,6 +139,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
     [onlineUsers],
   );
   const createChannel = useMutation(api.channels.create);
+  const toggleStar = useMutation(api.channels.toggleStar);
 
   const [addChannelOpen, setAddChannelOpen] = useState(false);
   const [browseChannelsOpen, setBrowseChannelsOpen] = useState(false);
@@ -152,7 +155,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
     if (!name) return;
     if (!workspaceId) return;
     try {
-      const channelId = await createChannel({ workspaceId, name });
+      const channelId = await createChannel({ workspaceId, name, isPrivate: newChannelPrivate });
       setNewChannelName("");
       setNewChannelPrivate(false);
       setAddChannelOpen(false);
@@ -184,8 +187,9 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
             channels={channels}
             user={user}
             onlineUserIds={onlineUserIds}
-            onNewDm={() => { setNewDmOpen(true); setDmUserSearch(""); }}
-            onNewChannel={() => setAddChannelOpen(true)}
+            onNewDm={() => router.push(buildPath("/dms?new=1"))}
+            onNewChannel={() => router.push(buildPath("/channels?new=1"))}
+            onToggleStar={(channelId) => toggleStar({ channelId: channelId as any })}
           />
         )}
       </nav>
@@ -407,6 +411,76 @@ interface MainNavProps {
   onlineUserIds: Set<string>;
   onNewDm: () => void;
   onNewChannel: () => void;
+  onToggleStar: (channelId: string) => void;
+}
+
+function ConvLink({
+  conv,
+  user,
+  onlineUserIds,
+  pathname,
+  buildPath,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conv: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  user: any;
+  onlineUserIds: Set<string>;
+  pathname: string;
+  buildPath: (p: string) => string;
+}) {
+  const otherMembers = conv.members.filter(
+    (m: { userId: string }) => m.userId !== user?._id,
+  );
+  const displayName =
+    conv.name || otherMembers.map((m: { name: string }) => m.name).join(", ") || "DM";
+  const isActive = pathname.endsWith(`/dm/${conv._id}`);
+
+  let ConvIcon: React.ReactNode;
+  if (conv.kind === "agent_group") {
+    ConvIcon = (
+      <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+        <Users className="h-3.5 w-3.5 text-foreground/30" />
+        <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
+      </div>
+    );
+  } else if (conv.kind === "agent_1to1") {
+    ConvIcon = (
+      <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+        <User className="h-3.5 w-3.5 text-foreground/30" />
+        <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
+      </div>
+    );
+  } else if (conv.kind === "group") {
+    ConvIcon = <Users className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+  } else {
+    ConvIcon = <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+  }
+
+  return (
+    <Link
+      href={buildPath(`/dm/${conv._id}`)}
+      className={cn(
+        "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+        "transition-colors duration-100",
+        isActive
+          ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+          : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
+      )}
+    >
+      {ConvIcon}
+      <StatusDot
+        variant={otherMembers.some((m: { userId: string }) => onlineUserIds.has(m.userId)) ? "online" : "offline"}
+        size="xs"
+      />
+      <span className="flex-1 truncate">{displayName}</span>
+      {conv.unreadCount > 0 && (
+        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
+          {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+        </span>
+      )}
+    </Link>
+  );
 }
 
 function MainNav({
@@ -420,17 +494,28 @@ function MainNav({
   onlineUserIds,
   onNewDm,
   onNewChannel,
+  onToggleStar,
 }: MainNavProps) {
   // Combine inbox unread + email unread for the Decision Inbox badge
   const totalInboxUnread = (inboxUnread ?? 0) + (emailUnread ?? 0);
 
+  // Sort channels: starred first, then alphabetical
+  const sortedChannels = useMemo(() => {
+    if (!channels) return undefined;
+    return [...channels].sort((a, b) => {
+      if (a.isStarred && !b.isStarred) return -1;
+      if (!a.isStarred && b.isStarred) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [channels]);
+
   return (
     <>
-      {/* Decision Inbox */}
+      {/* My Deck */}
       <NavItem
         href={buildPath("/inbox")}
         icon={Inbox}
-        label="Decision Inbox"
+        label="My Deck"
         badge={totalInboxUnread}
         kbd="G I"
         isActive={pathname.endsWith("/inbox")}
@@ -452,66 +537,21 @@ function MainNav({
       />
 
       {dmConversations &&
-        dmConversations.slice(0, 8).map((conv) => {
-          const otherMembers = conv.members.filter(
-            (m: { userId: string }) => m.userId !== user?._id,
-          );
-          const displayName =
-            conv.name || otherMembers.map((m: { name: string }) => m.name).join(", ") || "DM";
-          const isActive = pathname.endsWith(`/dm/${conv._id}`);
-
-          // 5 icon types based on conversation kind
-          let ConvIcon: React.ReactNode;
-          if (conv.kind === "agent_group") {
-            ConvIcon = (
-              <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                <Users className="h-3.5 w-3.5 text-foreground/30" />
-                <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
-              </div>
-            );
-          } else if (conv.kind === "agent_1to1") {
-            ConvIcon = (
-              <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                <User className="h-3.5 w-3.5 text-foreground/30" />
-                <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
-              </div>
-            );
-          } else if (conv.kind === "group") {
-            ConvIcon = <Users className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
-          } else {
-            ConvIcon = <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
-          }
-
-          return (
-            <Link
-              key={conv._id}
-              href={buildPath(`/dm/${conv._id}`)}
-              className={cn(
-                "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                "transition-colors duration-100",
-                isActive
-                  ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                  : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
-              )}
-            >
-              {ConvIcon}
-              <StatusDot
-                variant={otherMembers.some((m: { userId: string }) => onlineUserIds.has(m.userId)) ? "online" : "offline"}
-                size="xs"
-              />
-              <span className="flex-1 truncate">{displayName}</span>
-              {conv.unreadCount > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
-                  {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        dmConversations.slice(0, 8).map((conv) => (
+          <ConvLink
+            key={conv._id}
+            conv={conv}
+            user={user}
+            onlineUserIds={onlineUserIds}
+            pathname={pathname}
+            buildPath={buildPath}
+          />
+        ))}
 
       {/* Channels */}
       <SectionHeader
         label="Channels"
+        href={buildPath("/channels")}
         action={
           <button
             onClick={onNewChannel}
@@ -522,7 +562,7 @@ function MainNav({
         }
       />
 
-      {channels === undefined ? (
+      {sortedChannels === undefined ? (
         <>
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex h-7 items-center gap-2 rounded px-2">
@@ -532,23 +572,48 @@ function MainNav({
           ))}
         </>
       ) : (
-        channels.map((channel) => {
+        sortedChannels.map((channel) => {
           const isActive = pathname.endsWith(`/channel/${channel._id}`);
           return (
             <Link
               key={channel._id}
               href={buildPath(`/channel/${channel._id}`)}
               className={cn(
-                "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                "group/ch relative flex h-7 items-center gap-2 rounded px-2 text-sm",
                 "transition-colors duration-100",
                 isActive
                   ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
                   : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
               )}
             >
-              <span className="text-2xs font-medium text-foreground/30">#</span>
+              <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                {channel.isPrivate ? (
+                  <Lock className="h-3 w-3 text-foreground/30" />
+                ) : (
+                  <span className="text-2xs font-medium text-foreground/30">#</span>
+                )}
+              </span>
               <span className="flex-1 truncate">{channel.name}</span>
-              {channel.unreadCount > 0 && (
+              {channel.isMember && (
+                <Star
+                  className={cn(
+                    "h-3 w-3 shrink-0 cursor-pointer transition-opacity",
+                    channel.isStarred
+                      ? "fill-yellow-400 text-yellow-400 opacity-100"
+                      : "text-foreground/20 opacity-0 group-hover/ch:opacity-100",
+                  )}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleStar(channel._id); }}
+                />
+              )}
+              {/* @ mention indicator */}
+              {channel.unreadMentionCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
+                  <AtSign className="h-2.5 w-2.5 mr-0.5" />
+                  {channel.unreadMentionCount}
+                </span>
+              )}
+              {/* Unread count (show separately from mentions) */}
+              {channel.unreadCount > 0 && channel.unreadMentionCount === 0 && (
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
                   {channel.unreadCount}
                 </span>

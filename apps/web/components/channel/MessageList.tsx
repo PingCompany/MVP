@@ -41,9 +41,10 @@ interface MessageItemProps {
   onEditMessage?: (messageId: string, newBody: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onClickAuthor?: (authorId: string) => void;
+  onClickMention?: (name: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor, onClickMention }: MessageItemProps) {
   const isBot = message.type === "bot";
   const hasThread = (message.threadReplyCount ?? 0) > 0;
   const isThreadReplyInFeed = message.threadId && message.alsoSentToChannel;
@@ -224,6 +225,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
               "text-sm leading-relaxed",
               isBot ? "text-foreground" : "text-foreground/90"
             )}
+            onClickMention={onClickMention}
           />
         )}
 
@@ -387,6 +389,8 @@ interface MessageListProps {
   onDeleteMessage?: (messageId: string) => void;
   /** Called when user clicks an author's name/avatar to view their profile */
   onClickAuthor?: (authorId: string) => void;
+  /** Called when user clicks a @mention pill to view that user's profile */
+  onClickMention?: (name: string) => void;
   /** When set, scrolls to and highlights this message */
   highlightMessageId?: string | null;
 }
@@ -408,6 +412,7 @@ export function MessageList({
   onEditMessage,
   onDeleteMessage,
   onClickAuthor,
+  onClickMention,
   highlightMessageId,
 }: MessageListProps) {
   const [showNewMessages, setShowNewMessages] = useState(false);
@@ -534,25 +539,7 @@ export function MessageList({
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Utility toolbar — channels only */}
-      {!isDM && (
-        <div className="flex items-center gap-1 border-b border-subtle px-3 py-1">
-          <button className="flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground">
-            <Pin className="h-3 w-3" />
-            Pinned
-          </button>
-          <button className="flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground">
-            <Bot className="h-3 w-3" />
-            Agents
-          </button>
-          <button className="flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground">
-            <Users className="h-3 w-3" />
-            Members
-          </button>
-        </div>
-      )}
-
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -630,6 +617,7 @@ export function MessageList({
                     onEditMessage={onEditMessage}
                     onDeleteMessage={onDeleteMessage}
                     onClickAuthor={onClickAuthor}
+                    onClickMention={onClickMention}
                   />
                 </div>
               );
@@ -657,7 +645,7 @@ export function MessageList({
 
       {/* Composer */}
       {onSend && (
-        <div className="border-t border-subtle p-3">
+        <div className="shrink-0 min-w-0 border-t border-subtle p-3">
           <RichTextComposer
             ref={composerRef}
             placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}

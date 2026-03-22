@@ -11,9 +11,10 @@ import { SearchField } from "./SearchField";
 /** Still used by DashboardShell for document.title */
 export function titleFromPath(pathname: string): string | null {
   const p = pathname.replace(/^\/app\/[^/]+/, "");
-  if (p === "/inbox" || p === "") return "Inbox";
+  if (p === "/inbox" || p === "") return "My Deck";
   if (p === "/dms") return "Direct Messages";
   if (p.startsWith("/dm/")) return "Direct Message";
+  if (p === "/channels") return "Channels";
   if (p.startsWith("/channel/")) return null;
   if (p === "/settings/profile") return "Profile";
   if (p === "/settings/workspace") return "Workspace";
@@ -77,11 +78,13 @@ export function TopBar({
       <div className="flex-1 min-w-0 hidden">
         <Breadcrumbs channelName={channelName} conversationName={conversationName} />
       </div>
-      <div className="flex-1" />
-
-      {/* Right: search + trailing */}
-      <div className="flex items-center gap-2 shrink-0 ml-2">
+      {/* Center: search bar */}
+      <div className="flex-1 flex justify-center px-4">
         <SearchField onOpenSearch={onOpenSearch} />
+      </div>
+
+      {/* Right: trailing actions */}
+      <div className="flex items-center gap-2 shrink-0 ml-2">
         {trailing}
       </div>
     </header>

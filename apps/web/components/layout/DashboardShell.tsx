@@ -296,7 +296,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           />
 
           {/* Below topbar: sidebar + content */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex min-w-0 flex-1 overflow-hidden">
             {/* Mobile overlay */}
             {sidebarOpen && (
               <div
@@ -322,7 +322,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             {/* Resize handle (desktop only) */}
             {sidebarOpen && (
               <div
-                className="hidden md:flex shrink-0 w-1 cursor-col-resize items-center justify-center hover:bg-ping-purple/20 active:bg-ping-purple/30 transition-colors"
+                className="hidden md:flex shrink-0 w-0 cursor-col-resize items-center justify-center relative z-10 after:absolute after:inset-y-0 after:-left-1 after:w-2 after:transition-colors hover:after:bg-ping-purple/20 active:after:bg-ping-purple/30"
                 onMouseDown={handleResizeStart}
                 onDoubleClick={() => setSidebarWidth(SIDEBAR_WIDTH_DEFAULT)}
               />
@@ -342,8 +342,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </aside>
 
             {/* Main content + Thread panel */}
-            <div className="flex flex-1 overflow-hidden">
-              <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
+            <div className="flex min-w-0 flex-1 overflow-hidden">
+              <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
               <ThreadPanelSlot />
             </div>
           </div>

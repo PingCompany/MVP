@@ -55,7 +55,7 @@ function getSegments(
   channelName?: string | null,
   conversationName?: string | null,
 ): Segment[] {
-  if (p === "/inbox" || p === "") return [{ label: "Decision Inbox" }];
+  if (p === "/inbox" || p === "") return [{ label: "My Deck" }];
   if (p === "/dms") return [{ label: "Communication" }];
   if (p === "/email") return [{ label: "Communication" }];
 

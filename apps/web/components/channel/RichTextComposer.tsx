@@ -457,7 +457,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
     }, [editor, onSend]);
 
     return (
-      <div ref={composerRef} className={cn("relative rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
+      <div ref={composerRef} className={cn("relative min-w-0 rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
         {/* Mention popover */}
         <MentionPopover
           query={mentionQuery}
@@ -467,7 +467,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
           onDismiss={closeMention}
         />
 
-        <div className="px-3 py-2">
+        <div className="overflow-hidden px-3 py-2">
           <EditorContent editor={editor} />
         </div>
 

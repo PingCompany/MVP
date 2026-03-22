@@ -6,12 +6,15 @@ import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
+import { ChannelTopBar } from "@/components/channel/ChannelTopBar";
 import { AlertBanner } from "@/components/proactive/AlertBanner";
 import { UserProfileDialog } from "@/components/user/UserProfileDialog";
-import { useTopBar } from "@/hooks/useTopBar";
 import { useChannelTyping } from "@/hooks/useTyping";
 import { useThreadPanel } from "@/hooks/useThreadPanel";
 import { useReactions } from "@/hooks/useReactions";
+import { useToast } from "@/components/ui/toast-provider";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { useRouter } from "next/navigation";
 
 function getInitials(name: string): string {
   return name
@@ -45,13 +48,17 @@ export default function ChannelPage({ params }: Props) {
   const deleteMessage = useMutation(api.messages.remove);
   const markRead = useMutation(api.channels.markRead);
   const memberCount = useQuery(api.channels.memberCount, isAuthenticated ? { channelId: typedChannelId } : "skip");
+  const channelMembers = useQuery(api.channels.listMembers, isAuthenticated ? { channelId: typedChannelId } : "skip");
   const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
   const dismissAlert = useMutation(api.proactiveAlerts.dismiss);
+  const leaveChannel = useMutation(api.channels.leave);
+  const toggleStar = useMutation(api.channels.toggleStar);
   const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId, isMember);
   const { openThreadPanel, closeThreadPanel } = useThreadPanel();
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
-
-  const { setSubtitle } = useTopBar();
+  const { toast } = useToast();
+  const router = useRouter();
+  const { buildPath } = useWorkspace();
 
   useEffect(() => {
     if (!isAuthenticated || !isMember) return;
@@ -63,17 +70,20 @@ export default function ChannelPage({ params }: Props) {
     closeThreadPanel();
   }, [channelId, closeThreadPanel]);
 
-  // Inject member count into TopBar
-  useEffect(() => {
-    if (memberCount !== undefined) {
-      setSubtitle(
-        <span className="rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground">
-          {memberCount} member{memberCount !== 1 ? "s" : ""}
-        </span>,
-      );
-    }
-    return () => setSubtitle(null);
-  }, [memberCount, setSubtitle]);
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    toast("Link copied", "success");
+  }, [toast]);
+
+  const handleLeave = useCallback(async () => {
+    await leaveChannel({ channelId: typedChannelId });
+    toast("Left channel", "success");
+    router.push(buildPath("/channels"));
+  }, [leaveChannel, typedChannelId, toast, router, buildPath]);
+
+  const handleToggleStar = useCallback(() => {
+    toggleStar({ channelId: typedChannelId });
+  }, [toggleStar, typedChannelId]);
 
   const messages: Message[] = useMemo(() => {
     if (!results) return [];
@@ -146,8 +156,31 @@ export default function ChannelPage({ params }: Props) {
     setProfileUserId(authorId as Id<"users">);
   }, []);
 
+  const handleClickMention = useCallback((name: string) => {
+    // Find user by name from channel members
+    const member = channelMembers?.find(
+      (m) => m.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (member) {
+      setProfileUserId(member._id as Id<"users">);
+    }
+  }, [channelMembers]);
+
   return (
     <div className="relative flex h-full flex-col">
+      {channel && channelMembers && (
+        <ChannelTopBar
+          name={channel.name}
+          description={channel.description}
+          members={channelMembers}
+          memberCount={memberCount ?? channelMembers.length}
+          isStarred={channel.isStarred ?? false}
+          isPrivate={channel.isPrivate ?? false}
+          onToggleStar={handleToggleStar}
+          onCopyLink={handleCopyLink}
+          onLeave={handleLeave}
+        />
+      )}
       <MessageList
         channelName={channel?.name ?? channelId}
         messages={messages}
@@ -162,6 +195,7 @@ export default function ChannelPage({ params }: Props) {
         onEditMessage={isMember ? handleEditMessage : undefined}
         onDeleteMessage={isMember ? handleDeleteMessage : undefined}
         onClickAuthor={handleClickAuthor}
+        onClickMention={handleClickMention}
         highlightMessageId={highlightMessageId}
       />
 

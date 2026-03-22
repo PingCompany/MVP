@@ -7,7 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { InboxCard, type InboxItem, type EisenhowerQuadrant, type PriorityLevel, QUADRANT_ORDER } from "@/components/inbox/InboxCard";
 import { DecisionCard, type DecisionItem, type OrgTracePerson } from "@/components/inbox/DecisionCard";
-import { DecisionModal } from "@/components/inbox/DecisionModal";
+import { InboxModal, type ModalItem } from "@/components/inbox/InboxModal";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
 import { UnansweredQuestionCard } from "@/components/inbox/UnansweredQuestionCard";
 import { CheckCircle2, Loader2, FlaskConical, ChevronDown, Check } from "lucide-react";
@@ -30,6 +30,38 @@ const QUADRANT_TO_PRIORITY: Record<EisenhowerQuadrant, PriorityLevel> = {
   "fyi":              "low",
 };
 
+// ── Quadrant pill config (for header filter pills) ──
+const QUADRANT_PILL_CONFIG: Record<
+  EisenhowerQuadrant,
+  { label: string; bg: string; text: string; activeBg: string; activeText: string; border: string; dot: string }
+> = {
+  "urgent-important": {
+    label: "Do",
+    bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
+    activeBg: "bg-priority-urgent/15", activeText: "text-priority-urgent",
+    border: "border-priority-urgent/30", dot: "bg-priority-urgent",
+  },
+  "important": {
+    label: "Decide",
+    bg: "bg-priority-important/8", text: "text-priority-important/60",
+    activeBg: "bg-priority-important/15", activeText: "text-priority-important",
+    border: "border-priority-important/30", dot: "bg-priority-important",
+  },
+  "urgent": {
+    label: "Delegate",
+    bg: "bg-blue-500/8", text: "text-blue-400/60",
+    activeBg: "bg-blue-500/15", activeText: "text-blue-400",
+    border: "border-blue-500/30", dot: "bg-blue-400",
+  },
+  "fyi": {
+    label: "Skip",
+    bg: "bg-foreground/4", text: "text-foreground/25",
+    activeBg: "bg-foreground/8", activeText: "text-foreground/40",
+    border: "border-foreground/15", dot: "bg-foreground/20",
+  },
+};
+
+// ── Priority dropdown config ──
 const PRIORITY_ORDER: PriorityLevel[] = ["urgent", "high", "medium", "low"];
 
 const PRIORITY_CONFIG: Record<
@@ -62,6 +94,42 @@ const PRIORITY_CONFIG: Record<
   },
 };
 
+// ── Item → ModalItem builders ──
+function decisionToModalItem(d: DecisionItem): ModalItem {
+  return {
+    id: d.id,
+    kind: "decision",
+    title: d.title,
+    summary: d.summary,
+    priority: d.priority,
+    channelName: d.channelName,
+    createdAt: d.createdAt,
+    eisenhowerQuadrant: d.eisenhowerQuadrant,
+    decisionType: d.type,
+    orgTrace: d.orgTrace,
+    nextSteps: d.nextSteps,
+    recommendedActions: d.recommendedActions,
+    links: d.links,
+    relatedDecisionIds: d.relatedDecisionIds,
+    agentExecutionStatus: d.agentExecutionStatus,
+  };
+}
+
+function inboxToModalItem(item: InboxItem): ModalItem {
+  return {
+    id: item.id,
+    kind: "summary",
+    title: item.summary,
+    summary: item.context,
+    priority: item.priority,
+    channelName: item.channel,
+    createdAt: item.timestamp,
+    eisenhowerQuadrant: item.quadrant,
+    decisionType: "channel_summary",
+    quickActions: item.actions,
+  };
+}
+
 export default function InboxPage() {
   const router = useRouter();
   const { buildPath } = useWorkspace();
@@ -79,10 +147,12 @@ export default function InboxPage() {
   const seedDecisionsMutation = useMutation(api.seed.seedDecisions);
   const clearSeedMutation = useMutation(api.seed.clearSeedDecisions);
 
-  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
+  const [openItem, setOpenItem] = useState<{ kind: "decision" | "summary"; id: string } | null>(null);
   const [focusMode, setFocusMode] = useState(false);
 
-  // Priority filter — empty = show all
+  // Quadrant filter (pills) — empty = show all
+  const [selectedQuadrants, setSelectedQuadrants] = useState<Set<EisenhowerQuadrant>>(new Set());
+  // Priority filter (dropdown) — empty = show all
   const [selectedPriorities, setSelectedPriorities] = useState<Set<PriorityLevel>>(new Set());
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -97,6 +167,14 @@ export default function InboxPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [dropdownOpen]);
+
+  const toggleQuadrant = (q: EisenhowerQuadrant) => {
+    setSelectedQuadrants((prev) => {
+      const next = new Set(prev);
+      if (next.has(q)) next.delete(q); else next.add(q);
+      return next;
+    });
+  };
 
   const togglePriority = (p: PriorityLevel) => {
     setSelectedPriorities((prev) => {
@@ -170,7 +248,17 @@ export default function InboxPage() {
     });
   }, [decisions]);
 
-  // Unfiltered counts per priority for pills
+  // Counts per quadrant (unfiltered) for pills
+  const quadrantCounts = useMemo(() => {
+    const counts: Record<EisenhowerQuadrant, number> = {
+      "urgent-important": 0, "important": 0, "urgent": 0, "fyi": 0,
+    };
+    for (const item of items) counts[item.quadrant]++;
+    for (const d of decisionItems) counts[d.eisenhowerQuadrant]++;
+    return counts;
+  }, [items, decisionItems]);
+
+  // Counts per priority (unfiltered) for dropdown
   const priorityCounts = useMemo(() => {
     const counts: Record<PriorityLevel, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
     for (const item of items) counts[item.priority]++;
@@ -229,12 +317,32 @@ export default function InboxPage() {
     return qDiff !== 0 ? qDiff : b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  // Apply priority filter
-  const activeFilter = selectedPriorities.size > 0;
-  const filteredItems = activeFilter ? sortedItems.filter((i) => selectedPriorities.has(i.priority)) : sortedItems;
-  const filteredDecisions = activeFilter ? sortedDecisions.filter((d) => selectedPriorities.has(d.priority)) : sortedDecisions;
+  // Apply both filters
+  const activeQuadrantFilter = selectedQuadrants.size > 0;
+  const activePriorityFilter = selectedPriorities.size > 0;
+  const activeFilter = activeQuadrantFilter || activePriorityFilter;
 
-  const openDecision = filteredDecisions.find((d) => d.id === openDecisionId) ?? null;
+  const filteredItems = sortedItems.filter((i) => {
+    if (activeQuadrantFilter && !selectedQuadrants.has(i.quadrant)) return false;
+    if (activePriorityFilter && !selectedPriorities.has(i.priority)) return false;
+    return true;
+  });
+  const filteredDecisions = sortedDecisions.filter((d) => {
+    if (activeQuadrantFilter && !selectedQuadrants.has(d.eisenhowerQuadrant)) return false;
+    if (activePriorityFilter && !selectedPriorities.has(d.priority)) return false;
+    return true;
+  });
+
+  // Find the open modal item (search all items, not just filtered, so modal stays open during filter changes)
+  const openModalItem: ModalItem | null = (() => {
+    if (!openItem) return null;
+    if (openItem.kind === "decision") {
+      const d = sortedDecisions.find((d) => d.id === openItem.id);
+      return d ? decisionToModalItem(d) : null;
+    }
+    const s = sortedItems.find((i) => i.id === openItem.id);
+    return s ? inboxToModalItem(s) : null;
+  })();
 
   return (
     <div className="animate-fade-in">
@@ -242,17 +350,17 @@ export default function InboxPage() {
       {/* ── Sticky header ── */}
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-subtle bg-background px-3 py-2">
 
-        {/* Priority filter pills */}
+        {/* Quadrant filter pills + Priority dropdown */}
         <div className="flex items-center gap-1">
-          {PRIORITY_ORDER.map((p) => {
-            const cfg = PRIORITY_CONFIG[p];
-            const count = priorityCounts[p];
-            const isActive = selectedPriorities.has(p);
-            const anyActive = activeFilter;
+          {QUADRANT_ORDER.map((q) => {
+            const cfg = QUADRANT_PILL_CONFIG[q];
+            const count = quadrantCounts[q];
+            const isActive = selectedQuadrants.has(q);
+            const anyActive = activeQuadrantFilter;
             return (
               <button
-                key={p}
-                onClick={() => togglePriority(p)}
+                key={q}
+                onClick={() => toggleQuadrant(q)}
                 className={cn(
                   "flex items-center gap-1.5 rounded border px-2 py-0.5 text-2xs font-medium transition-all",
                   isActive
@@ -269,7 +377,7 @@ export default function InboxPage() {
             );
           })}
 
-          {/* Labeled dropdown */}
+          {/* Priority dropdown */}
           <div className="relative ml-1" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
@@ -277,12 +385,15 @@ export default function InboxPage() {
                 "flex items-center gap-1 rounded border px-2 py-0.5 text-2xs font-medium transition-colors",
                 dropdownOpen
                   ? "border-white/15 bg-surface-2 text-foreground"
-                  : activeFilter
+                  : activePriorityFilter
                     ? "border-white/10 bg-surface-2/50 text-muted-foreground hover:bg-surface-2"
                     : "border-transparent text-foreground/20 hover:bg-surface-2 hover:text-muted-foreground",
               )}
             >
               Priority
+              {activePriorityFilter && (
+                <span className="flex h-1.5 w-1.5 rounded-full bg-ping-purple" />
+              )}
               <ChevronDown className={cn("h-3 w-3 transition-transform", dropdownOpen && "rotate-180")} />
             </button>
 
@@ -313,7 +424,7 @@ export default function InboxPage() {
                     </button>
                   );
                 })}
-                {activeFilter && (
+                {activePriorityFilter && (
                   <div className="border-t border-subtle px-3 py-1.5">
                     <button
                       onClick={() => { setSelectedPriorities(new Set()); setDropdownOpen(false); }}
@@ -399,12 +510,18 @@ export default function InboxPage() {
                 key={decision.id}
                 item={decision}
                 onAction={handleDecisionAction}
-                onOpen={() => { setOpenDecisionId(decision.id); setFocusMode(false); }}
-                onFocus={() => { setOpenDecisionId(decision.id); setFocusMode(true); }}
+                onOpen={() => { setOpenItem({ kind: "decision", id: decision.id }); setFocusMode(false); }}
+                onFocus={() => { setOpenItem({ kind: "decision", id: decision.id }); setFocusMode(true); }}
               />
             ))}
             {sectionItems.map((item) => (
-              <InboxCard key={item.id} item={item} onMarkRead={handleMarkRead} onArchive={handleArchive} />
+              <InboxCard
+                key={item.id}
+                item={item}
+                onMarkRead={handleMarkRead}
+                onArchive={handleArchive}
+                onOpen={() => { setOpenItem({ kind: "summary", id: item.id }); setFocusMode(false); }}
+              />
             ))}
           </div>
         );
@@ -413,22 +530,22 @@ export default function InboxPage() {
       {/* Empty state when filter returns nothing */}
       {activeFilter && filteredDecisions.length === 0 && filteredItems.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No items match the selected priority</p>
+          <p className="text-sm text-muted-foreground">No items match the selected filter</p>
           <button
-            onClick={() => setSelectedPriorities(new Set())}
+            onClick={() => { setSelectedQuadrants(new Set()); setSelectedPriorities(new Set()); }}
             className="text-xs text-foreground/40 underline-offset-2 hover:text-foreground hover:underline"
           >
-            Clear filter
+            Clear filters
           </button>
         </div>
       )}
 
-      {/* Decision modal */}
-      {openDecision && (
-        <DecisionModal
-          item={openDecision}
+      {/* Unified inbox modal */}
+      {openModalItem && (
+        <InboxModal
+          item={openModalItem}
           onAction={handleDecisionAction}
-          onClose={() => setOpenDecisionId(null)}
+          onClose={() => setOpenItem(null)}
           focusMode={focusMode}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
         />
@@ -439,9 +556,9 @@ export default function InboxPage() {
 
 function SectionHeader({ label, count }: { label: string; count: number }) {
   return (
-    <div className="sticky top-[41px] z-10 flex items-center gap-2 border-b border-subtle bg-background/90 px-4 py-1.5 backdrop-blur-sm">
-      <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">{label}</span>
-      <span className="text-2xs tabular-nums text-foreground/20">{count}</span>
+    <div className="sticky top-[41px] z-10 flex items-center gap-2 border-b border-subtle bg-background/95 px-4 py-2.5 backdrop-blur-sm">
+      <span className="text-xs font-semibold uppercase tracking-wider text-foreground/50">{label}</span>
+      <span className="text-2xs tabular-nums text-foreground/30">{count}</span>
     </div>
   );
 }

@@ -64,8 +64,7 @@ interface GLink {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-const KNOWLEDGE_ENGINE_URL =
-  process.env.NEXT_PUBLIC_KNOWLEDGE_ENGINE_URL ?? "http://localhost:8001";
+const GRAPH_API_URL = "/api/knowledge-graph";
 
 const TYPE_COLORS: Record<string, string> = {
   Person: "#3B82F6",
@@ -153,7 +152,7 @@ export default function KnowledgeGraphPage() {
   const fetchGraph = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${KNOWLEDGE_ENGINE_URL}/graph?limit=200`);
+      const res = await fetch(`${GRAPH_API_URL}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 

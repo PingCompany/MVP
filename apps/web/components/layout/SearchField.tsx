@@ -13,10 +13,10 @@ export function SearchField({ onOpenSearch }: SearchFieldProps) {
       {/* Desktop: full search bar */}
       <button
         onClick={onOpenSearch}
-        className="hidden items-center gap-2 rounded-lg border border-subtle bg-surface-1 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground sm:flex"
+        className="hidden w-full max-w-[480px] items-center gap-2 rounded-lg border border-subtle bg-surface-1 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground sm:flex"
       >
-        <Search className="h-3.5 w-3.5" />
-        <span className="min-w-[120px] text-left">Search or ask AI...</span>
+        <Search className="h-3.5 w-3.5 shrink-0" />
+        <span className="flex-1 text-left">Search or ask AI...</span>
         <Kbd>⌘K</Kbd>
       </button>
 

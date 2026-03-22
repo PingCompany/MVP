@@ -191,6 +191,7 @@ const components: Components = {
 interface MarkdownContentProps {
   content: string;
   className?: string;
+  onClickMention?: (name: string) => void;
 }
 
 /** Split text into segments of plain text and @mentions */
@@ -214,7 +215,7 @@ function splitMentions(text: string): Array<{ type: "text"; value: string } | { 
 }
 
 /** Render inline text with @mention pills */
-function MentionText({ text }: { text: string }) {
+function MentionText({ text, onClickMention }: { text: string; onClickMention?: (name: string) => void }) {
   const parts = splitMentions(text);
   if (parts.length === 1 && parts[0].type === "text") return <>{text}</>;
 
@@ -222,12 +223,17 @@ function MentionText({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         part.type === "mention" ? (
-          <span
+          <button
             key={i}
-            className="inline-flex items-center rounded bg-ping-purple/15 px-1 py-px text-ping-purple font-medium"
+            type="button"
+            onClick={() => onClickMention?.(part.name)}
+            className={cn(
+              "inline-flex items-center rounded bg-ping-purple/15 px-1 py-px text-ping-purple font-medium",
+              onClickMention && "cursor-pointer hover:bg-ping-purple/25 transition-colors",
+            )}
           >
             @{part.name}
-          </span>
+          </button>
         ) : (
           <span key={i}>{part.value}</span>
         )
@@ -236,43 +242,50 @@ function MentionText({ text }: { text: string }) {
   );
 }
 
-/** Override the paragraph renderer to process mentions */
-const mentionComponents: Components = {
-  ...components,
-  p({ children }) {
-    // If children contains strings with @mentions, render them as pills
-    const processed = processChildren(children);
-    return <p className="mb-1 last:mb-0">{processed}</p>;
-  },
-  li({ children }) {
-    const processed = processChildren(children);
-    return <li className="text-sm leading-relaxed">{processed}</li>;
-  },
-};
+/** Build mention-aware components with an optional click handler */
+function buildMentionComponents(onClickMention?: (name: string) => void): Components {
+  function processChildren(children: React.ReactNode): React.ReactNode {
+    if (typeof children === "string") {
+      return <MentionText text={children} onClickMention={onClickMention} />;
+    }
+    if (Array.isArray(children)) {
+      return children.map((child, i) => {
+        if (typeof child === "string") return <MentionText key={i} text={child} onClickMention={onClickMention} />;
+        return child;
+      });
+    }
+    return children;
+  }
 
-function processChildren(children: React.ReactNode): React.ReactNode {
-  if (typeof children === "string") {
-    return <MentionText text={children} />;
-  }
-  if (Array.isArray(children)) {
-    return children.map((child, i) => {
-      if (typeof child === "string") return <MentionText key={i} text={child} />;
-      return child;
-    });
-  }
-  return children;
+  return {
+    ...components,
+    p({ children }) {
+      const processed = processChildren(children);
+      return <p className="mb-1 last:mb-0">{processed}</p>;
+    },
+    li({ children }) {
+      const processed = processChildren(children);
+      return <li className="text-sm leading-relaxed">{processed}</li>;
+    },
+  };
 }
+
+// Default components without click handler (for backwards compatibility)
+const defaultMentionComponents = buildMentionComponents();
 
 export const MarkdownContent = memo(function MarkdownContent({
   content,
   className,
+  onClickMention,
 }: MarkdownContentProps) {
+  const mentionComps = onClickMention ? buildMentionComponents(onClickMention) : defaultMentionComponents;
+
   return (
     <div className={cn("markdown-content", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={mentionComponents}
+        components={mentionComps}
       >
         {content}
       </ReactMarkdown>

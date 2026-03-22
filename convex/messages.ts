@@ -35,20 +35,35 @@ export const send = mutation({
 
     // Update sender's lastReadAt and reset their unreadCount,
     // then increment unreadCount for all other channel members.
+    // Also track @mention counts.
     const allMembers = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
       .collect();
 
-    for (const member of allMembers) {
+    // Resolve member names for mention detection
+    const memberUsers = await Promise.all(
+      allMembers.map(async (m) => {
+        const u = await ctx.db.get(m.userId);
+        return { membership: m, userName: u?.name ?? "" };
+      }),
+    );
+
+    const bodyLower = args.body.toLowerCase();
+
+    for (const { membership: member, userName } of memberUsers) {
       if (member.userId === user._id) {
         await ctx.db.patch(member._id, {
           lastReadAt: Date.now(),
           unreadCount: 0,
+          unreadMentionCount: 0,
         });
       } else {
+        // Check if this member is @mentioned
+        const isMentioned = userName && bodyLower.includes(`@${userName.toLowerCase()}`);
         await ctx.db.patch(member._id, {
           unreadCount: (member.unreadCount ?? 0) + 1,
+          ...(isMentioned ? { unreadMentionCount: (member.unreadMentionCount ?? 0) + 1 } : {}),
         });
       }
     }

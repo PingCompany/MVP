@@ -177,7 +177,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
   return (
     <div
       className={cn(
-        "group relative flex flex-col border-b border-subtle px-4 py-3",
+        "group relative flex flex-col border-b border-subtle px-4 py-4",
         "cursor-pointer transition-colors duration-75",
         hovered ? "bg-surface-2" : "bg-transparent"
       )}
@@ -188,7 +188,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
       {/* Priority left border */}
       <div
         className={cn(
-          "absolute left-0 top-3 bottom-3 rounded-r",
+          "absolute left-0 top-4 bottom-4 rounded-r",
           config.borderColor,
           config.borderWidth
         )}
@@ -196,7 +196,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
 
       {/* Pulse dot for Q1 urgent-important */}
       {config.pulse && (
-        <span className="absolute left-3 top-3 flex h-2 w-2">
+        <span className="absolute left-3 top-4 flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-priority-urgent opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-priority-urgent" />
         </span>
@@ -207,7 +207,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
         {/* Content */}
         <div className="min-w-0 flex-1 pl-1">
           {/* Header row */}
-          <div className="flex items-center gap-2 pb-0.5">
+          <div className="flex items-center gap-2 pb-1">
             <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <span className="text-2xs font-medium text-muted-foreground">{typeInfo.label}</span>
             <span className="text-2xs text-white/25">·</span>
@@ -237,15 +237,6 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
                   {item.agentExecutionStatus}
                 </span>
               )}
-              <span
-                className={cn(
-                  "rounded px-1.5 py-px text-2xs font-medium",
-                  config.bg,
-                  config.textColor
-                )}
-              >
-                {config.label}
-              </span>
               {item.sourceUrl && (
                 <a
                   href={item.sourceUrl}

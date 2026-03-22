@@ -57,7 +57,7 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
   return (
     <div
       className={cn(
-        "group relative flex gap-3 border-b border-subtle px-4 py-3",
+        "group relative flex gap-3 border-b border-subtle px-4 py-4",
         onOpen ? "cursor-pointer" : "cursor-default",
         "transition-colors duration-75",
         hovered ? "bg-surface-2" : "bg-transparent",
@@ -70,7 +70,7 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
       {/* Priority left border */}
       <div
         className={cn(
-          "absolute left-0 top-3 bottom-3 rounded-r",
+          "absolute left-0 top-4 bottom-4 rounded-r",
           config.borderColor,
           config.borderWidth
         )}
@@ -78,7 +78,7 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
 
       {/* Pulse dot for Q1 urgent-important */}
       {config.pulse && (
-        <span className="absolute left-3 top-3 flex h-2 w-2">
+        <span className="absolute left-3 top-4 flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-priority-urgent opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-priority-urgent" />
         </span>
@@ -94,7 +94,7 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
       {/* Content */}
       <div className={cn("min-w-0 flex-1", config.dimmed && "opacity-60")}>
         {/* Header row */}
-        <div className="flex items-center gap-2 pb-0.5">
+        <div className="flex items-center gap-2 pb-1">
           <span className="text-xs font-medium text-foreground">{item.author}</span>
           <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">#{item.channel}</span>
@@ -102,18 +102,6 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(item.timestamp)}
           </span>
-
-          <div className="ml-auto flex items-center gap-1">
-            <span
-              className={cn(
-                "rounded px-1.5 py-px text-2xs font-medium",
-                config.bg,
-                config.textColor
-              )}
-            >
-              {config.label}
-            </span>
-          </div>
         </div>
 
         {/* Summary */}
@@ -129,8 +117,7 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
         {/* Actions */}
         <div
           className={cn(
-            "mt-2 flex items-center gap-1.5 transition-all duration-150",
-            hovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
+            "mt-2 flex items-center gap-1.5"
           )}
           onClick={(e) => e.stopPropagation()}
         >

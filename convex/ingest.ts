@@ -115,6 +115,7 @@ export const processMessage = internalAction({
     const graphitiUrl =
       process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
     const retryCount = args.retryCount ?? 0;
+    console.log("[ingest] processMessage started:", args.messageId, "graphitiUrl:", graphitiUrl);
 
     const message = await ctx.runQuery(internal.ingest.getMessage, {
       messageId: args.messageId,
@@ -147,7 +148,7 @@ export const processMessage = internalAction({
             role_type: message.type === "bot" ? "assistant" : "user",
             role: message.authorName,
             timestamp: new Date(message.createdAt).toISOString(),
-            source_description: `channel:${message.channelName}`,
+            source_description: `channel - ${message.channelName}`,
             name: `${message.authorName} in #${message.channelName}`,
           },
         ],
@@ -201,6 +202,7 @@ export const processDirectMessage = internalAction({
     const graphitiUrl =
       process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
     const retryCount = args.retryCount ?? 0;
+    console.log("[ingest] processDirectMessage started:", args.messageId, "graphitiUrl:", graphitiUrl);
 
     const message = await ctx.runQuery(internal.ingest.getDirectMessage, {
       messageId: args.messageId,
@@ -235,7 +237,7 @@ export const processDirectMessage = internalAction({
             role_type: message.type === "bot" ? "assistant" : "user",
             role: message.authorName,
             timestamp: new Date(message.createdAt).toISOString(),
-            source_description: `dm:${message.conversationName}`,
+            source_description: `dm - ${message.conversationName}`,
             name: `${message.authorName} in ${message.conversationName}`,
           },
         ],
@@ -361,9 +363,9 @@ export const processIntegrationObject = internalAction({
             role_type: "user",
             role: obj.author,
             timestamp: new Date(obj.lastSyncedAt).toISOString(),
-            source_description: `integration:${obj.type}`,
+            source_description: `integration - ${obj.type}`,
             uuid: obj._id,
-            name: `${obj.type}:${obj.externalId}`,
+            name: `${obj.type} - ${obj.externalId}`,
           },
         ],
       }),
@@ -471,9 +473,9 @@ export const processDecision = internalAction({
             role_type: "user",
             role: decision.userName,
             timestamp: new Date(decision.createdAt).toISOString(),
-            source_description: `decision:${decision.type}`,
+            source_description: `decision - ${decision.type}`,
             uuid: decision._id,
-            name: `${decision.userName} decision:${decision.type}`,
+            name: `${decision.userName} decision - ${decision.type}`,
           },
         ],
       }),

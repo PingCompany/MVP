@@ -33,7 +33,7 @@ export function UnansweredQuestionCard({
   return (
     <div
       className={cn(
-        "group relative flex gap-3 border-b border-subtle px-4 py-3",
+        "group relative flex gap-3 border-b border-subtle px-4 py-4",
         "cursor-default transition-colors duration-75",
         hovered ? "bg-surface-2" : "bg-transparent"
       )}
@@ -41,7 +41,7 @@ export function UnansweredQuestionCard({
       onMouseLeave={() => setHovered(false)}
     >
       {/* Blue left border = Q3 Urgent */}
-      <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r bg-blue-500" />
+      <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-r bg-blue-500" />
 
       {/* Icon */}
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
@@ -51,7 +51,7 @@ export function UnansweredQuestionCard({
       {/* Content */}
       <div className="min-w-0 flex-1">
         {/* Header */}
-        <div className="flex items-center gap-2 pb-0.5">
+        <div className="flex items-center gap-2 pb-1">
           <span className="text-xs font-medium text-foreground">{title}</span>
           <span className="text-2xs text-foreground/25">·</span>
           <span className="text-2xs text-muted-foreground">#{channelName}</span>
@@ -59,11 +59,6 @@ export function UnansweredQuestionCard({
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(createdAt)}
           </span>
-          <div className="ml-auto">
-            <span className="rounded bg-blue-500/8 px-1.5 py-px text-2xs font-medium text-blue-400">
-              NEEDS ANSWER
-            </span>
-          </div>
         </div>
 
         {/* Body */}
@@ -75,8 +70,7 @@ export function UnansweredQuestionCard({
         {/* Actions */}
         <div
           className={cn(
-            "mt-2 flex items-center gap-1.5 transition-all duration-150",
-            hovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
+            "mt-2 flex items-center gap-1.5"
           )}
         >
           <button

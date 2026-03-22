@@ -75,6 +75,7 @@ export default defineSchema({
     createdBy: v.id("users"),
     isDefault: v.boolean(),
     isArchived: v.boolean(),
+    isPrivate: v.optional(v.boolean()),
     type: v.optional(v.union(v.literal("public"), v.literal("dm"), v.literal("group"))),
   })
     .index("by_workspace", ["workspaceId"])
@@ -85,6 +86,8 @@ export default defineSchema({
     userId: v.id("users"),
     lastReadAt: v.optional(v.number()),
     unreadCount: v.optional(v.number()),
+    unreadMentionCount: v.optional(v.number()),
+    isStarred: v.optional(v.boolean()),
   })
     .index("by_channel", ["channelId"])
     .index("by_user", ["userId"])

@@ -146,6 +146,8 @@
 /* Tiptap rich-text editor */
 .tiptap {
   outline: none;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .tiptap p {
   margin: 0;

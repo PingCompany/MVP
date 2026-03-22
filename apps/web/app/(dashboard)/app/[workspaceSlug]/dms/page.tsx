@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
@@ -134,8 +134,16 @@ export default function DMsPage() {
   const createConversation = useMutation(api.directConversations.create);
   const unarchiveConversation = useMutation(api.directConversations.unarchive);
 
+  const searchParams = useSearchParams();
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [newKind, setNewKind] = useState<ConversationKind>("1to1");
+
+  // Auto-open "New conversation" dialog when navigating with ?new=1
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setNewDmOpen(true);
+    }
+  }, [searchParams]);
   const [selectedUsers, setSelectedUsers] = useState<Id<"users">[]>([]);
   const [groupName, setGroupName] = useState("");
   const [showArchived, setShowArchived] = useState(false);

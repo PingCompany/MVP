@@ -10,7 +10,6 @@ import {
   Mail,
   Plus,
   Users,
-  Bot,
   GitBranch,
   BarChart2,
   Settings,
@@ -23,6 +22,8 @@ import {
   ArrowLeft,
   PanelLeftClose,
   Check,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -83,14 +84,24 @@ function NavItem({ href, icon: Icon, label, badge, kbd, isActive }: NavItemProps
 interface SectionHeaderProps {
   label: string;
   action?: React.ReactNode;
+  href?: string;
 }
 
-function SectionHeader({ label, action }: SectionHeaderProps) {
+function SectionHeader({ label, action, href }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between px-2 pb-0.5 pt-4">
-      <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">
-        {label}
-      </span>
+      {href ? (
+        <Link
+          href={href}
+          className="text-2xs font-medium uppercase tracking-widest text-foreground/30 transition-colors hover:text-foreground/50"
+        >
+          {label}
+        </Link>
+      ) : (
+        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">
+          {label}
+        </span>
+      )}
       {action}
     </div>
   );
@@ -425,9 +436,10 @@ function MainNav({
         isActive={pathname.endsWith("/inbox")}
       />
 
-      {/* Communication (merged DMs + Email) */}
+      {/* Communication */}
       <SectionHeader
         label="Communication"
+        href={buildPath("/dms")}
         action={
           <button
             onClick={onNewDm}
@@ -439,23 +451,36 @@ function MainNav({
         }
       />
 
-      <NavItem
-        href={buildPath("/dms")}
-        icon={MessageSquare}
-        label="All Messages"
-        isActive={pathname.endsWith("/dms")}
-      />
-
       {dmConversations &&
-        dmConversations.slice(0, 5).map((conv) => {
+        dmConversations.slice(0, 8).map((conv) => {
           const otherMembers = conv.members.filter(
             (m: { userId: string }) => m.userId !== user?._id,
           );
           const displayName =
             conv.name || otherMembers.map((m: { name: string }) => m.name).join(", ") || "DM";
-          const isAgent =
-            conv.kind === "agent_1to1" || conv.kind === "agent_group";
           const isActive = pathname.endsWith(`/dm/${conv._id}`);
+
+          // 5 icon types based on conversation kind
+          let ConvIcon: React.ReactNode;
+          if (conv.kind === "agent_group") {
+            ConvIcon = (
+              <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                <Users className="h-3.5 w-3.5 text-foreground/30" />
+                <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
+              </div>
+            );
+          } else if (conv.kind === "agent_1to1") {
+            ConvIcon = (
+              <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                <User className="h-3.5 w-3.5 text-foreground/30" />
+                <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
+              </div>
+            );
+          } else if (conv.kind === "group") {
+            ConvIcon = <Users className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+          } else {
+            ConvIcon = <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+          }
 
           return (
             <Link
@@ -469,11 +494,7 @@ function MainNav({
                   : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
               )}
             >
-              {isAgent ? (
-                <Bot className="h-3.5 w-3.5 shrink-0 text-ping-purple" />
-              ) : (
-                <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
-              )}
+              {ConvIcon}
               <StatusDot
                 variant={otherMembers.some((m: { userId: string }) => onlineUserIds.has(m.userId)) ? "online" : "offline"}
                 size="xs"

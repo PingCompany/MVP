@@ -461,7 +461,34 @@ export const dispatchDMResponse = internalMutation({
       if (!agent || agent.status !== "active") continue;
 
       const triggers = agent.triggers ?? ["on_mention", "on_dm"];
-      if (!triggers.includes("on_dm")) continue;
+      const isAided = conversation.kind === "agent_group";
+      const bodyLower = args.body.toLowerCase();
+      const agentNameLower = agent.name.toLowerCase();
+      const isMentioned =
+        bodyLower.includes(`@${agentNameLower}`) ||
+        bodyLower.includes(`@${agentNameLower.replace(/\s+/g, "")}`);
+
+      // Determine if agent should respond
+      let shouldRespond = false;
+
+      if (isAided) {
+        // Aided group chat: check aided-specific triggers
+        if (isMentioned && triggers.includes("on_mention")) {
+          shouldRespond = true;
+        } else if (triggers.includes("on_aided_always")) {
+          shouldRespond = true;
+        } else if (triggers.includes("on_aided_smart")) {
+          // Smart: respond if message is a question or mentions AI/help/bot
+          const smartPatterns = /\?|help|can you|could you|what|how|why|please|agent|bot|ai/i;
+          shouldRespond = smartPatterns.test(args.body);
+        }
+      } else {
+        // 1:1 agent DM: use on_dm trigger
+        if (!triggers.includes("on_dm")) continue;
+        shouldRespond = true;
+      }
+
+      if (!shouldRespond) continue;
 
       await ctx.scheduler.runAfter(0, internal.agentRunner.respondInDM, {
         agentId: agent._id,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "convex/react";
 import { useSidebar } from "@/hooks/useSidebar";
 import { api } from "@convex/_generated/api";
@@ -234,18 +235,13 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
   const { setSidebarOpen } = useSidebar();
   const prevSidebarRef = useRef<boolean | null>(null);
 
-  // Lock body scroll and handle Escape
+  // Escape to close
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !profileUserId && !relatedDecisionView) onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose, profileUserId, relatedDecisionView]);
 
   // Collapse sidebar when focus mode activates, restore on exit
@@ -304,7 +300,7 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
 
   const relatedDecisions = (context?.relatedDecisions ?? []) as RelatedDecisionData[];
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop — covers only below topbar */}
       <div
@@ -313,10 +309,12 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
       />
 
       {/* Panel — always starts below topbar */}
-      <div className={focusMode
-        ? "fixed left-0 right-0 top-12 bottom-0 z-50 flex flex-col bg-background"
-        : "fixed right-0 top-12 bottom-0 z-50 flex w-[540px] flex-col bg-background border-l border-subtle shadow-2xl"
-      }>
+      <div
+        className={focusMode
+          ? "fixed left-0 right-0 top-12 bottom-0 z-50 flex flex-col bg-background"
+          : "fixed right-0 top-12 bottom-0 z-50 flex w-[540px] flex-col bg-background border-l border-subtle shadow-2xl"
+        }
+      >
 
         {/* ── HEADER ── */}
         <div className="flex shrink-0 items-center justify-between border-b border-subtle px-5 py-3">
@@ -358,7 +356,7 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
         </div>
 
         {/* ── SCROLLABLE BODY ── */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         <div className={cn("flex flex-col", focusMode && "mx-auto w-full max-w-3xl")}>
 
           {/* 1. QUESTION */}
@@ -718,6 +716,7 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
           onClose={() => setRelatedDecisionView(null)}
         />
       )}
-    </>
+    </>,
+    document.body,
   );
 }

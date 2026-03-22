@@ -21,6 +21,7 @@ import {
   Smile,
 } from "lucide-react";
 import { EmojiPickerPopover } from "@/components/channel/MessageReactions";
+import { MentionPopover, type MentionUser } from "@/components/channel/MentionPopover";
 import TurndownService from "turndown";
 import { cn } from "@/lib/utils";
 
@@ -30,44 +31,30 @@ const turndown = new TurndownService({
   bulletListMarker: "-",
 });
 
-// Turndown rules for strikethrough and code blocks
 turndown.addRule("strikethrough", {
   filter: ["del", "s"],
   replacement: (content) => `~~${content}~~`,
 });
 
 function htmlToMarkdown(html: string): string {
-  // Tiptap wraps empty content in <p></p>
   if (!html || html === "<p></p>") return "";
   return turndown.turndown(html).trim();
 }
 
 function markdownToHtml(markdown: string): string {
   if (!markdown) return "";
-  // Simple markdown→HTML for loading existing content into editor
-  // Handles the most common cases for editing
   let html = markdown
-    // Code blocks (fenced)
     .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
       return `<pre><code class="language-${lang}">${code.trimEnd()}</code></pre>`;
     })
-    // Inline code
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    // Italic
     .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
-    // Strikethrough
     .replace(/~~(.+?)~~/g, "<del>$1</del>")
-    // Blockquote
     .replace(/^>\s?(.+)$/gm, "<blockquote><p>$1</p></blockquote>")
-    // Unordered list items
     .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-    // Ordered list items
     .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    // Links
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    // Line breaks → paragraphs
     .split("\n\n")
     .map((block) => {
       if (
@@ -81,9 +68,7 @@ function markdownToHtml(markdown: string): string {
     })
     .join("");
 
-  // Wrap consecutive <li> in <ul>
   html = html.replace(/(<li>.*?<\/li>)+/g, (match) => `<ul>${match}</ul>`);
-
   return html;
 }
 
@@ -118,11 +103,11 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
 function ComposerBar({
   editor,
   showActions,
-  isDM,
+  onTriggerMention,
 }: {
   editor: Editor;
   showActions: boolean;
-  isDM: boolean;
+  onTriggerMention: () => void;
 }) {
   const setLink = useCallback(() => {
     const previousUrl = editor.getAttributes("link").href;
@@ -222,17 +207,12 @@ function ComposerBar({
         <>
           <div className="mx-1 h-4 w-px bg-foreground/10" />
 
-          {!isDM && (
-            <ToolbarButton
-              onClick={() => {
-                editor.commands.insertContent("@");
-                editor.commands.focus();
-              }}
-              title="Mention"
-            >
-              <AtSign className="h-3.5 w-3.5" />
-            </ToolbarButton>
-          )}
+          <ToolbarButton
+            onClick={onTriggerMention}
+            title="Mention (@)"
+          >
+            <AtSign className="h-3.5 w-3.5" />
+          </ToolbarButton>
           <EmojiPickerPopover onSelect={handleEmojiSelect}>
             <button
               type="button"
@@ -267,23 +247,14 @@ interface RichTextComposerProps {
   placeholder?: string;
   onSend?: (markdown: string) => void;
   onTyping?: () => void;
-  /** Initial content in markdown format (for edit mode) */
   initialContent?: string;
-  /** Show the @ and attachment buttons */
   showActions?: boolean;
-  /** Show toolbar — default true */
   showToolbar?: boolean;
-  /** Is this a DM composer */
   isDM?: boolean;
-  /** Called on Escape key */
   onEscape?: () => void;
-  /** Disable Enter-to-send (for edit mode) */
   enterToSave?: boolean;
-  /** Called on Enter-to-save (edit mode) */
   onSave?: (markdown: string) => void;
-  /** Auto focus on mount */
   autoFocus?: boolean;
-  /** Class for the outer wrapper */
   className?: string;
 }
 
@@ -296,7 +267,6 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       initialContent,
       showActions = false,
       showToolbar = true,
-      isDM = false,
       onEscape,
       enterToSave,
       onSave,
@@ -305,7 +275,6 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
     },
     ref
   ) {
-    // Use refs to avoid stale closures in handleKeyDown
     const onSendRef = useRef(onSend);
     const onSaveRef = useRef(onSave);
     const onEscapeRef = useRef(onEscape);
@@ -319,11 +288,29 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       enterToSaveRef.current = enterToSave;
     });
 
+    // ── Mention state ──────────────────────────────
+    const [mentionOpen, setMentionOpen] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState("");
+    const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 });
+    const mentionOpenRef = useRef(false);
+    const mentionStartPosRef = useRef<number | null>(null);
+    const composerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      mentionOpenRef.current = mentionOpen;
+    }, [mentionOpen]);
+
+    const closeMention = useCallback(() => {
+      setMentionOpen(false);
+      setMentionQuery("");
+      mentionStartPosRef.current = null;
+    }, []);
+
     const editor = useEditor({
       immediatelyRender: false,
       extensions: [
         StarterKit.configure({
-          heading: false, // No headings in chat messages
+          heading: false,
           horizontalRule: false,
         }),
         Placeholder.configure({ placeholder }),
@@ -342,16 +329,21 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
             "prose-none min-h-[20px] max-h-32 overflow-y-auto text-sm text-foreground focus:outline-none",
         },
         handleKeyDown: (view, event) => {
-          // Enter without shift → send/save
+          // If mention popover is open, let it handle navigation keys
+          if (mentionOpenRef.current) {
+            if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) {
+              return true; // Block editor handling; popover's window listener handles it
+            }
+          }
+
           if (event.key === "Enter" && !event.shiftKey && !event.altKey) {
             const ed = view.state;
-            // Allow Enter inside code blocks — check the current node
             const { $from } = ed.selection;
             const inCodeBlock = $from.parent.type.name === "codeBlock";
             const inListItem = $from.parent.type.name === "listItem" ||
               $from.node(-1)?.type.name === "listItem";
             if (inCodeBlock || inListItem) {
-              return false; // Let Tiptap handle it
+              return false;
             }
             event.preventDefault();
             if (enterToSaveRef.current && onSaveRef.current) {
@@ -363,7 +355,6 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
               const md = htmlToMarkdown(html);
               if (md) {
                 onSendRef.current(md);
-                // Clear after sending — need to defer to avoid ProseMirror state issues
                 setTimeout(() => {
                   const tr = view.state.tr;
                   tr.delete(0, view.state.doc.content.size);
@@ -373,7 +364,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
             }
             return true;
           }
-          if (event.key === "Escape" && onEscapeRef.current) {
+          if (event.key === "Escape" && !mentionOpenRef.current && onEscapeRef.current) {
             event.preventDefault();
             onEscapeRef.current();
             return true;
@@ -384,14 +375,74 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       onUpdate: ({ editor: e }) => {
         onTypingRef.current?.();
         setIsEmpty(e.isEmpty);
+
+        // ── Mention detection ──────────────────────
+        const { state } = e;
+        const { from } = state.selection;
+        const textBefore = state.doc.textBetween(
+          Math.max(0, from - 50),
+          from,
+          "\n",
+        );
+
+        // Find the last @ that's either at start or preceded by whitespace
+        const mentionMatch = textBefore.match(/(^|[\s])@([^\s@]*)$/);
+
+        if (mentionMatch) {
+          const query = mentionMatch[2];
+          setMentionQuery(query);
+          mentionStartPosRef.current = from - query.length - 1; // position of @
+
+          // Calculate popover position
+          const coords = e.view.coordsAtPos(from);
+          const composerEl = composerRef.current;
+          if (composerEl) {
+            const rect = composerEl.getBoundingClientRect();
+            setMentionPos({
+              top: rect.bottom - coords.top + 8,
+              left: Math.max(0, coords.left - rect.left),
+            });
+          }
+          setMentionOpen(true);
+        } else if (mentionOpenRef.current) {
+          closeMention();
+        }
       },
     });
 
     const [isEmpty, setIsEmpty] = useState(true);
 
+    // ── Mention selection handler ──────────────────
+    const handleMentionSelect = useCallback(
+      (user: MentionUser) => {
+        if (!editor || mentionStartPosRef.current === null) return;
+
+        const { state } = editor;
+        const from = mentionStartPosRef.current; // @ position
+        const to = state.selection.from; // current cursor
+
+        // Delete @query and insert @Name with a trailing space
+        editor
+          .chain()
+          .focus()
+          .deleteRange({ from, to })
+          .insertContent(`@${user.name} `)
+          .run();
+
+        closeMention();
+      },
+      [editor, closeMention]
+    );
+
+    const triggerMention = useCallback(() => {
+      if (!editor) return;
+      editor.commands.insertContent("@");
+      editor.commands.focus();
+    }, [editor]);
+
     useImperativeHandle(ref, () => ({
       focus: () => editor?.commands.focus(),
-      clear: () => editor?.commands.clearContent(true),
+      clear: () => { editor?.commands.clearContent(true); closeMention(); },
       isEmpty: () => editor?.isEmpty ?? true,
       getMarkdown: () => htmlToMarkdown(editor?.getHTML() ?? ""),
       insertText: (text: string) => editor?.commands.insertContent(text),
@@ -406,7 +457,16 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
     }, [editor, onSend]);
 
     return (
-      <div className={cn("rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
+      <div ref={composerRef} className={cn("relative rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
+        {/* Mention popover */}
+        <MentionPopover
+          query={mentionQuery}
+          isOpen={mentionOpen}
+          position={mentionPos}
+          onSelect={handleMentionSelect}
+          onDismiss={closeMention}
+        />
+
         <div className="px-3 py-2">
           <EditorContent editor={editor} />
         </div>
@@ -417,7 +477,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
               <ComposerBar
                 editor={editor}
                 showActions={showActions}
-                isDM={isDM}
+                onTriggerMention={triggerMention}
               />
             ) : (
               <div />

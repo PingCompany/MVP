@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -15,6 +15,9 @@ import {
   Archive,
   ArchiveRestore,
   ChevronDown,
+  Sparkles,
+  ArrowUpDown,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +30,8 @@ import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
 
 type ConversationKind = "1to1" | "group" | "agent_1to1" | "agent_group";
+type FilterType = "all" | "direct" | "group" | "agent" | "email";
+type SortType = "date" | "unread";
 
 const KIND_CONFIG: Record<
   ConversationKind,
@@ -54,6 +59,13 @@ const KIND_CONFIG: Record<
   },
 };
 
+const FILTER_OPTIONS: { key: FilterType; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "direct", label: "Direct" },
+  { key: "group", label: "Groups" },
+  { key: "agent", label: "AI" },
+];
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -73,6 +85,45 @@ function formatTime(timestamp: number): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** Sparkle-based conversation icon — uses `kind` as source of truth */
+function ConvIcon({ kind, initials }: {
+  kind: string;
+  initials: string;
+}) {
+  // user + sparkle (1:1 agent)
+  if (kind === "agent_1to1") {
+    return (
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3">
+        <User className="h-3.5 w-3.5 text-foreground/40" />
+        <Sparkles className="absolute -right-0.5 -top-0.5 h-3 w-3 text-ping-purple" />
+      </div>
+    );
+  }
+  // users + sparkle (aided group)
+  if (kind === "agent_group") {
+    return (
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3">
+        <Users className="h-3.5 w-3.5 text-foreground/40" />
+        <Sparkles className="absolute -right-0.5 -top-0.5 h-3 w-3 text-ping-purple" />
+      </div>
+    );
+  }
+  // users (group)
+  if (kind === "group") {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3">
+        <Users className="h-3.5 w-3.5 text-foreground/40" />
+      </div>
+    );
+  }
+  // user (1:1)
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-2xs font-medium text-foreground">
+      {initials}
+    </div>
+  );
+}
+
 export default function DMsPage() {
   const router = useRouter();
   const { workspaceId, buildPath } = useWorkspace();
@@ -88,13 +139,13 @@ export default function DMsPage() {
   const [selectedUsers, setSelectedUsers] = useState<Id<"users">[]>([]);
   const [groupName, setGroupName] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [sort, setSort] = useState<SortType>("date");
 
   const handleCreate = async () => {
     if (selectedUsers.length === 0) return;
 
     const isAgentKind = newKind === "agent_1to1" || newKind === "agent_group";
-
-    // Split selected users into human members and agent members
     const agentMembers = isAgentKind
       ? selectedUsers.filter((id) => {
           const u = allUsers?.find((u) => u._id === id);
@@ -107,7 +158,7 @@ export default function DMsPage() {
       workspaceId,
       kind: newKind,
       name: newKind === "group" || newKind === "agent_group" ? groupName || undefined : undefined,
-      memberIds: humanMembers.length > 0 ? humanMembers : selectedUsers,
+      memberIds: humanMembers,
       agentMemberIds: agentMembers.length > 0 ? agentMembers : undefined,
     });
     setNewDmOpen(false);
@@ -124,6 +175,33 @@ export default function DMsPage() {
     );
   };
 
+  // Filter & sort conversations
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+
+    let filtered = conversations.filter((conv) => {
+      if (filter === "all") return true;
+      if (filter === "direct") return conv.kind === "1to1";
+      if (filter === "group") return conv.kind === "group";
+      if (filter === "agent") return conv.kind === "agent_1to1" || conv.kind === "agent_group";
+      return true;
+    });
+
+    if (sort === "unread") {
+      filtered = [...filtered].sort((a, b) => {
+        // Unread first, then by date
+        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+        const aTime = a.lastMessage?.timestamp ?? a._creationTime;
+        const bTime = b.lastMessage?.timestamp ?? b._creationTime;
+        return bTime - aTime;
+      });
+    }
+    // "date" sort is the default from the backend
+
+    return filtered;
+  }, [conversations, filter, sort]);
+
   if (conversations === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -134,35 +212,70 @@ export default function DMsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-4 py-2">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
-          </span>
+      {/* Header with filters */}
+      <div className="border-b border-subtle px-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {/* Type filter pills */}
+            {FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setFilter(opt.key)}
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-2xs font-medium transition-colors",
+                  filter === opt.key
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:bg-surface-3 hover:text-foreground/60",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <div className="mx-1 h-3 w-px bg-foreground/10" />
+            {/* Sort toggle */}
+            <button
+              onClick={() => setSort((s) => (s === "date" ? "unread" : "date"))}
+              className={cn(
+                "flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium transition-colors",
+                "text-foreground/30 hover:bg-surface-3 hover:text-foreground/60",
+              )}
+              title={sort === "date" ? "Sort by unread" : "Sort by date"}
+            >
+              <ArrowUpDown className="h-2.5 w-2.5" />
+              {sort === "date" ? "Recent" : "Unread"}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-2xs text-foreground/20 tabular-nums">
+              {filteredConversations.length}
+            </span>
+            <Button
+              size="sm"
+              className="h-7 gap-1.5 bg-ping-purple text-xs text-white hover:bg-ping-purple-hover"
+              onClick={() => setNewDmOpen(true)}
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </Button>
+          </div>
         </div>
-        <Button
-          size="sm"
-          className="h-7 gap-1.5 bg-ping-purple text-xs text-white hover:bg-ping-purple-hover"
-          onClick={() => setNewDmOpen(true)}
-        >
-          <Plus className="h-3 w-3" />
-          New message
-        </Button>
       </div>
 
       {/* Conversations list */}
-      {conversations.length === 0 ? (
+      {filteredConversations.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center gap-3">
           <MessageSquare className="h-10 w-10 text-foreground/15" />
-          <h2 className="text-sm font-medium text-foreground">No conversations yet</h2>
+          <h2 className="text-sm font-medium text-foreground">
+            {filter === "all" ? "No conversations yet" : "No matching conversations"}
+          </h2>
           <p className="text-xs text-muted-foreground">
-            Start a direct message or group chat
+            {filter === "all" ? "Start a direct message or group chat" : "Try a different filter"}
           </p>
         </div>
       ) : (
         <div>
-          {conversations.map((conv) => {
+          {filteredConversations.map((conv) => {
             const kindConf = KIND_CONFIG[conv.kind as ConversationKind];
             const otherMembers = conv.members.filter(
               (m) => m.userId !== currentUser?._id,
@@ -187,21 +300,7 @@ export default function DMsPage() {
                   conv.unreadCount > 0 && "bg-surface-1",
                 )}
               >
-                {/* Avatar */}
-                <div
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-2xs font-medium",
-                    conv.kind === "agent_1to1" || conv.kind === "agent_group"
-                      ? "bg-ping-purple/20 text-ping-purple"
-                      : "bg-surface-3 text-foreground",
-                  )}
-                >
-                  {conv.kind === "agent_1to1" || conv.kind === "agent_group" ? (
-                    <Bot className="h-3.5 w-3.5" />
-                  ) : (
-                    initials
-                  )}
-                </div>
+                <ConvIcon kind={conv.kind} initials={initials} />
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -296,20 +395,7 @@ export default function DMsPage() {
                   key={conv._id}
                   className="flex items-center gap-3 border-b border-subtle px-4 py-3 opacity-60"
                 >
-                  <div
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-2xs font-medium",
-                      conv.kind === "agent_1to1" || conv.kind === "agent_group"
-                        ? "bg-ping-purple/20 text-ping-purple"
-                        : "bg-surface-3 text-foreground",
-                    )}
-                  >
-                    {conv.kind === "agent_1to1" || conv.kind === "agent_group" ? (
-                      <Bot className="h-3.5 w-3.5" />
-                    ) : (
-                      initials
-                    )}
-                  </div>
+                  <ConvIcon kind={conv.kind} initials={initials} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -327,18 +413,13 @@ export default function DMsPage() {
                     </div>
                     {conv.lastMessage && (
                       <p className="mt-0.5 truncate text-2xs text-muted-foreground">
-                        <span className="text-foreground/40">
-                          {conv.lastMessage.authorName}:
-                        </span>{" "}
                         {conv.lastMessage.body}
                       </p>
                     )}
                   </div>
 
                   <button
-                    onClick={() => {
-                      unarchiveConversation({ conversationId: conv._id });
-                    }}
+                    onClick={() => unarchiveConversation({ conversationId: conv._id })}
                     className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
                     title="Unarchive"
                   >
@@ -422,13 +503,11 @@ export default function DMsPage() {
                   allUsers
                     .filter((u) => {
                       if (u._id === currentUser?._id) return false;
-                      // For agent kinds, show agents first; for regular kinds, hide agents
                       if (newKind === "agent_1to1") return !!u.isAgent;
-                      if (newKind === "agent_group") return true; // show both
-                      return !u.isAgent; // regular DMs: only humans
+                      if (newKind === "agent_group") return true;
+                      return !u.isAgent;
                     })
                     .sort((a, b) => {
-                      // Agents first for agent_group
                       if (a.isAgent && !b.isAgent) return -1;
                       if (!a.isAgent && b.isAgent) return 1;
                       return a.name.localeCompare(b.name);
@@ -448,11 +527,9 @@ export default function DMsPage() {
                           className="h-3.5 w-3.5 rounded border-subtle bg-surface-3"
                         />
                         {u.isAgent ? (
-                          <div
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                            style={{ backgroundColor: `${u.agentColor ?? "#5E6AD2"}20` }}
-                          >
-                            <Bot className="h-3 w-3" style={{ color: u.agentColor ?? "#5E6AD2" }} />
+                          <div className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-2">
+                            <User className="h-3 w-3 text-foreground/40" />
+                            <Sparkles className="absolute -right-1 -top-0.5 h-2 w-2 text-ping-purple" />
                           </div>
                         ) : (
                           <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-2 text-2xs font-medium text-foreground">

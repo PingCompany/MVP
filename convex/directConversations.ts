@@ -26,8 +26,16 @@ export const list = query({
           )
           .take(50);
 
+        // Deduplicate members by userId
+        const seenUserIds = new Set<string>();
+        const uniqueMembers = members.filter((m) => {
+          if (seenUserIds.has(m.userId)) return false;
+          seenUserIds.add(m.userId);
+          return true;
+        });
+
         const memberDetails = await Promise.all(
-          members.map(async (m) => {
+          uniqueMembers.map(async (m) => {
             const memberUser = await ctx.db.get(m.userId);
             return {
               userId: m.userId,
@@ -170,12 +178,20 @@ export const get = query({
       .first();
     if (!membership) throw new Error("Not a member");
 
-    const members = await ctx.db
+    const allMembers = await ctx.db
       .query("directConversationMembers")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", conversation._id),
       )
       .take(50);
+
+    // Deduplicate
+    const seenIds = new Set<string>();
+    const members = allMembers.filter((m) => {
+      if (seenIds.has(m.userId)) return false;
+      seenIds.add(m.userId);
+      return true;
+    });
 
     const memberDetails = await Promise.all(
       members.map(async (m) => {
@@ -241,6 +257,9 @@ export const create = mutation({
       isArchived: false,
     });
 
+    // Track added members to prevent duplicates
+    const addedUserIds = new Set<string>();
+
     // Add creator as member
     await ctx.db.insert("directConversationMembers", {
       conversationId,
@@ -248,24 +267,28 @@ export const create = mutation({
       isAgent: false,
       lastReadAt: Date.now(),
     });
+    addedUserIds.add(user._id);
 
-    // Add other members
-    for (const memberId of args.memberIds) {
-      if (memberId === user._id) continue;
-      await ctx.db.insert("directConversationMembers", {
-        conversationId,
-        userId: memberId,
-        isAgent: false,
-      });
-    }
-
-    // Add agent members
+    // Add agent members first (so they get isAgent: true)
     for (const agentId of args.agentMemberIds ?? []) {
+      if (addedUserIds.has(agentId)) continue;
       await ctx.db.insert("directConversationMembers", {
         conversationId,
         userId: agentId,
         isAgent: true,
       });
+      addedUserIds.add(agentId);
+    }
+
+    // Add other (human) members
+    for (const memberId of args.memberIds) {
+      if (addedUserIds.has(memberId)) continue;
+      await ctx.db.insert("directConversationMembers", {
+        conversationId,
+        userId: memberId,
+        isAgent: false,
+      });
+      addedUserIds.add(memberId);
     }
 
     return conversationId;

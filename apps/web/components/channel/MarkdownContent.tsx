@@ -193,6 +193,76 @@ interface MarkdownContentProps {
   className?: string;
 }
 
+/** Split text into segments of plain text and @mentions */
+function splitMentions(text: string): Array<{ type: "text"; value: string } | { type: "mention"; name: string }> {
+  const parts: Array<{ type: "text"; value: string } | { type: "mention"; name: string }> = [];
+  const regex = /@([A-Za-z0-9_À-ž]+(?:\s[A-Za-z0-9_À-ž]+)?)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "mention", name: match[1] });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", value: text.slice(lastIndex) });
+  }
+  return parts;
+}
+
+/** Render inline text with @mention pills */
+function MentionText({ text }: { text: string }) {
+  const parts = splitMentions(text);
+  if (parts.length === 1 && parts[0].type === "text") return <>{text}</>;
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === "mention" ? (
+          <span
+            key={i}
+            className="inline-flex items-center rounded bg-ping-purple/15 px-1 py-px text-ping-purple font-medium"
+          >
+            @{part.name}
+          </span>
+        ) : (
+          <span key={i}>{part.value}</span>
+        )
+      )}
+    </>
+  );
+}
+
+/** Override the paragraph renderer to process mentions */
+const mentionComponents: Components = {
+  ...components,
+  p({ children }) {
+    // If children contains strings with @mentions, render them as pills
+    const processed = processChildren(children);
+    return <p className="mb-1 last:mb-0">{processed}</p>;
+  },
+  li({ children }) {
+    const processed = processChildren(children);
+    return <li className="text-sm leading-relaxed">{processed}</li>;
+  },
+};
+
+function processChildren(children: React.ReactNode): React.ReactNode {
+  if (typeof children === "string") {
+    return <MentionText text={children} />;
+  }
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === "string") return <MentionText key={i} text={child} />;
+      return child;
+    });
+  }
+  return children;
+}
+
 export const MarkdownContent = memo(function MarkdownContent({
   content,
   className,
@@ -202,7 +272,7 @@ export const MarkdownContent = memo(function MarkdownContent({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={components}
+        components={mentionComponents}
       >
         {content}
       </ReactMarkdown>

@@ -40,6 +40,8 @@ export const AGENT_RESTRICTIONS = [
 export const AGENT_TRIGGERS = [
   { key: "on_mention", label: "When @mentioned", description: "Activates when someone mentions the agent" },
   { key: "on_dm", label: "When DM'd", description: "Responds to direct messages" },
+  { key: "on_aided_always", label: "Aided: always reply", description: "Responds to every message in aided group chats" },
+  { key: "on_aided_smart", label: "Aided: smart reply", description: "Only replies when the agent's input seems needed" },
   { key: "on_channel_message", label: "New channel message", description: "Reacts to new messages in assigned channels" },
   { key: "on_keyword", label: "Keyword match", description: "Triggers when specific keywords appear" },
   { key: "on_integration", label: "Integration event", description: "Triggers on new PR, ticket, or deploy" },

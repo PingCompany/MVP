@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { X, MessageSquare } from "lucide-react";
+import { TOPBAR_HEIGHT } from "@/lib/constants";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
@@ -271,7 +272,10 @@ function ThreadPanelShell({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-4 py-2">
+      <div
+        className="flex items-center justify-between border-b border-subtle px-4"
+        style={{ height: TOPBAR_HEIGHT, minHeight: TOPBAR_HEIGHT }}
+      >
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-foreground" />
           <span className="text-sm font-semibold text-foreground">Thread</span>
@@ -346,15 +350,17 @@ function ThreadPanelShell({
           onTyping={onTyping}
           showToolbar={false}
         />
-        <label className="mt-1.5 flex items-center gap-1.5 text-2xs text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={alsoSendTo}
-            onChange={(e) => setAlsoSendTo(e.target.checked)}
-            className="h-3 w-3 rounded border-subtle accent-ping-purple"
-          />
-          {alsoSendLabel}
-        </label>
+        <p className="mt-1 h-4 text-2xs leading-4 text-foreground/20">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={alsoSendTo}
+              onChange={(e) => setAlsoSendTo(e.target.checked)}
+              className="h-3 w-3 rounded border-subtle accent-ping-purple"
+            />
+            {alsoSendLabel}
+          </label>
+        </p>
       </div>
     </div>
   );

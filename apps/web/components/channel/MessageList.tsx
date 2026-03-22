@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Bot, ChevronDown, Pin, Users, MessageSquare, SmilePlus, Pencil, Trash2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { RichTextComposer, type RichTextComposerHandle } from "@/components/channel/RichTextComposer";
@@ -67,6 +68,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
         "group relative flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
         showAvatar ? "mt-3" : "mt-0"
       )}
+      onDoubleClick={() => onOpenThread?.(message.threadId ?? message.id)}
     >
       {/* Hover action bar */}
       {showActionBar && !isEditing && (
@@ -312,24 +314,36 @@ export interface TypingUser {
 }
 
 export function TypingIndicator({ users }: { users: TypingUser[] }) {
-  if (users.length === 0) return null;
-
   const label =
     users.length === 1
       ? `${users[0].name} is typing`
       : users.length === 2
         ? `${users[0].name} and ${users[1].name} are typing`
-        : `${users[0].name} and ${users.length - 1} others are typing`;
+        : users.length > 2
+          ? `${users[0].name} and ${users.length - 1} others are typing`
+          : null;
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1 text-2xs text-muted-foreground">
-      <span className="inline-flex gap-0.5">
-        <span className="animate-bounce [animation-delay:0ms]">·</span>
-        <span className="animate-bounce [animation-delay:150ms]">·</span>
-        <span className="animate-bounce [animation-delay:300ms]">·</span>
-      </span>
-      <span>{label}</span>
-    </div>
+    <AnimatePresence>
+      {label && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.15 }}
+          className="overflow-hidden"
+        >
+          <div className="flex items-center gap-2 px-4 py-1 text-2xs text-muted-foreground">
+            <span className="inline-flex gap-0.5">
+              <span className="animate-bounce [animation-delay:0ms]">·</span>
+              <span className="animate-bounce [animation-delay:150ms]">·</span>
+              <span className="animate-bounce [animation-delay:300ms]">·</span>
+            </span>
+            <span>{label}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -380,6 +394,7 @@ export function MessageList({
   const composerRef = useRef<RichTextComposerHandle>(null);
   const prevMessageCountRef = useRef(messages.length);
   const hasInitiallyScrolledRef = useRef(false);
+  const [newMessageId, setNewMessageId] = useState<string | null>(null);
 
   // Pre-compute which messages should show avatars so the virtualizer can use it
   const showAvatarFlags = useMemo(() => {
@@ -426,7 +441,12 @@ export function MessageList({
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = newCount;
 
-    if (newCount > prevCount) {
+    if (newCount > prevCount && hasInitiallyScrolledRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg) {
+        setNewMessageId(lastMsg.id);
+        setTimeout(() => setNewMessageId(null), 400);
+      }
       if (isAtBottom()) {
         scrollToBottom("smooth");
         setShowNewMessages(false);
@@ -547,11 +567,14 @@ export function MessageList({
                 ? { ...msg, reactions: reactionsByMessage[msg.id] }
                 : msg;
 
+              const isNew = msg.id === newMessageId;
+
               return (
                 <div
                   key={msg.id}
                   data-index={virtualRow.index}
                   ref={virtualizer.measureElement}
+                  className={isNew ? "animate-message-in" : undefined}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -604,7 +627,7 @@ export function MessageList({
             showActions
             isDM={isDM}
           />
-          <p className="mt-1 text-2xs text-foreground/20">
+          <p className="mt-1 h-4 text-2xs leading-4 text-foreground/20">
             Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
           </p>
         </div>

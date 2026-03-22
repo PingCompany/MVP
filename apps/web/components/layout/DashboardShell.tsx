@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useToast } from "@/components/ui/toast-provider";
@@ -302,43 +303,62 @@ function ThreadPanelSlot() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, [openThread, closeThreadPanel]);
 
-  if (!openThread) return null;
-
   return (
-    <>
-      {/* Mobile overlay */}
-      <div
-        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-        onClick={closeThreadPanel}
-      />
-      <aside
-        className="fixed inset-0 z-50 bg-background md:relative md:z-0 md:border-l md:border-subtle"
-        style={{ width: undefined }}
-      >
-        <div className="h-full md:hidden">
-          <ThreadPanel
-            parentMessageId={openThread.parentMessageId}
-            messageTable={openThread.messageTable}
-            channelId={openThread.channelId}
-            conversationId={openThread.conversationId}
-            contextName={openThread.contextName}
-            onClose={closeThreadPanel}
+    <AnimatePresence>
+      {openThread && (
+        <>
+          {/* Mobile overlay */}
+          <motion.div
+            key="thread-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+            onClick={closeThreadPanel}
           />
-        </div>
-        <div
-          className="hidden h-full md:block"
-          style={{ width: THREAD_PANEL_WIDTH }}
-        >
-          <ThreadPanel
-            parentMessageId={openThread.parentMessageId}
-            messageTable={openThread.messageTable}
-            channelId={openThread.channelId}
-            conversationId={openThread.conversationId}
-            contextName={openThread.contextName}
-            onClose={closeThreadPanel}
-          />
-        </div>
-      </aside>
-    </>
+
+          {/* Mobile: full-screen slide from right */}
+          <motion.aside
+            key="thread-mobile"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed inset-0 z-50 bg-background md:hidden"
+          >
+            <ThreadPanel
+              parentMessageId={openThread.parentMessageId}
+              messageTable={openThread.messageTable}
+              channelId={openThread.channelId}
+              conversationId={openThread.conversationId}
+              contextName={openThread.contextName}
+              onClose={closeThreadPanel}
+            />
+          </motion.aside>
+
+          {/* Desktop: width animation so conversation resizes smoothly */}
+          <motion.div
+            key="thread-desktop"
+            initial={{ width: 0 }}
+            animate={{ width: THREAD_PANEL_WIDTH }}
+            exit={{ width: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="hidden h-full overflow-hidden border-l border-subtle md:block"
+          >
+            <div className="h-full" style={{ width: THREAD_PANEL_WIDTH }}>
+              <ThreadPanel
+                parentMessageId={openThread.parentMessageId}
+                messageTable={openThread.messageTable}
+                channelId={openThread.channelId}
+                conversationId={openThread.conversationId}
+                contextName={openThread.contextName}
+                onClose={closeThreadPanel}
+              />
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

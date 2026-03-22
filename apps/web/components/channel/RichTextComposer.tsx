@@ -4,7 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import {
   Bold,
   Italic,
@@ -18,7 +18,9 @@ import {
   Send,
   AtSign,
   Paperclip,
+  Smile,
 } from "lucide-react";
+import { EmojiPickerPopover } from "@/components/channel/MessageReactions";
 import TurndownService from "turndown";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +115,15 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function ComposerBar({
+  editor,
+  showActions,
+  isDM,
+}: {
+  editor: Editor;
+  showActions: boolean;
+  isDM: boolean;
+}) {
   const setLink = useCallback(() => {
     const previousUrl = editor.getAttributes("link").href;
     const url = window.prompt("URL", previousUrl);
@@ -125,8 +135,16 @@ function Toolbar({ editor }: { editor: Editor }) {
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
+  const handleEmojiSelect = useCallback(
+    (emoji: string) => {
+      editor.commands.insertContent(emoji);
+      editor.commands.focus();
+    },
+    [editor]
+  );
+
   return (
-    <div className="flex items-center gap-0.5 border-t border-subtle px-1 py-1">
+    <div className="flex items-center gap-0.5">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive("bold")}
@@ -199,6 +217,40 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         <LinkIcon className="h-3.5 w-3.5" />
       </ToolbarButton>
+
+      {showActions && (
+        <>
+          <div className="mx-1 h-4 w-px bg-foreground/10" />
+
+          {!isDM && (
+            <ToolbarButton
+              onClick={() => {
+                editor.commands.insertContent("@");
+                editor.commands.focus();
+              }}
+              title="Mention"
+            >
+              <AtSign className="h-3.5 w-3.5" />
+            </ToolbarButton>
+          )}
+          <EmojiPickerPopover onSelect={handleEmojiSelect}>
+            <button
+              type="button"
+              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              title="Emoji"
+            >
+              <Smile className="h-3.5 w-3.5" />
+            </button>
+          </EmojiPickerPopover>
+          <ToolbarButton
+            onClick={() => {}}
+            disabled
+            title="File attachments coming soon"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+          </ToolbarButton>
+        </>
+      )}
     </div>
   );
 }
@@ -329,18 +381,13 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
           return false;
         },
       },
-      onUpdate: () => {
+      onUpdate: ({ editor: e }) => {
         onTypingRef.current?.();
+        setIsEmpty(e.isEmpty);
       },
     });
 
-    const handleSend = useCallback(() => {
-      if (!editor) return;
-      const md = htmlToMarkdown(editor.getHTML());
-      if (!md) return;
-      onSend?.(md);
-      editor.commands.clearContent(true);
-    }, [editor, onSend]);
+    const [isEmpty, setIsEmpty] = useState(true);
 
     useImperativeHandle(ref, () => ({
       focus: () => editor?.commands.focus(),
@@ -350,7 +397,13 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       insertText: (text: string) => editor?.commands.insertContent(text),
     }));
 
-    const isEmpty = editor?.isEmpty ?? true;
+    const handleSendClick = useCallback(() => {
+      if (!editor) return;
+      const md = htmlToMarkdown(editor.getHTML());
+      if (!md) return;
+      onSend?.(md);
+      editor.commands.clearContent(true);
+    }, [editor, onSend]);
 
     return (
       <div className={cn("rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
@@ -358,52 +411,36 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
           <EditorContent editor={editor} />
         </div>
 
-        {showToolbar && editor && <Toolbar editor={editor} />}
-
-        {/* Action row */}
-        <div className="flex items-center justify-between px-2 pb-1.5">
-          <div className="flex items-center gap-0.5">
-            {showActions && !isDM && (
-              <button
-                type="button"
-                onClick={() => {
-                  editor?.commands.insertContent("@");
-                  editor?.commands.focus();
-                }}
-                className="rounded p-1 text-foreground/25 hover:bg-surface-3 hover:text-foreground/60"
-                title="Mention"
-              >
-                <AtSign className="h-3.5 w-3.5" />
-              </button>
+        {editor && (
+          <div className="flex items-center justify-between border-t border-subtle px-1 py-1">
+            {showToolbar ? (
+              <ComposerBar
+                editor={editor}
+                showActions={showActions}
+                isDM={isDM}
+              />
+            ) : (
+              <div />
             )}
-            {showActions && (
+
+            {onSend && (
               <button
                 type="button"
-                disabled
-                title="File attachments coming soon"
-                className="rounded p-1 text-foreground/25 opacity-50 cursor-not-allowed"
+                onClick={handleSendClick}
+                disabled={isEmpty}
+                className={cn(
+                  "rounded p-1 transition-colors",
+                  !isEmpty
+                    ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
+                    : "text-foreground/20"
+                )}
+                title="Send message"
               >
-                <Paperclip className="h-3.5 w-3.5" />
+                <Send className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-          {onSend && (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={isEmpty}
-              className={cn(
-                "rounded p-1 transition-colors",
-                !isEmpty
-                  ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                  : "text-foreground/20"
-              )}
-              title="Send message"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+        )}
       </div>
     );
   }

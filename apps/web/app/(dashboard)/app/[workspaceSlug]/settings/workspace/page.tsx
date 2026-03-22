@@ -72,7 +72,9 @@ export default function WorkspacePage() {
   const [initialized, setInitialized] = useState(false);
   const [expanded, setExpanded] = useState<"github" | "linear" | null>(null);
   const [githubOrg, setGithubOrg] = useState("");
+  const [githubSecret, setGithubSecret] = useState("");
   const [linearOrg, setLinearOrg] = useState("");
+  const [linearSecret, setLinearSecret] = useState("");
   const [selectedChannel, setSelectedChannel] = useState<Record<string, string>>({});
   const [connecting, setConnecting] = useState(false);
 
@@ -98,6 +100,7 @@ export default function WorkspacePage() {
 
   const handleConnect = async (provider: "github" | "linear") => {
     const orgValue = provider === "github" ? githubOrg : linearOrg;
+    const secretValue = provider === "github" ? githubSecret : linearSecret;
     setConnecting(true);
     try {
       await connectIntegration({
@@ -105,6 +108,7 @@ export default function WorkspacePage() {
         provider,
         accountName: orgValue.trim() || (workspace?.name ?? ""),
         orgId: orgValue.trim() || undefined,
+        webhookSecret: secretValue.trim() || undefined,
       });
       toast(
         `${provider === "github" ? "GitHub" : "Linear"} connected — now add the webhook URL to your ${provider === "github" ? "repository" : "workspace"} settings`,
@@ -245,9 +249,15 @@ export default function WorkspacePage() {
                   </div>
                   <div>
                     <p className="mb-1.5 text-2xs text-foreground/50">
-                      Optionally set <code className="text-foreground/70">GITHUB_WEBHOOK_SECRET</code> env
-                      var and enter the same value in the GitHub webhook secret field.
+                      Webhook secret — paste the secret from the GitHub webhook settings to verify signatures.
                     </p>
+                    <input
+                      value={githubSecret}
+                      onChange={(e) => setGithubSecret(e.target.value)}
+                      placeholder="whsec_... (optional)"
+                      type="password"
+                      className="w-full rounded border border-subtle bg-surface-1 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                    />
                   </div>
                   <Button
                     className="h-7 w-full bg-ping-purple text-xs text-white hover:bg-ping-purple-hover"
@@ -313,9 +323,15 @@ export default function WorkspacePage() {
                   </div>
                   <div>
                     <p className="mb-1.5 text-2xs text-foreground/50">
-                      Optionally set <code className="text-foreground/70">LINEAR_WEBHOOK_SECRET</code> env
-                      var to the signing secret shown after creating the webhook.
+                      Webhook signing secret — paste the secret shown after creating the webhook in Linear.
                     </p>
+                    <input
+                      value={linearSecret}
+                      onChange={(e) => setLinearSecret(e.target.value)}
+                      placeholder="lin_wh_... (optional)"
+                      type="password"
+                      className="w-full rounded border border-subtle bg-surface-1 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                    />
                   </div>
                   <Button
                     className="h-7 w-full bg-ping-purple text-xs text-white hover:bg-ping-purple-hover"

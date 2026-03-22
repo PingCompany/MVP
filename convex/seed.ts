@@ -643,20 +643,26 @@ export const seedDecisions = mutation({
 export const clearSeedDecisions = mutation({
   args: {},
   handler: async (ctx) => {
-    const user = await requireUser(ctx);
-
-    const pending = await ctx.db
-      .query("decisions")
-      .withIndex("by_user_status", (q) => q.eq("userId", user._id).eq("status", "pending"))
-      .collect();
-
-    const snoozed = await ctx.db
-      .query("decisions")
-      .withIndex("by_user_status", (q) => q.eq("userId", user._id).eq("status", "snoozed"))
-      .collect();
+    const all = await ctx.db.query("decisions").collect();
 
     let deleted = 0;
-    for (const d of [...pending, ...snoozed]) {
+    for (const d of all) {
+      await ctx.db.delete(d._id);
+      deleted++;
+    }
+
+    return { deleted };
+  },
+});
+
+export const clearAllInboxAndAlerts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const summaries = await ctx.db.query("inboxSummaries").collect();
+    const alerts = await ctx.db.query("proactiveAlerts").collect();
+
+    let deleted = 0;
+    for (const d of [...summaries, ...alerts]) {
       await ctx.db.delete(d._id);
       deleted++;
     }

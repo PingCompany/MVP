@@ -75,9 +75,28 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     // ---- Read body as text so we can verify the signature ----
     const rawBody = await request.text();
+    const body: Record<string, unknown> = JSON.parse(rawBody);
+
+    // ---- Resolve workspace first (need its secret for verification) ----
+    const linearOrgId = (body.organizationId as string) ?? "";
+    const workspace = await ctx.runQuery(
+      internal.integrations.findWorkspaceByLinearOrgId,
+      { linearOrgId },
+    );
+
+    if (!workspace) {
+      return new Response(
+        JSON.stringify({ error: "No workspace found for this Linear org" }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // ---- Signature verification (HMAC-SHA256) ----
-    const secret = process.env.LINEAR_WEBHOOK_SECRET;
+    // Use per-workspace secret from integrations config, fall back to global env var
+    const integrations = workspace.integrations as
+      | { linearWebhookSecret?: string }
+      | undefined;
+    const secret = integrations?.linearWebhookSecret ?? process.env.LINEAR_WEBHOOK_SECRET;
     if (secret) {
       const signatureHeader = request.headers.get("linear-signature");
       if (!signatureHeader) {
@@ -96,8 +115,6 @@ http.route({
         );
       }
     }
-
-    const body: Record<string, unknown> = JSON.parse(rawBody);
 
     const action = body.action as string | undefined;
     const type = body.type as string | undefined;
@@ -123,20 +140,6 @@ http.route({
       return new Response(
         JSON.stringify({ error: "Missing data payload" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    // ---- Resolve workspace ----
-    const linearOrgId = (body.organizationId as string) ?? "";
-    const workspace = await ctx.runQuery(
-      internal.integrations.findWorkspaceByLinearOrgId,
-      { linearOrgId },
-    );
-
-    if (!workspace) {
-      return new Response(
-        JSON.stringify({ error: "No workspace found for this Linear org" }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -207,25 +210,6 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const rawBody = await request.text();
 
-    // Verify HMAC-SHA256 signature if secret is configured
-    const secret = process.env.GITHUB_WEBHOOK_SECRET;
-    if (secret) {
-      const sigHeader = request.headers.get("x-hub-signature-256");
-      if (!sigHeader) {
-        return new Response(JSON.stringify({ error: "Missing x-hub-signature-256" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      const expected = "sha256=" + await hmacSha256Hex(secret, rawBody);
-      if (sigHeader !== expected) {
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-    }
-
     const event = request.headers.get("x-github-event");
     if (event !== "pull_request") {
       return new Response(JSON.stringify({ received: true, skipped: true }), {
@@ -263,6 +247,28 @@ http.route({
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Verify HMAC-SHA256 signature — per-workspace secret with env var fallback
+    const integrations = workspace.integrations as
+      | { githubWebhookSecret?: string }
+      | undefined;
+    const secret = integrations?.githubWebhookSecret ?? process.env.GITHUB_WEBHOOK_SECRET;
+    if (secret) {
+      const sigHeader = request.headers.get("x-hub-signature-256");
+      if (!sigHeader) {
+        return new Response(JSON.stringify({ error: "Missing x-hub-signature-256" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const expected = "sha256=" + await hmacSha256Hex(secret, rawBody);
+      if (sigHeader !== expected) {
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
     const isMerged = !!(pr.merged as boolean);

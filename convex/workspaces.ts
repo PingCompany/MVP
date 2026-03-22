@@ -91,6 +91,8 @@ export const connectIntegration = mutation({
     accountName: v.string(),
     // Optional external org/workspace identifier for webhook routing
     orgId: v.optional(v.string()),
+    // Webhook signing secret for signature verification
+    webhookSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
@@ -121,8 +123,14 @@ export const connectIntegration = mutation({
       ...(args.provider === "github" && args.orgId
         ? { githubOrgLogin: args.orgId }
         : {}),
+      ...(args.provider === "github" && args.webhookSecret
+        ? { githubWebhookSecret: args.webhookSecret }
+        : {}),
       ...(args.provider === "linear" && args.orgId
         ? { linearOrgId: args.orgId }
+        : {}),
+      ...(args.provider === "linear" && args.webhookSecret
+        ? { linearWebhookSecret: args.webhookSecret }
         : {}),
     };
 

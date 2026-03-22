@@ -14,6 +14,7 @@ export interface MentionUser {
   isBot?: boolean;
   isAgent?: boolean;
   agentColor?: string;
+  isManagedAgent?: boolean;
 }
 
 interface MentionPopoverProps {
@@ -54,10 +55,13 @@ export function MentionPopover({
         isBot: !!u.isAgent,
         isAgent: !!u.isAgent,
         agentColor: u.agentColor ?? undefined,
+        isManagedAgent: !!u.isManagedAgent,
       }));
 
-    // Sort: agents first, then alphabetical
+    // Sort: managed agents first, then custom agents, then users alphabetically
     return workspaceUsers.sort((a, b) => {
+      if (a.isManagedAgent && !b.isManagedAgent) return -1;
+      if (!a.isManagedAgent && b.isManagedAgent) return 1;
       if (a.isAgent && !b.isAgent) return -1;
       if (!a.isAgent && b.isAgent) return 1;
       return a.name.localeCompare(b.name);

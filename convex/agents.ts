@@ -142,7 +142,7 @@ export const update = mutation({
       if (args.status !== undefined) allowedUpdates.status = args.status;
       if (args.color !== undefined) allowedUpdates.color = args.color;
       if (Object.keys(allowedUpdates).length > 0) {
-        await ctx.db.patch(agentId, allowedUpdates);
+        await ctx.db.patch(args.agentId, allowedUpdates);
       }
       return;
     }

@@ -67,12 +67,20 @@ const DECISIONS = [
   { label: "Snooze Decision",       href: "/inbox", icon: Clock,           shortcut: "S" },
 ];
 
-/** Built-in agents available for quick chat */
-const BUILT_IN_AGENTS = [
-  { id: "ping-ai", name: "Ping AI", description: "General workspace assistant", icon: Sparkles, color: "text-violet-400" },
-  { id: "analyst", name: "Analyst", description: "Data & insights", icon: BarChart2, color: "text-cyan-400" },
-  { id: "writer", name: "Writer", description: "Drafts & editing", icon: MessageSquare, color: "text-amber-400" },
-];
+/** Icon/color mapping for managed agents by slug */
+const MANAGED_AGENT_STYLE: Record<string, { icon: typeof Sparkles; color: string }> = {
+  "mr-ping": { icon: Sparkles, color: "text-violet-400" },
+};
+const DEFAULT_AGENT_STYLE = { icon: Bot, color: "text-white/50" };
+
+type AgentPickerItem = {
+  id: string;
+  agentId: Id<"agents">;
+  name: string;
+  description: string;
+  icon: typeof Sparkles;
+  color: string;
+};
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -140,6 +148,26 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
   const dmConversations = useQuery(api.directConversations.list, isAuthenticated ? {} : "skip");
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
 
+  // Fetch managed agents from DB
+  const managedAgentsRaw = useQuery(
+    api.managedAgents.listManaged,
+    isAuthenticated && workspaceId ? { workspaceId } : "skip",
+  );
+  const managedAgents: AgentPickerItem[] = useMemo(() => {
+    if (!managedAgentsRaw) return [];
+    return managedAgentsRaw.map((a) => {
+      const style = (a.managedSlug && MANAGED_AGENT_STYLE[a.managedSlug]) || DEFAULT_AGENT_STYLE;
+      return {
+        id: a._id,
+        agentId: a._id,
+        name: a.name,
+        description: a.description ?? "AI agent",
+        icon: style.icon,
+        color: style.color,
+      };
+    });
+  }, [managedAgentsRaw]);
+
   const peopleResults = useQuery(
     api.search.searchPeople,
     isAuthenticated && workspaceId && hasSearch
@@ -162,7 +190,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
   const isSearching = hasSearch && (peopleResults === undefined || messageResults === undefined || dmResults === undefined);
 
   // Agent mention state
-  const [selectedAgent, setSelectedAgent] = useState<typeof BUILT_IN_AGENTS[0] | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<AgentPickerItem | null>(null);
   const [quickChatId, setQuickChatId] = useState<Id<"quickChats"> | null>(null);
   const quickChat = useQuery(api.quickChat.get, quickChatId ? { quickChatId } : "skip");
   const sendQuickChat = useMutation(api.quickChat.send);
@@ -174,11 +202,11 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
 
   // Filter agents by what's typed after @
   const agentFilter = isAgentPickerMode ? search.slice(1).toLowerCase().trim() : "";
-  const filteredAgents = BUILT_IN_AGENTS.filter(
+  const filteredAgents = managedAgents.filter(
     (a) => !agentFilter || a.name.toLowerCase().includes(agentFilter) || a.description.toLowerCase().includes(agentFilter),
   );
 
-  const handleAgentSelect = useCallback((agent: typeof BUILT_IN_AGENTS[0]) => {
+  const handleAgentSelect = useCallback((agent: AgentPickerItem) => {
     setSelectedAgent(agent);
     setSearch("@");
     // Focus back on input after selection
@@ -189,7 +217,11 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
     if (!workspaceId || !selectedAgent) return;
     const query = search.replace(/^@\s*/, "").trim();
     if (!query) return;
-    const id = await sendQuickChat({ workspaceId, query });
+    const id = await sendQuickChat({
+      workspaceId,
+      query,
+      agentId: selectedAgent.agentId,
+    });
     setQuickChatId(id);
   }, [workspaceId, search, sendQuickChat, selectedAgent]);
 
@@ -602,7 +634,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandP
         </div>
         <span className="flex items-center gap-1 text-[11px] text-white/20">
           <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-px text-[10px]">@</kbd>
-          Talk to agent
+          Talk to mrPING
         </span>
       </div>
     </CommandDialog>

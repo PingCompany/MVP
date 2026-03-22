@@ -109,6 +109,7 @@ export default function ChannelPage({ params }: Props) {
       isEdited: msg.isEdited,
       integrationObjectId: msg.integrationObjectId,
       integrationHistory: msg.integrationHistory as Array<{ body: string; timestamp: number }> | undefined,
+      integrationObject: msg.integrationObject,
       messageType: msg.type,
     }));
   }, [results]);

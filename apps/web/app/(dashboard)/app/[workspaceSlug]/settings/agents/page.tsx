@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Loader2, Shield } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -31,11 +31,22 @@ function AgentsPageContent() {
   const updateAgent = useMutation(api.agents.update);
   const removeAgent = useMutation(api.agents.remove);
   const generateTokenMutation = useMutation(api.agents.generateToken);
+  const provisionManaged = useMutation(api.managedAgents.provision);
 
   const [configuring, setConfiguring] = useState<Agent | null>(null);
   const [creating, setCreating] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Auto-provision managed agents if none exist
+  const hasManaged = agents?.some((a) => a.isManaged);
+  const [provisioned, setProvisioned] = useState(false);
+  useEffect(() => {
+    if (agents && !hasManaged && !provisioned) {
+      setProvisioned(true);
+      provisionManaged({ workspaceId }).catch(() => {});
+    }
+  }, [agents, hasManaged, provisioned, provisionManaged, workspaceId]);
 
   const handleToggle = async (id: Id<"agents">, status: "active" | "inactive") => {
     try {
@@ -113,6 +124,8 @@ function AgentsPageContent() {
   }
 
   const visibleAgents = agents.filter((a) => a.status !== "revoked");
+  const managedAgents = visibleAgents.filter((a) => a.isManaged);
+  const customAgents = visibleAgents.filter((a) => !a.isManaged);
   const activeCount = agents.filter((a) => a.status === "active").length;
 
   return (
@@ -134,9 +147,34 @@ function AgentsPageContent() {
         </button>
       </div>
 
-      {/* Grid */}
+      {/* Platform Agents */}
+      {managedAgents.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-2 flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5 text-violet-400" />
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform Agents</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {managedAgents.map((agent) => (
+              <AgentCard
+                key={agent._id}
+                agent={agent}
+                isManaged
+                onConfigure={(id) =>
+                  setConfiguring(agents.find((a) => a._id === id) ?? null)
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Agents */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custom Agents</h2>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {visibleAgents.map((agent) => (
+        {customAgents.map((agent) => (
           <AgentCard
             key={agent._id}
             agent={agent}
@@ -170,7 +208,7 @@ function AgentsPageContent() {
         onSave={handleSave}
         onToggle={handleToggle}
         onGenerateToken={handleGenerateToken}
-        onDelete={handleDelete}
+        onDelete={configuring?.isManaged ? undefined : handleDelete}
       />
 
       {/* Create dialog */}

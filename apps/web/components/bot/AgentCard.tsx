@@ -84,6 +84,8 @@ export interface Agent {
   agentUserName?: string;
   agentUserEmail?: string;
   agentUserAvatarUrl?: string;
+  isManaged?: boolean;
+  managedSlug?: string;
 }
 
 export interface AgentSaveData {
@@ -103,10 +105,11 @@ export interface AgentSaveData {
 
 interface AgentCardProps {
   agent: Agent;
+  isManaged?: boolean;
   onConfigure?: (id: Id<"agents">) => void;
 }
 
-export function AgentCard({ agent, onConfigure }: AgentCardProps) {
+export function AgentCard({ agent, isManaged, onConfigure }: AgentCardProps) {
   const isActive = agent.status === "active";
   const color = agent.color || "#5E6AD2";
   const toolCount = (agent.tools?.length ?? 0);
@@ -132,7 +135,14 @@ export function AgentCard({ agent, onConfigure }: AgentCardProps) {
             <Bot className="h-4 w-4" style={{ color }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{agent.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-foreground truncate">{agent.name}</p>
+              {isManaged && (
+                <span className="shrink-0 rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-px text-[10px] font-medium text-violet-400">
+                  Platform
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               <StatusDot variant={isActive ? "online" : "offline"} size="xs" />
               <span className="text-2xs text-muted-foreground">
@@ -273,9 +283,10 @@ interface AgentConfigDialogProps {
   onToggle?: (id: Id<"agents">, status: "active" | "inactive") => void;
   onGenerateToken?: (id: Id<"agents">) => void;
   onDelete?: (id: Id<"agents">) => void;
+  isManaged?: boolean;
 }
 
-export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle, onGenerateToken, onDelete }: AgentConfigDialogProps) {
+export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle, onGenerateToken, onDelete, isManaged }: AgentConfigDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -363,6 +374,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 placeholder="e.g. KnowledgeBot"
                 className="w-full rounded border border-subtle bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
                 autoFocus
+                readOnly={isManaged}
               />
             </div>
             <div>
@@ -374,6 +386,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of what this agent does"
                 className="w-full rounded border border-subtle bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
+                readOnly={isManaged}
               />
             </div>
             <div>
@@ -385,6 +398,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={3}
                 className="w-full resize-none rounded border border-subtle bg-surface-3 px-2.5 py-1.5 font-mono text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
+                readOnly={isManaged}
               />
             </div>
           </div>
@@ -559,18 +573,20 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                   <Power className="h-3 w-3" />
                   {agent.status === "active" ? "Disable agent" : "Enable agent"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/30"
-                  onClick={() => {
-                    onDelete?.(agent._id);
-                    onClose();
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Delete agent
-                </Button>
+                {onDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/30"
+                    onClick={() => {
+                      onDelete(agent._id);
+                      onClose();
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete agent
+                  </Button>
+                )}
               </div>
             </div>
           )}

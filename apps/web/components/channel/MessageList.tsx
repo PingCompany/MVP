@@ -36,6 +36,14 @@ export interface Message {
   isEdited?: boolean;
   integrationObjectId?: string;
   integrationHistory?: Array<{ body: string; timestamp: number }>;
+  integrationObject?: {
+    identifier?: string;
+    type?: string;
+    title?: string;
+    status?: string;
+    url?: string;
+    author?: string;
+  };
 }
 
 interface MessageItemProps {
@@ -229,6 +237,7 @@ export function MessageItem({ message, showAvatar, showThreadLabel = true, onOpe
           <IntegrationMessageCard
             body={message.content}
             history={message.integrationHistory}
+            integrationObject={message.integrationObject}
           />
         ) : (
           <MarkdownContent

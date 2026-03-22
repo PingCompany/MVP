@@ -1,4 +1,5 @@
 import { query, mutation, internalQuery, MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuth, requireUser } from "./auth";
@@ -109,6 +110,13 @@ async function provisionNewUser(
     userId,
   });
 
+  // Provision managed agents (mrPING etc.)
+  await ctx.scheduler.runAfter(
+    0,
+    internal.managedAgents.ensureManagedAgents,
+    { workspaceId },
+  );
+
   return { userId, workspaceId, workspaceName: `${args.name}'s Workspace` };
 }
 
@@ -213,6 +221,7 @@ export const listAll = query({
           isAgent: !!agentRecord,
           agentId: agentRecord?._id,
           agentColor: agentRecord?.color,
+          isManagedAgent: agentRecord?.isManaged ?? false,
         };
       }),
     );

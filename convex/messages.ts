@@ -196,10 +196,36 @@ export const listByChannel = query({
             .map((u) => ({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl }));
         }
 
+        // Resolve integration object metadata for integration messages
+        let integrationObject: {
+          identifier?: string;
+          type?: string;
+          title?: string;
+          status?: string;
+          url?: string;
+          author?: string;
+          metadata?: Record<string, unknown>;
+        } | undefined;
+        if (msg.type === "integration" && msg.integrationObjectId) {
+          const obj = await ctx.db.get(msg.integrationObjectId);
+          if (obj) {
+            integrationObject = {
+              identifier: (obj.metadata as Record<string, unknown>)?.identifier as string | undefined,
+              type: obj.type,
+              title: obj.title,
+              status: obj.status,
+              url: obj.url,
+              author: obj.author,
+              metadata: obj.metadata as Record<string, unknown>,
+            };
+          }
+        }
+
         return {
           ...msg,
           author: author ? { name: author.name, avatarUrl: author.avatarUrl } : null,
           threadParticipants,
+          integrationObject,
         };
       }),
     );

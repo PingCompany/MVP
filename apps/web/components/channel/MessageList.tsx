@@ -40,9 +40,10 @@ interface MessageItemProps {
   currentUserId?: string;
   onEditMessage?: (messageId: string, newBody: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onClickAuthor?: (authorId: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor }: MessageItemProps) {
   const isBot = message.type === "bot";
   const hasThread = (message.threadReplyCount ?? 0) > 0;
   const isThreadReplyInFeed = message.threadId && message.alsoSentToChannel;
@@ -119,18 +120,24 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
       {/* Avatar column */}
       <div className="w-6 shrink-0 pt-0.5">
         {showAvatar && (
-          <Avatar className="h-6 w-6">
-            <AvatarFallback
-              className={cn(
-                "text-2xs font-medium",
-                isBot
-                  ? "bg-ping-purple/20 text-ping-purple"
-                  : `bg-gradient-to-br ${avatarGradient(message.authorId + message.authorInitials)} text-white`
-              )}
-            >
-              {isBot ? <Bot className="h-3 w-3" /> : message.authorInitials}
-            </AvatarFallback>
-          </Avatar>
+          <button
+            type="button"
+            onClick={() => !isBot && onClickAuthor?.(message.authorId)}
+            className={cn(!isBot && onClickAuthor && "cursor-pointer hover:opacity-80")}
+          >
+            <Avatar className="h-6 w-6">
+              <AvatarFallback
+                className={cn(
+                  "text-2xs font-medium",
+                  isBot
+                    ? "bg-ping-purple/20 text-ping-purple"
+                    : `bg-gradient-to-br ${avatarGradient(message.authorId + message.authorInitials)} text-white`
+                )}
+              >
+                {isBot ? <Bot className="h-3 w-3" /> : message.authorInitials}
+              </AvatarFallback>
+            </Avatar>
+          </button>
         )}
       </div>
       {/* Hover timestamp — absolute so it never affects row height */}
@@ -148,9 +155,17 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
       <div className="min-w-0 flex-1">
         {showAvatar && (
           <div className="flex items-baseline gap-2 pb-0.5">
-            <span className={cn("text-xs font-semibold", isBot ? "text-ping-purple" : "text-foreground")}>
+            <button
+              type="button"
+              onClick={() => !isBot && onClickAuthor?.(message.authorId)}
+              className={cn(
+                "text-xs font-semibold",
+                isBot ? "text-ping-purple" : "text-foreground",
+                !isBot && onClickAuthor && "hover:underline cursor-pointer",
+              )}
+            >
               {isBot ? message.botName || "KnowledgeBot" : message.author}
-            </span>
+            </button>
             {isBot && (
               <span className="rounded border border-ping-purple/30 bg-ping-purple/10 px-1 py-px text-2xs text-ping-purple">
                 AI
@@ -370,6 +385,10 @@ interface MessageListProps {
   reactionsByMessage?: Record<string, Array<ReactionGroup>>;
   onEditMessage?: (messageId: string, newBody: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  /** Called when user clicks an author's name/avatar to view their profile */
+  onClickAuthor?: (authorId: string) => void;
+  /** When set, scrolls to and highlights this message */
+  highlightMessageId?: string | null;
 }
 
 export function MessageList({
@@ -388,6 +407,8 @@ export function MessageList({
   reactionsByMessage,
   onEditMessage,
   onDeleteMessage,
+  onClickAuthor,
+  highlightMessageId,
 }: MessageListProps) {
   const [showNewMessages, setShowNewMessages] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -395,6 +416,7 @@ export function MessageList({
   const prevMessageCountRef = useRef(messages.length);
   const hasInitiallyScrolledRef = useRef(false);
   const [newMessageId, setNewMessageId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   // Pre-compute which messages should show avatars so the virtualizer can use it
   const showAvatarFlags = useMemo(() => {
@@ -456,16 +478,28 @@ export function MessageList({
     }
   }, [messages, isAtBottom, scrollToBottom]);
 
-  // Initial scroll to bottom once loading completes
+  // Initial scroll to bottom once loading completes (skip if we need to scroll to a specific message)
   useEffect(() => {
     if (!isLoading && messages.length > 0 && !hasInitiallyScrolledRef.current) {
       hasInitiallyScrolledRef.current = true;
-      // Use requestAnimationFrame to ensure the virtualizer has rendered
+      if (highlightMessageId) {
+        // Scroll to highlighted message instead of bottom
+        const idx = messages.findIndex((m) => m.id === highlightMessageId);
+        if (idx >= 0) {
+          setHighlightedId(highlightMessageId);
+          requestAnimationFrame(() => {
+            virtualizer.scrollToIndex(idx, { align: "center", behavior: "instant" });
+          });
+          // Clear highlight after 2s
+          setTimeout(() => setHighlightedId(null), 2000);
+          return;
+        }
+      }
       requestAnimationFrame(() => {
         scrollToBottom("instant");
       });
     }
-  }, [isLoading, messages.length, scrollToBottom]);
+  }, [isLoading, messages.length, scrollToBottom, highlightMessageId, messages, virtualizer]);
 
   // Re-scroll when the scroll container resizes (e.g. Tiptap composer mounts
   // asynchronously and shrinks the message area)
@@ -574,7 +608,11 @@ export function MessageList({
                   key={msg.id}
                   data-index={virtualRow.index}
                   ref={virtualizer.measureElement}
-                  className={isNew ? "animate-message-in" : undefined}
+                  className={cn(
+                    isNew && "animate-message-in",
+                    highlightedId === msg.id &&
+                      "bg-ping-purple/10 ring-1 ring-ping-purple/30 rounded transition-colors duration-1000",
+                  )}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -591,6 +629,7 @@ export function MessageList({
                     currentUserId={currentUserId}
                     onEditMessage={onEditMessage}
                     onDeleteMessage={onDeleteMessage}
+                    onClickAuthor={onClickAuthor}
                   />
                 </div>
               );

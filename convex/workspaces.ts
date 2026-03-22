@@ -89,6 +89,8 @@ export const connectIntegration = mutation({
     workspaceId: v.id("workspaces"),
     provider: v.union(v.literal("github"), v.literal("linear")),
     accountName: v.string(),
+    // Optional external org/workspace identifier for webhook routing
+    orgId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
@@ -99,9 +101,10 @@ export const connectIntegration = mutation({
     const workspace = await ctx.db.get(args.workspaceId);
     if (!workspace) throw new Error("Workspace not found");
 
-    const existing = workspace.integrationConfig ?? {};
-    const updated = {
-      ...existing,
+    // Update integrationConfig (UI state)
+    const existingConfig = workspace.integrationConfig ?? {};
+    const updatedConfig = {
+      ...existingConfig,
       [args.provider]: {
         connected: true,
         ...(args.provider === "github"
@@ -111,7 +114,22 @@ export const connectIntegration = mutation({
       },
     };
 
-    await ctx.db.patch(args.workspaceId, { integrationConfig: updated });
+    // Update integrations (webhook lookup) with orgId for multi-workspace routing
+    const existingIntegrations = (workspace.integrations as Record<string, unknown>) ?? {};
+    const updatedIntegrations = {
+      ...existingIntegrations,
+      ...(args.provider === "github" && args.orgId
+        ? { githubOrgLogin: args.orgId }
+        : {}),
+      ...(args.provider === "linear" && args.orgId
+        ? { linearOrgId: args.orgId }
+        : {}),
+    };
+
+    await ctx.db.patch(args.workspaceId, {
+      integrationConfig: updatedConfig,
+      integrations: updatedIntegrations,
+    });
   },
 });
 
@@ -146,5 +164,20 @@ export const getBySlug = query({
       .query("workspaces")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
+  },
+});
+
+export const listForUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const memberships = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const workspaces = await Promise.all(
+      memberships.map((m) => ctx.db.get(m.workspaceId)),
+    );
+    return workspaces.filter(Boolean) as NonNullable<(typeof workspaces)[number]>[];
   },
 });

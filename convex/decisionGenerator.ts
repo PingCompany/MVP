@@ -1,6 +1,14 @@
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+
+type OrgTracePerson = {
+  userId?: Id<"users">;
+  name: string;
+  role: "author" | "assignee" | "mentioned";
+  avatarUrl?: string;
+};
 
 // ─── Alert type → Decision type mapping ──────────────────────────────────────
 
@@ -54,13 +62,54 @@ export const insertDecision = internalMutation({
     sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
     sourceMessageId: v.optional(v.id("messages")),
     channelId: v.optional(v.id("channels")),
+    orgTrace: v.optional(
+      v.array(
+        v.object({
+          userId: v.optional(v.id("users")),
+          name: v.string(),
+          role: v.union(
+            v.literal("author"),
+            v.literal("assignee"),
+            v.literal("mentioned"),
+            v.literal("to_consult"),
+          ),
+          avatarUrl: v.optional(v.string()),
+        }),
+      ),
+    ),
+    nextSteps: v.optional(
+      v.array(
+        v.object({
+          actionKey: v.string(),
+          label: v.string(),
+          automated: v.boolean(),
+        }),
+      ),
+    ),
+    recommendedActions: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          actionKey: v.string(),
+          primary: v.optional(v.boolean()),
+          needsComment: v.optional(v.boolean()),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("decisions", {
+    const decisionId = await ctx.db.insert("decisions", {
       ...args,
       status: "pending",
       createdAt: Date.now(),
     });
+
+    // Ingest decision into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processDecision, {
+      decisionId,
+    });
+
+    return decisionId;
   },
 });
 
@@ -87,6 +136,43 @@ export const generateFromAlerts = internalAction({
 
       const quadrant = alertToQuadrant(alert.type, alert.priority);
 
+      // Build org trace from source message author and integration object assignee
+      const traceMap = new Map<string, OrgTracePerson>();
+
+      if (alert.sourceMessageId) {
+        const msg = await ctx.runQuery(internal.decisionGenerator.getMessage, {
+          messageId: alert.sourceMessageId,
+        });
+        if (msg) {
+          const author = await ctx.runQuery(internal.decisionGenerator.getUser, {
+            userId: msg.authorId,
+          });
+          if (author) {
+            traceMap.set(String(author._id), {
+              userId: author._id,
+              name: author.name,
+              role: "author",
+              avatarUrl: author.avatarUrl,
+            });
+          }
+        }
+      }
+
+      if (alert.sourceIntegrationObjectId) {
+        const obj = await ctx.runQuery(
+          internal.decisionGenerator.getIntegrationObject,
+          { id: alert.sourceIntegrationObjectId },
+        );
+        if (obj && obj.author && obj.author !== "Unassigned") {
+          const key = `ext_${obj.author}`;
+          if (!traceMap.has(key)) {
+            traceMap.set(key, { name: obj.author, role: "assignee" });
+          }
+        }
+      }
+
+      const orgTrace = Array.from(traceMap.values());
+
       await ctx.runMutation(internal.decisionGenerator.insertDecision, {
         userId: alert.userId,
         workspaceId: alert.workspaceId,
@@ -104,6 +190,7 @@ export const generateFromAlerts = internalAction({
         sourceIntegrationObjectId: alert.sourceIntegrationObjectId,
         sourceMessageId: alert.sourceMessageId,
         channelId: alert.channelId,
+        orgTrace: orgTrace.length > 0 ? orgTrace : undefined,
       });
 
       created++;
@@ -147,6 +234,30 @@ export const generateFromSummaries = internalAction({
         .map((ai: { text: string }) => ai.text)
         .join("; ");
 
+      // Build org trace from recent channel message authors
+      const recentMessages = await ctx.runQuery(
+        internal.decisionGenerator.getRecentChannelMessages,
+        { channelId: summary.channelId },
+      );
+      const traceMap = new Map<string, OrgTracePerson>();
+      for (const msg of recentMessages.slice(0, 5)) {
+        const key = String(msg.authorId);
+        if (!traceMap.has(key)) {
+          const author = await ctx.runQuery(internal.decisionGenerator.getUser, {
+            userId: msg.authorId,
+          });
+          if (author) {
+            traceMap.set(key, {
+              userId: msg.authorId,
+              name: author.name,
+              role: "author",
+              avatarUrl: author.avatarUrl,
+            });
+          }
+        }
+      }
+      const orgTrace = Array.from(traceMap.values());
+
       await ctx.runMutation(internal.decisionGenerator.insertDecision, {
         userId: summary.userId,
         workspaceId: channel.workspaceId,
@@ -156,6 +267,7 @@ export const generateFromSummaries = internalAction({
         eisenhowerQuadrant: summary.eisenhowerQuadrant,
         sourceSummaryId: summary._id,
         channelId: summary.channelId,
+        orgTrace: orgTrace.length > 0 ? orgTrace : undefined,
       });
 
       created++;
@@ -211,5 +323,37 @@ export const getChannel = internalQuery({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.channelId);
+  },
+});
+
+export const getMessage = internalQuery({
+  args: { messageId: v.id("messages") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.messageId);
+  },
+});
+
+export const getUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});
+
+export const getIntegrationObject = internalQuery({
+  args: { id: v.id("integrationObjects") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const getRecentChannelMessages = internalQuery({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .order("desc")
+      .take(10);
   },
 });

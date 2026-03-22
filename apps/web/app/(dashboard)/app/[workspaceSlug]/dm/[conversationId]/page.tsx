@@ -1,11 +1,13 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
 import { GroupChatHeader } from "@/components/channel/GroupChatHeader";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 import { Loader2 } from "lucide-react";
 import { useDMTyping } from "@/hooks/useTyping";
 import { useThreadPanel } from "@/hooks/useThreadPanel";
@@ -26,6 +28,8 @@ interface Props {
 export default function DMPage({ params }: Props) {
   const { conversationId } = use(params);
   const typedId = conversationId as Id<"directConversations">;
+  const searchParams = useSearchParams();
+  const highlightMessageId = searchParams.get("msg");
 
   const conversation = useQuery(api.directConversations.get, {
     conversationId: typedId,
@@ -113,6 +117,12 @@ export default function DMPage({ params }: Props) {
     [openThreadPanel, conversationId, displayName],
   );
 
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
+
+  const handleClickAuthor = useCallback((authorId: string) => {
+    setProfileUserId(authorId as Id<"users">);
+  }, []);
+
   if (status === "LoadingFirstPage") {
     return (
       <div className="flex h-full items-center justify-center">
@@ -139,6 +149,14 @@ export default function DMPage({ params }: Props) {
         currentUserId={currentUser?._id}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
+        onClickAuthor={handleClickAuthor}
+        highlightMessageId={highlightMessageId}
+      />
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
       />
     </div>
   );

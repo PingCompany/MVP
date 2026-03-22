@@ -122,6 +122,7 @@ export const getContext = query({
         title: d.title,
         outcome: d.outcome,
         createdAt: d.createdAt,
+        orgTrace: d.orgTrace ?? [],
       }));
 
     return {
@@ -247,6 +248,11 @@ export const decide = mutation({
       internal.decisionAgents.executeDecisionAction,
       { decisionId: args.decisionId },
     );
+
+    // Ingest resolved decision into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processDecision, {
+      decisionId: args.decisionId,
+    });
   },
 });
 

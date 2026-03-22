@@ -55,13 +55,18 @@ export const insertBotMessage = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
       citations: args.citations,
+    });
+
+    // Ingest bot message into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+      messageId,
     });
   },
 });
@@ -190,12 +195,17 @@ export const insertBotDirectMessage = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("directMessages", {
+    const messageId = await ctx.db.insert("directMessages", {
       conversationId: args.conversationId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
+    });
+
+    // Ingest bot DM into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processDirectMessage, {
+      messageId,
     });
   },
 });

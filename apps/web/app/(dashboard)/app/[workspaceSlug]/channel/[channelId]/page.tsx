@@ -1,11 +1,13 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
 import { AlertBanner } from "@/components/proactive/AlertBanner";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 import { useTopBar } from "@/hooks/useTopBar";
 import { useChannelTyping } from "@/hooks/useTyping";
 import { useThreadPanel } from "@/hooks/useThreadPanel";
@@ -27,6 +29,8 @@ interface Props {
 export default function ChannelPage({ params }: Props) {
   const { channelId } = use(params);
   const typedChannelId = channelId as Id<"channels">;
+  const searchParams = useSearchParams();
+  const highlightMessageId = searchParams.get("msg");
 
   const { isAuthenticated } = useConvexAuth();
   const channel = useQuery(api.channels.get, isAuthenticated ? { channelId: typedChannelId } : "skip");
@@ -136,6 +140,12 @@ export default function ChannelPage({ params }: Props) {
 
   const firstAlert = alerts?.[0];
 
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
+
+  const handleClickAuthor = useCallback((authorId: string) => {
+    setProfileUserId(authorId as Id<"users">);
+  }, []);
+
   return (
     <div className="relative flex h-full flex-col">
       <MessageList
@@ -151,6 +161,8 @@ export default function ChannelPage({ params }: Props) {
         reactionsByMessage={reactionsByMessage}
         onEditMessage={isMember ? handleEditMessage : undefined}
         onDeleteMessage={isMember ? handleDeleteMessage : undefined}
+        onClickAuthor={handleClickAuthor}
+        highlightMessageId={highlightMessageId}
       />
 
       {!isMember && channel && (
@@ -179,6 +191,12 @@ export default function ChannelPage({ params }: Props) {
           onDismiss={() => dismissAlert({ alertId: firstAlert._id })}
         />
       )}
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+      />
     </div>
   );
 }

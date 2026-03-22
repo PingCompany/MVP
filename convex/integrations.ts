@@ -1,4 +1,5 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
 
@@ -60,6 +61,21 @@ export const findWorkspaceByLinearOrgId = internalQuery({
     }
 
     // Fallback: return the first workspace (single-workspace deployments).
+    return workspaces[0] ?? null;
+  },
+});
+
+export const findWorkspaceByGithubOrg = internalQuery({
+  args: { orgLogin: v.string() },
+  handler: async (ctx, args) => {
+    const workspaces = await ctx.db.query("workspaces").collect();
+    for (const ws of workspaces) {
+      const integrations = ws.integrations as { githubOrgLogin?: string } | undefined;
+      if (integrations?.githubOrgLogin === args.orgLogin) {
+        return ws;
+      }
+    }
+    // Fallback: first workspace (single-workspace deployments)
     return workspaces[0] ?? null;
   },
 });
@@ -142,7 +158,7 @@ export const upsert = internalMutation({
           continue;
         }
 
-        await ctx.db.insert("messages", {
+        const messageId = await ctx.db.insert("messages", {
           channelId: rule.channelId,
           authorId: botUserId,
           body,
@@ -150,8 +166,18 @@ export const upsert = internalMutation({
           integrationObjectId: objectId,
           isEdited: false,
         });
+
+        // Ingest integration message into knowledge graph
+        await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+          messageId,
+        });
       }
     }
+
+    // Ingest the integration object itself into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processIntegrationObject, {
+      objectId,
+    });
 
     return objectId;
   },

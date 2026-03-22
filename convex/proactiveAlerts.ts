@@ -180,12 +180,17 @@ export const insertBotMessage = internalMutation({
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
+    });
+
+    // Ingest proactive alert message into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+      messageId,
     });
   },
 });

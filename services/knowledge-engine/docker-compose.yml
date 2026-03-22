@@ -1,6 +1,6 @@
 services:
   neo4j:
-    image: neo4j:5.22.0-community
+    image: neo4j:5.26.0-community
     restart: unless-stopped
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-pingdev2024}
@@ -9,9 +9,8 @@ services:
       NEO4J_server_memory_heap_initial__size: ${NEO4J_HEAP_SIZE:-512m}
       NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP_SIZE:-512m}
       NEO4J_server_memory_pagecache_size: ${NEO4J_PAGECACHE_SIZE:-256m}
-      NEO4J_db_tx__timeout: 30s
       NEO4J_dbms_query__cache__size: 1000
-      NEO4J_server_threads_worker__count: 0
+      NEO4J_server_threads_worker__count: 4
     ports:
       - "7474:7474"
       - "${NEO4J_PORT:-7687}:7687"
@@ -43,7 +42,7 @@ services:
       neo4j:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/healthcheck || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/healthcheck || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

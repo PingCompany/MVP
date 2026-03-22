@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { InboxCard, type InboxItem, type EisenhowerQuadrant, QUADRANT_ORDER } from "@/components/inbox/InboxCard";
-import { DecisionCard, type DecisionItem } from "@/components/inbox/DecisionCard";
-import { DecisionContext } from "@/components/inbox/DecisionContext";
+import { DecisionCard, type DecisionItem, type OrgTracePerson } from "@/components/inbox/DecisionCard";
+import { DecisionModal } from "@/components/inbox/DecisionModal";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
 import { UnansweredQuestionCard } from "@/components/inbox/UnansweredQuestionCard";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, FlaskConical } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 
 const SECTION_LABELS: Record<EisenhowerQuadrant, string> = {
@@ -34,6 +34,10 @@ export default function InboxPage() {
   const dismissAlertMutation = useMutation(api.proactiveAlerts.dismiss);
   const decideMutation = useMutation(api.decisions.decide);
   const snoozeMutation = useMutation(api.decisions.snooze);
+  const seedDecisionsMutation = useMutation(api.seed.seedDecisions);
+  const clearSeedMutation = useMutation(api.seed.clearSeedDecisions);
+
+  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
 
   const unansweredQuestions = useMemo(
     () => (alerts ?? []).filter((a) => a.type === "unanswered_question"),
@@ -89,6 +93,9 @@ export default function InboxPage() {
       createdAt: new Date(d.createdAt),
       agentExecutionStatus: d.agentExecutionStatus ?? undefined,
       agentExecutionResult: d.agentExecutionResult ?? undefined,
+      orgTrace: (d.orgTrace ?? []) as OrgTracePerson[],
+      nextSteps: (d.nextSteps ?? []) as DecisionItem["nextSteps"],
+      recommendedActions: (d.recommendedActions ?? []) as DecisionItem["recommendedActions"],
     }));
   }, [decisions]);
 
@@ -105,7 +112,7 @@ export default function InboxPage() {
   };
 
   const handleDecisionAction = (id: string, action: string, comment?: string) => {
-    if (action === "Snooze") {
+    if (action === "Snooze" || action === "snooze") {
       snoozeMutation({
         decisionId: id as Id<"decisions">,
         snoozeUntil: Date.now() + 60 * 60 * 1000,
@@ -133,12 +140,20 @@ export default function InboxPage() {
 
   if (totalCount === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in">
+      <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in px-8 text-center">
         <CheckCircle2 className="h-10 w-10 text-foreground/15" />
-        <h2 className="text-sm font-medium text-foreground">You&apos;re all caught up</h2>
-        <p className="text-xs text-muted-foreground">
-          New summaries and action items will appear here
+        <h2 className="text-sm font-medium text-foreground">Inbox is empty</h2>
+        <p className="max-w-xs text-xs text-muted-foreground leading-relaxed">
+          Decisions, summaries, and action items appear here as your team communicates in channels.
+          Send messages in a channel — AI summaries and decisions generate every 5–15 minutes.
         </p>
+        <button
+          onClick={() => seedDecisionsMutation({})}
+          className="mt-2 flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+        >
+          <FlaskConical className="h-3.5 w-3.5" />
+          Load demo decisions
+        </button>
       </div>
     );
   }
@@ -167,6 +182,23 @@ export default function InboxPage() {
           </span>
           <span className="text-2xs text-foreground/20">·</span>
           <span className="text-2xs text-muted-foreground">Eisenhower Matrix</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => seedDecisionsMutation({})}
+            title="Load demo decisions"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
+          >
+            <FlaskConical className="h-3 w-3" />
+            demo
+          </button>
+          <button
+            onClick={() => clearSeedMutation({})}
+            title="Clear all pending decisions"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-red-400"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
@@ -216,7 +248,7 @@ export default function InboxPage() {
         </div>
       )}
 
-      {/* Decisions — using DecisionCard + DecisionContext components */}
+      {/* Decisions — using DecisionCard component */}
       {sortedDecisions.length > 0 && (
         <div>
           <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
@@ -229,9 +261,8 @@ export default function InboxPage() {
               key={decision.id}
               item={decision}
               onAction={handleDecisionAction}
-            >
-              <DecisionContextLoader decisionId={decision.id as Id<"decisions">} />
-            </DecisionCard>
+              onOpen={() => setOpenDecisionId(decision.id)}
+            />
           ))}
         </div>
       )}
@@ -259,52 +290,18 @@ export default function InboxPage() {
           </div>
         );
       })}
+
+      {openDecisionId && (() => {
+        const decision = sortedDecisions.find(d => d.id === openDecisionId);
+        if (!decision) return null;
+        return (
+          <DecisionModal
+            item={decision}
+            onAction={handleDecisionAction}
+            onClose={() => setOpenDecisionId(null)}
+          />
+        );
+      })()}
     </div>
-  );
-}
-
-/**
- * Loads context data for a decision via the getContext query.
- * Rendered inside DecisionCard's children slot (expanded view).
- */
-function DecisionContextLoader({ decisionId }: { decisionId: Id<"decisions"> }) {
-  const context = useQuery(api.decisions.getContext, { decisionId });
-
-  if (!context) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-white/20" />
-      </div>
-    );
-  }
-
-  return (
-    <DecisionContext
-      decisionId={decisionId}
-      isExpanded={true}
-      summary={context.decision.summary}
-      sourceMessages={context.relatedMessages.map((m) => ({
-        body: m.body,
-        authorName: m.authorName,
-        createdAt: m.createdAt,
-      }))}
-      integrationObjects={
-        context.sourceIntegrationObject
-          ? [
-              {
-                type: context.sourceIntegrationObject.type,
-                title: context.sourceIntegrationObject.title,
-                status: context.sourceIntegrationObject.status,
-                url: context.sourceIntegrationObject.url,
-              },
-            ]
-          : undefined
-      }
-      relatedDecisions={context.relatedPastDecisions.map((d) => ({
-        title: d.title,
-        outcome: d.outcome?.action ?? "unknown",
-        decidedAt: d.outcome?.decidedAt ?? d.createdAt,
-      }))}
-    />
   );
 }

@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast-provider";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 
 type Role = "admin" | "member";
 type Status = "active" | "invited" | "deprovisioned";
@@ -86,6 +87,7 @@ export default function TeamPage() {
 
   const [sortCol, setSortCol] = useState<"name" | "email" | "role" | "status">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
 
   const members: TeamMember[] = useMemo(() => {
     if (!rawUsers) return [];
@@ -273,7 +275,13 @@ export default function TeamPage() {
                     {member.initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="truncate text-xs font-medium text-foreground">{member.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setProfileUserId(member.id as Id<"users">)}
+                  className="truncate text-xs font-medium text-foreground hover:underline cursor-pointer"
+                >
+                  {member.name}
+                </button>
               </div>
 
               <span className="truncate text-xs text-muted-foreground">{member.email}</span>
@@ -502,6 +510,12 @@ export default function TeamPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+      />
     </div>
   );
 }

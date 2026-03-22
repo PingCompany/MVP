@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   GitPullRequest,
   Ticket,
@@ -9,8 +9,6 @@ import {
   Search,
   RefreshCw,
   FileText,
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -19,6 +17,12 @@ import type { DecisionType } from "./DecisionActions";
 import type { EisenhowerQuadrant } from "./InboxCard";
 
 export type { DecisionType, EisenhowerQuadrant };
+
+export interface OrgTracePerson {
+  name: string;
+  role: "author" | "assignee" | "mentioned" | "to_consult";
+  avatarUrl?: string;
+}
 
 export interface DecisionItem {
   id: string;
@@ -32,6 +36,18 @@ export interface DecisionItem {
   createdAt: Date;
   agentExecutionStatus?: "pending" | "running" | "completed" | "failed";
   agentExecutionResult?: string;
+  orgTrace?: OrgTracePerson[];
+  nextSteps?: Array<{
+    actionKey: string;
+    label: string;
+    automated: boolean;
+  }>;
+  recommendedActions?: Array<{
+    label: string;
+    actionKey: string;
+    primary?: boolean;
+    needsComment?: boolean;
+  }>;
 }
 
 const priorityConfig: Record<
@@ -89,6 +105,44 @@ const priorityConfig: Record<
   },
 };
 
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  author: "wrote",
+  assignee: "assigned",
+  mentioned: "mentioned",
+};
+
+function OrgFacepile({ people }: { people: OrgTracePerson[] }) {
+  if (people.length === 0) return null;
+  const visible = people.slice(0, 4);
+  const overflow = people.length - visible.length;
+  return (
+    <div className="flex items-center gap-0.5">
+      {visible.map((p, i) => (
+        <span
+          key={i}
+          title={`${p.name} (${ROLE_LABEL[p.role] ?? p.role})`}
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+          style={{ zIndex: visible.length - i }}
+        >
+          {initials(p.name)}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="text-2xs text-muted-foreground">+{overflow}</span>
+      )}
+    </div>
+  );
+}
+
 const typeConfig: Record<DecisionType, { icon: typeof GitPullRequest; label: string }> = {
   pr_review: { icon: GitPullRequest, label: "PR Review" },
   ticket_triage: { icon: Ticket, label: "Ticket" },
@@ -102,12 +156,11 @@ const typeConfig: Record<DecisionType, { icon: typeof GitPullRequest; label: str
 interface DecisionCardProps {
   item: DecisionItem;
   onAction: (id: string, action: string, comment?: string) => void;
-  children?: ReactNode;
+  onOpen: () => void;
 }
 
-export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
+export function DecisionCard({ item, onAction, onOpen }: DecisionCardProps) {
   const [hovered, setHovered] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const config = priorityConfig[item.eisenhowerQuadrant];
   const typeInfo = typeConfig[item.type];
   const TypeIcon = typeInfo.icon;
@@ -116,9 +169,10 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
     <div
       className={cn(
         "group relative flex flex-col border-b border-subtle px-4 py-3",
-        "cursor-default transition-colors duration-75",
+        "cursor-pointer transition-colors duration-75",
         hovered ? "bg-surface-2" : "bg-transparent"
       )}
+      onClick={onOpen}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -141,28 +195,20 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
 
       {/* Main row */}
       <div className={cn("flex gap-3", config.dimmed && "opacity-60")}>
-        {/* Expand toggle + type icon */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse decision details" : "Expand decision details"}
-          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
-        >
-          {expanded ? (
-            <ChevronDown className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5" />
-          )}
-        </button>
-
         {/* Content */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pl-1">
           {/* Header row */}
           <div className="flex items-center gap-2 pb-0.5">
             <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <span className="text-2xs font-medium text-muted-foreground">{typeInfo.label}</span>
             <span className="text-2xs text-white/25">·</span>
             <span className="text-2xs text-muted-foreground">#{item.channelName}</span>
+            {item.orgTrace && item.orgTrace.length > 0 && (
+              <>
+                <span className="text-2xs text-white/25">·</span>
+                <OrgFacepile people={item.orgTrace} />
+              </>
+            )}
             <span className="text-2xs text-white/25">·</span>
             <span className="text-2xs text-muted-foreground">
               {formatRelativeTime(item.createdAt)}
@@ -173,14 +219,10 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
                 <span
                   className={cn(
                     "rounded px-1.5 py-px text-2xs font-medium",
-                    item.agentExecutionStatus === "completed" &&
-                      "bg-green-500/10 text-green-400",
-                    item.agentExecutionStatus === "running" &&
-                      "bg-blue-500/10 text-blue-400",
-                    item.agentExecutionStatus === "pending" &&
-                      "bg-white/5 text-white/40",
-                    item.agentExecutionStatus === "failed" &&
-                      "bg-red-500/10 text-red-400"
+                    item.agentExecutionStatus === "completed" && "bg-green-500/10 text-green-400",
+                    item.agentExecutionStatus === "running" && "bg-blue-500/10 text-blue-400",
+                    item.agentExecutionStatus === "pending" && "bg-white/5 text-white/40",
+                    item.agentExecutionStatus === "failed" && "bg-red-500/10 text-red-400"
                   )}
                 >
                   {item.agentExecutionStatus}
@@ -200,6 +242,7 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
                   href={item.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="rounded p-0.5 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
                 >
                   <ExternalLink className="h-3 w-3" />
@@ -213,17 +256,12 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
             {item.title}
           </p>
 
-          {/* Summary (collapsed: single line) */}
-          <p
-            className={cn(
-              "mt-0.5 text-xs text-muted-foreground",
-              !expanded && "line-clamp-1"
-            )}
-          >
+          {/* Summary — single line */}
+          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
             {item.summary}
           </p>
 
-          {/* Actions — show on hover */}
+          {/* Quick actions — show on hover */}
           <div
             className={cn(
               "mt-2 transition-all duration-150",
@@ -231,29 +269,16 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-1 pointer-events-none"
             )}
+            onClick={(e) => e.stopPropagation()}
           >
             <DecisionActions
               type={item.type}
+              recommendedActions={item.recommendedActions}
               onAction={(action, comment) => onAction(item.id, action, comment)}
             />
           </div>
         </div>
       </div>
-
-      {/* Expanded content (children slot for context panel) */}
-      {expanded && children && (
-        <div className="ml-9 mt-3 rounded border border-subtle bg-surface-2 p-3">
-          {children}
-        </div>
-      )}
-
-      {/* Agent execution result in expanded view */}
-      {expanded && item.agentExecutionResult && (
-        <div className="ml-9 mt-2 rounded border border-subtle bg-surface-2 p-3">
-          <p className="text-2xs font-medium text-muted-foreground">Agent Result</p>
-          <p className="mt-1 text-xs text-foreground">{item.agentExecutionResult}</p>
-        </div>
-      )}
     </div>
   );
 }

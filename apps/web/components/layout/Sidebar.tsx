@@ -5,25 +5,24 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { navigateToWorkspace } from "@/lib/workspace-url";
 import {
   Inbox,
   Mail,
   Plus,
-  Search,
   Users,
   Bot,
   GitBranch,
   BarChart2,
   Settings,
-  ChevronDown,
-  ChevronRight,
   User,
   Building2,
   Keyboard,
   LogOut,
   Lock,
   MessageSquare,
+  ArrowLeft,
+  PanelLeftClose,
+  Check,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -42,7 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { SIDEBAR_WIDTH } from "@/lib/constants";
+// Sidebar width is now controlled by parent via style
 
 interface NavItemProps {
   href: string;
@@ -98,15 +97,15 @@ function SectionHeader({ label, action }: SectionHeaderProps) {
 }
 
 interface SidebarProps {
-  onOpenSearch?: () => void;
+  isSettingsRoute?: boolean;
   onOpenShortcuts?: () => void;
+  onCollapse?: () => void;
 }
 
-export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
+export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Extract workspace slug from URL: /app/{slug}/...
   const workspaceSlug = pathname.match(/^\/app\/([^/]+)/)?.[1];
   const workspacePrefix = workspaceSlug ? `/app/${workspaceSlug}` : "";
   const buildPath = (p: string) => `${workspacePrefix}${p.startsWith("/") ? p : `/${p}`}`;
@@ -115,16 +114,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
   const workspace = useQuery(api.workspaces.getBySlug, isAuthenticated && workspaceSlug ? { slug: workspaceSlug } : "skip");
   const workspaceId = workspace?._id;
 
-  const myWorkspaces = useQuery(api.workspaceMembers.listMyWorkspaces, isAuthenticated ? {} : "skip");
-  const currentWorkspace = myWorkspaces && workspaceSlug
-    ? myWorkspaces.find((w) => w.slug === workspaceSlug)
-    : null;
-  const otherWorkspaces = myWorkspaces && workspaceSlug
-    ? myWorkspaces.filter((w) => w.slug !== workspaceSlug)
-    : [];
-  const workspaceName = currentWorkspace?.name ?? workspace?.name ?? "PING";
-  const workspaceInitial = workspaceName[0]?.toUpperCase() ?? "P";
-
+  const allWorkspaces = useQuery(api.workspaces.listForUser, isAuthenticated ? {} : "skip");
   const channels = useQuery(api.channels.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const inboxUnread = useQuery(api.inboxSummaries.unreadCount, isAuthenticated ? {} : "skip");
   const emailUnread = useQuery(api.emails.unreadCount, isAuthenticated ? {} : "skip");
@@ -167,290 +157,43 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
 
   return (
     <div
-      className="flex h-full flex-col border-r border-subtle bg-surface-1"
-      style={{ width: SIDEBAR_WIDTH }}
+      className="flex h-full flex-col border-r border-subtle bg-surface-1 w-full"
     >
-      {/* Workspace header */}
-      <div className="flex h-12 items-center justify-between px-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-surface-3">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-ping-purple text-2xs font-bold text-white">
-                {workspaceInitial}
-              </div>
-              <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{workspaceName}</span>
-              <ChevronDown className="h-3 w-3 shrink-0 text-foreground/30 group-hover:text-foreground/50" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56 bg-surface-2 border-subtle">
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-ping-purple text-2xs font-bold text-white">{workspaceInitial}</div>
-              <div>
-                <p className="text-xs font-medium text-foreground">{workspaceName}</p>
-                <div className="flex items-center gap-1">
-                  <StatusDot variant="online" size="xs" />
-                  <span className="text-2xs text-muted-foreground">Connected</span>
-                </div>
-              </div>
-            </div>
-
-            {otherWorkspaces.length > 0 && (
-              <>
-                <DropdownMenuSeparator className="bg-foreground/5" />
-                <div className="px-2 py-1">
-                  <span className="text-2xs text-muted-foreground">Switch workspace</span>
-                </div>
-                {otherWorkspaces.map((ws) => (
-                  <DropdownMenuItem
-                    key={ws.workspaceId}
-                    className="cursor-pointer text-xs"
-                    onClick={() => {
-                      localStorage.setItem("lastWorkspace", ws.slug);
-                      navigateToWorkspace(ws.slug);
-                    }}
-                  >
-                    <div className="mr-2 flex h-4 w-4 items-center justify-center rounded bg-surface-3 text-2xs font-bold">
-                      {ws.name[0]?.toUpperCase()}
-                    </div>
-                    {ws.name}
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-
-            <DropdownMenuSeparator className="bg-foreground/5" />
-            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/workspace"))}>
-              <Settings className="mr-2 h-3 w-3" />
-              Workspace settings
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/team"))}>
-              <Users className="mr-2 h-3 w-3" />
-              Invite members
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-foreground/5" />
-            <DropdownMenuItem
-              className="cursor-pointer text-xs text-destructive focus:text-destructive"
-              onClick={() => (window.location.href = "/sign-out")}
-            >
-              <LogOut className="mr-2 h-3 w-3" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <StatusDot variant="online" size="xs" />
-      </div>
-
-      {/* Search */}
-      <div className="px-2 pb-1">
-        <button
-          onClick={onOpenSearch}
-          className="group flex h-7 w-full items-center gap-2 rounded px-2 text-sm text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span className="flex-1 text-left">Search...</span>
-          <Kbd>⌘K</Kbd>
-        </button>
-      </div>
-
-      <div className="h-px bg-foreground/5 mx-2" />
-
       {/* Navigation */}
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2 scrollbar-thin">
-        {/* Primary nav */}
-        <NavItem
-          href={buildPath("/inbox")}
-          icon={Inbox}
-          label="Inbox"
-          badge={inboxUnread ?? 0}
-          kbd="G I"
-          isActive={pathname.endsWith("/inbox")}
-        />
-        <NavItem
-          href={buildPath("/email")}
-          icon={Mail}
-          label="Email"
-          badge={emailUnread ?? 0}
-          isActive={pathname.startsWith(buildPath("/email"))}
-        />
-
-        {/* Direct Messages */}
-        <SectionHeader
-          label="Direct Messages"
-          action={
-            <button
-              onClick={() => { setNewDmOpen(true); setDmUserSearch(""); }}
-              className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
-              title="New message"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          }
-        />
-
-        <NavItem
-          href={buildPath("/dms")}
-          icon={MessageSquare}
-          label="All Messages"
-          isActive={pathname.endsWith("/dms")}
-        />
-
-        {dmConversations &&
-          dmConversations.slice(0, 5).map((conv) => {
-            const otherMembers = conv.members.filter(
-              (m) => m.userId !== user?._id,
-            );
-            const displayName =
-              conv.name || otherMembers.map((m) => m.name).join(", ") || "DM";
-            const isAgent =
-              conv.kind === "agent_1to1" || conv.kind === "agent_group";
-            const isActive = pathname.endsWith(`/dm/${conv._id}`);
-
-            return (
-              <Link
-                key={conv._id}
-                href={buildPath(`/dm/${conv._id}`)}
-                className={cn(
-                  "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                  "transition-colors duration-100",
-                  isActive
-                    ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                    : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
-                )}
-              >
-                {isAgent ? (
-                  <Bot className="h-3.5 w-3.5 shrink-0 text-ping-purple" />
-                ) : (
-                  <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
-                )}
-                <StatusDot
-                  variant={otherMembers.some((m) => onlineUserIds.has(m.userId)) ? "online" : "offline"}
-                  size="xs"
-                />
-                <span className="flex-1 truncate">{displayName}</span>
-                {conv.unreadCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
-                    {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-
-        {/* Channels */}
-        <SectionHeader
-          label="Channels"
-          action={
-            <button
-              onClick={() => setAddChannelOpen(true)}
-              className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          }
-        />
-
-        {channels === undefined ? (
-          // Loading skeleton
-          <>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex h-7 items-center gap-2 rounded px-2">
-                <div className="h-3 w-3 rounded bg-foreground/8" />
-                <div className="h-3 flex-1 rounded bg-foreground/8" />
-              </div>
-            ))}
-          </>
+        {isSettingsRoute ? (
+          <SettingsNav pathname={pathname} buildPath={buildPath} user={user} />
         ) : (
-          <>
-            {channels.filter((ch) => ch.isMember).map((channel) => {
-              const isActive = pathname.endsWith(`/channel/${channel._id}`);
-              return (
-                <Link
-                  key={channel._id}
-                  href={buildPath(`/channel/${channel._id}`)}
-                  className={cn(
-                    "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                    "transition-colors duration-100",
-                    isActive
-                      ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                      : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-                  )}
-                >
-                  <span className="text-2xs font-medium text-foreground/30">#</span>
-                  <span className="flex-1 truncate">{channel.name}</span>
-                  {channel.unreadCount > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
-                      {channel.unreadCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-
-            {/* Browse channels (non-joined public channels) */}
-            {channels.filter((ch) => !ch.isMember).length > 0 && (
-              <>
-                <button
-                  onClick={() => setBrowseChannelsOpen((v) => !v)}
-                  className="flex h-7 w-full items-center gap-1 rounded px-2 pt-2 text-2xs font-medium uppercase tracking-widest text-foreground/30 transition-colors hover:text-foreground/50"
-                >
-                  {browseChannelsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  Browse
-                </button>
-                {browseChannelsOpen && channels.filter((ch) => !ch.isMember).map((channel) => {
-                  const isActive = pathname.endsWith(`/channel/${channel._id}`);
-                  return (
-                    <Link
-                      key={channel._id}
-                      href={buildPath(`/channel/${channel._id}`)}
-                      className={cn(
-                        "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                        "transition-colors duration-100",
-                        isActive
-                          ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                          : "text-foreground/40 hover:bg-surface-3 hover:text-foreground/60"
-                      )}
-                    >
-                      <span className="text-2xs font-medium text-foreground/20">#</span>
-                      <span className="flex-1 truncate">{channel.name}</span>
-                    </Link>
-                  );
-                })}
-              </>
-            )}
-          </>
+          <MainNav
+            pathname={pathname}
+            buildPath={buildPath}
+            inboxUnread={inboxUnread}
+            emailUnread={emailUnread}
+            dmConversations={dmConversations}
+            channels={channels}
+            user={user}
+            onlineUserIds={onlineUserIds}
+            onNewDm={() => { setNewDmOpen(true); setDmUserSearch(""); }}
+            onNewChannel={() => setAddChannelOpen(true)}
+          />
         )}
-
-        {/* Settings */}
-        <SectionHeader label="Settings" />
-
-        <NavItem href={buildPath("/settings/workspace")} icon={Building2} label="Workspace" isActive={pathname.endsWith("/settings/workspace")} />
-        <NavItem href={buildPath("/settings/profile")} icon={User} label="Profile" isActive={pathname.endsWith("/settings/profile")} />
-        <NavItem href={buildPath("/settings/team")} icon={Users} label="Team" isActive={pathname.endsWith("/settings/team")} />
-        <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />
-        <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />
-        <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />
-        <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />
-
-        {/* Admin */}
-        <SectionHeader label="Admin" />
-        <NavItem href="/admin" icon={Settings} label="Backoffice" isActive={pathname.startsWith("/admin")} />
       </nav>
 
       {/* User row */}
       <div className="border-t border-subtle px-2 py-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="group flex h-8 w-full items-center gap-2 rounded px-2 transition-colors hover:bg-surface-3">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ping-purple text-2xs font-medium text-white">
-                {userInitial}
-              </div>
-              <span className="flex-1 truncate text-left text-sm text-muted-foreground group-hover:text-foreground">
-                {userName}
-              </span>
-              <Kbd className="opacity-0 group-hover:opacity-100">⌘B</Kbd>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-48 bg-surface-2 border-subtle">
+        <div className="group/row flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex h-8 flex-1 min-w-0 items-center gap-2 rounded px-2 transition-colors hover:bg-surface-3">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ping-purple text-2xs font-medium text-white">
+                  {userInitial}
+                </div>
+                <span className="flex-1 truncate text-left text-sm text-muted-foreground group-hover/row:text-foreground">
+                  {userName}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="w-56 bg-surface-2 border-subtle">
             <div className="px-2 py-1.5">
               <p className="text-xs font-medium text-foreground">{userName}</p>
               <p className="text-2xs text-muted-foreground">{userEmail}</p>
@@ -458,8 +201,31 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
             <DropdownMenuSeparator className="bg-foreground/5" />
             <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/profile"))}>
               <User className="mr-2 h-3 w-3" />
-              Profile settings
+              Profile
             </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-foreground/5" />
+
+            {/* Workspaces */}
+            <div className="px-2 py-1">
+              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">Workspaces</span>
+            </div>
+            {allWorkspaces?.map((ws) => (
+              <DropdownMenuItem
+                key={ws._id}
+                className="cursor-pointer text-xs"
+                onClick={() => router.push(`/app/${ws.slug}/inbox`)}
+              >
+                <Building2 className="mr-2 h-3 w-3" />
+                <span className="flex-1 truncate">{ws.name}</span>
+                {ws._id === workspaceId && <Check className="ml-2 h-3 w-3 text-ping-purple" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push("/onboarding")}>
+              <Plus className="mr-2 h-3 w-3" />
+              Add workspace
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator className="bg-foreground/5" />
             <DropdownMenuItem className="cursor-pointer text-xs" onClick={onOpenShortcuts}>
               <Keyboard className="mr-2 h-3 w-3" />
               Keyboard shortcuts
@@ -473,7 +239,18 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-all hover:bg-surface-3 hover:text-foreground group-hover/row:opacity-100"
+              title="Collapse sidebar (⌘B)"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* New DM quick picker */}
@@ -569,5 +346,203 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ─── Main navigation (non-settings) ─── */
+
+interface MainNavProps {
+  pathname: string;
+  buildPath: (p: string) => string;
+  inboxUnread: number | null | undefined;
+  emailUnread: number | null | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dmConversations: any[] | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  channels: any[] | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  user: any;
+  onlineUserIds: Set<string>;
+  onNewDm: () => void;
+  onNewChannel: () => void;
+}
+
+function MainNav({
+  pathname,
+  buildPath,
+  inboxUnread,
+  emailUnread,
+  dmConversations,
+  channels,
+  user,
+  onlineUserIds,
+  onNewDm,
+  onNewChannel,
+}: MainNavProps) {
+  // Combine inbox unread + email unread for the Decision Inbox badge
+  const totalInboxUnread = (inboxUnread ?? 0) + (emailUnread ?? 0);
+
+  return (
+    <>
+      {/* Decision Inbox */}
+      <NavItem
+        href={buildPath("/inbox")}
+        icon={Inbox}
+        label="Decision Inbox"
+        badge={totalInboxUnread}
+        kbd="G I"
+        isActive={pathname.endsWith("/inbox")}
+      />
+
+      {/* Communication (merged DMs + Email) */}
+      <SectionHeader
+        label="Communication"
+        action={
+          <button
+            onClick={onNewDm}
+            className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+            title="New message"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        }
+      />
+
+      <NavItem
+        href={buildPath("/dms")}
+        icon={MessageSquare}
+        label="All Messages"
+        isActive={pathname.endsWith("/dms")}
+      />
+
+      {dmConversations &&
+        dmConversations.slice(0, 5).map((conv) => {
+          const otherMembers = conv.members.filter(
+            (m: { userId: string }) => m.userId !== user?._id,
+          );
+          const displayName =
+            conv.name || otherMembers.map((m: { name: string }) => m.name).join(", ") || "DM";
+          const isAgent =
+            conv.kind === "agent_1to1" || conv.kind === "agent_group";
+          const isActive = pathname.endsWith(`/dm/${conv._id}`);
+
+          return (
+            <Link
+              key={conv._id}
+              href={buildPath(`/dm/${conv._id}`)}
+              className={cn(
+                "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                "transition-colors duration-100",
+                isActive
+                  ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+                  : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
+              )}
+            >
+              {isAgent ? (
+                <Bot className="h-3.5 w-3.5 shrink-0 text-ping-purple" />
+              ) : (
+                <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
+              )}
+              <StatusDot
+                variant={otherMembers.some((m: { userId: string }) => onlineUserIds.has(m.userId)) ? "online" : "offline"}
+                size="xs"
+              />
+              <span className="flex-1 truncate">{displayName}</span>
+              {conv.unreadCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
+                  {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+      {/* Channels */}
+      <SectionHeader
+        label="Channels"
+        action={
+          <button
+            onClick={onNewChannel}
+            className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        }
+      />
+
+      {channels === undefined ? (
+        <>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex h-7 items-center gap-2 rounded px-2">
+              <div className="h-3 w-3 rounded bg-foreground/8" />
+              <div className="h-3 flex-1 rounded bg-foreground/8" />
+            </div>
+          ))}
+        </>
+      ) : (
+        channels.map((channel) => {
+          const isActive = pathname.endsWith(`/channel/${channel._id}`);
+          return (
+            <Link
+              key={channel._id}
+              href={buildPath(`/channel/${channel._id}`)}
+              className={cn(
+                "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                "transition-colors duration-100",
+                isActive
+                  ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+                  : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+              )}
+            >
+              <span className="text-2xs font-medium text-foreground/30">#</span>
+              <span className="flex-1 truncate">{channel.name}</span>
+              {channel.unreadCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
+                  {channel.unreadCount}
+                </span>
+              )}
+            </Link>
+          );
+        })
+      )}
+    </>
+  );
+}
+
+/* ─── Settings navigation ─── */
+
+interface SettingsNavProps {
+  pathname: string;
+  buildPath: (p: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  user: any;
+}
+
+function SettingsNav({ pathname, buildPath, user }: SettingsNavProps) {
+  const router = useRouter();
+
+  return (
+    <>
+      <button
+        onClick={() => router.push(buildPath("/inbox"))}
+        className="flex h-7 items-center gap-2 rounded px-2 text-sm text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>Back</span>
+      </button>
+
+      <div className="h-px bg-foreground/5 mx-0 my-2" />
+
+      <NavItem href={buildPath("/settings/workspace")} icon={Building2} label="Workspace" isActive={pathname.endsWith("/settings/workspace")} />
+      <NavItem href={buildPath("/settings/team")} icon={Users} label="Team" isActive={pathname.endsWith("/settings/team")} />
+      <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />
+      <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />
+      <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />
+      <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />
+
+      <div className="h-px bg-foreground/5 mx-0 my-2" />
+
+      <NavItem href="/admin" icon={Settings} label="Backoffice" isActive={pathname.startsWith("/admin")} />
+    </>
   );
 }

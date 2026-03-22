@@ -197,4 +197,109 @@ http.route({
   }),
 });
 
+// ---------------------------------------------------------------------------
+// GitHub PR webhooks
+// ---------------------------------------------------------------------------
+
+http.route({
+  path: "/webhooks/github",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const rawBody = await request.text();
+
+    // Verify HMAC-SHA256 signature if secret is configured
+    const secret = process.env.GITHUB_WEBHOOK_SECRET;
+    if (secret) {
+      const sigHeader = request.headers.get("x-hub-signature-256");
+      if (!sigHeader) {
+        return new Response(JSON.stringify({ error: "Missing x-hub-signature-256" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const expected = "sha256=" + await hmacSha256Hex(secret, rawBody);
+      if (sigHeader !== expected) {
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const event = request.headers.get("x-github-event");
+    if (event !== "pull_request") {
+      return new Response(JSON.stringify({ received: true, skipped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const body: Record<string, unknown> = JSON.parse(rawBody);
+    const action = body.action as string | undefined;
+    const supportedActions = ["opened", "closed", "reopened", "synchronize", "ready_for_review"];
+    if (!action || !supportedActions.includes(action)) {
+      return new Response(JSON.stringify({ received: true, skipped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const pr = body.pull_request as Record<string, unknown> | undefined;
+    const repo = body.repository as Record<string, unknown> | undefined;
+    if (!pr || !repo) {
+      return new Response(JSON.stringify({ error: "Missing pull_request or repository" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const orgLogin = (repo.owner as Record<string, unknown> | undefined)?.login as string ?? "";
+    const workspace = await ctx.runQuery(
+      internal.integrations.findWorkspaceByGithubOrg,
+      { orgLogin },
+    );
+    if (!workspace) {
+      return new Response(JSON.stringify({ error: "No workspace found for this GitHub org" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const isMerged = !!(pr.merged as boolean);
+    let status: string;
+    if (pr.state === "closed") {
+      status = isMerged ? "Merged" : "Closed";
+    } else if (pr.draft) {
+      status = "Draft";
+    } else {
+      status = "Open";
+    }
+
+    const prUser = pr.user as Record<string, unknown> | undefined;
+    const repoFullName = repo.full_name as string ?? "";
+
+    await ctx.runMutation(internal.integrations.upsert, {
+      workspaceId: workspace._id,
+      type: "github_pr",
+      externalId: `github_pr_${pr.id as number}`,
+      title: (pr.title as string) ?? "Untitled PR",
+      status,
+      url: (pr.html_url as string) ?? "",
+      author: (prUser?.login as string) ?? "unknown",
+      metadata: {
+        number: pr.number,
+        repo: repoFullName,
+        description: pr.body ? String(pr.body).slice(0, 200) : "",
+        draft: pr.draft,
+        merged: isMerged,
+      },
+    });
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

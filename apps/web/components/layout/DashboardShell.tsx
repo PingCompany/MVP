@@ -13,7 +13,8 @@ import { TopBarProvider } from "./TopBarContext";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { ThemeToggle } from "./ThemeToggle";
-import { SIDEBAR_WIDTH, THREAD_PANEL_WIDTH } from "@/lib/constants";
+import { PanelLeftOpen } from "lucide-react";
+import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX, TOPBAR_HEIGHT, THREAD_PANEL_WIDTH } from "@/lib/constants";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { ThreadPanelProvider, useThreadPanel } from "@/hooks/useThreadPanel";
 import { ThreadPanel } from "@/components/channel/ThreadPanel";
@@ -28,8 +29,10 @@ function isEditableTarget(e: KeyboardEvent): boolean {
 export function DashboardShell({ children }: { children: ReactNode }) {
   usePresenceHeartbeat();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH_DEFAULT);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const isResizingRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
   const pendingKeyRef = useRef<string | null>(null);
@@ -71,6 +74,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     return items;
   }, [workspacePrefix, channels, dmConversations, inboxUnread]);
 
+  const isSettingsRoute = pathname.includes("/settings/");
+
   // Resolve channel/DM names from already-loaded data to avoid flashing raw IDs
   const resolvedTitle = useMemo(() => {
     const p = pathname.replace(/^\/app\/[^/]+/, "");
@@ -94,6 +99,30 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
     return titleFromPath(pathname);
   }, [pathname, channels, dmConversations, currentUser]);
+
+  // Extract channel/DM names for breadcrumbs
+  const channelName = useMemo(() => {
+    const p = pathname.replace(/^\/app\/[^/]+/, "");
+    const channelMatch = p.match(/^\/channel\/(.+)$/);
+    if (channelMatch && channels) {
+      const ch = channels.find((c) => c._id === channelMatch[1]);
+      return ch?.name ?? null;
+    }
+    return null;
+  }, [pathname, channels]);
+
+  const conversationName = useMemo(() => {
+    const p = pathname.replace(/^\/app\/[^/]+/, "");
+    const dmMatch = p.match(/^\/dm\/(.+)$/);
+    if (dmMatch && dmConversations && currentUser) {
+      const conv = dmConversations.find((c) => c._id === dmMatch[1]);
+      if (conv) {
+        const otherMembers = conv.members.filter((m) => m.userId !== currentUser._id);
+        return conv.name || otherMembers.map((m) => m.name).join(", ") || "Direct Message";
+      }
+    }
+    return null;
+  }, [pathname, dmConversations, currentUser]);
 
   useEffect(() => {
     const channelUnread = channels?.reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0) ?? 0;
@@ -123,6 +152,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       chordTimerRef.current = null;
     }
   }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [sidebarWidth]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -228,43 +282,80 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <ThreadPanelProvider>
       <TopBarProvider>
-        <div className="flex h-screen overflow-hidden bg-background">
-          {/* Mobile overlay */}
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
+        <div className="flex h-screen flex-col overflow-hidden bg-background">
+          {/* TopBar — full width, always on top */}
+          <TopBar
+            onToggleSidebar={toggleSidebar}
+            onOpenSearch={openSearch}
+            trailing={<ThemeToggle />}
+            workspaceName={workspace?.name}
+            channelName={channelName}
+            conversationName={conversationName}
+          />
 
-          {/* Sidebar */}
-          <aside
-            className={`fixed z-30 h-full transition-transform duration-200 ease-out md:relative md:z-0 ${
-              sidebarOpen
-                ? "translate-x-0"
-                : "-translate-x-full md:-translate-x-full"
-            }`}
-            style={{ width: SIDEBAR_WIDTH }}
-          >
-            <Sidebar
-              onOpenSearch={openSearch}
-              onOpenShortcuts={openShortcuts}
-            />
-          </aside>
-
-          {/* Main + Thread panel wrapper */}
+          {/* Below topbar: sidebar + content */}
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex flex-1 flex-col overflow-hidden transition-all duration-200">
-              <TopBar
-                onToggleSidebar={toggleSidebar}
-                onOpenSearch={openSearch}
-                trailing={<ThemeToggle />}
-                title={resolvedTitle}
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+              <div
+                className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+                onClick={() => setSidebarOpen(false)}
               />
-              <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
+            )}
+
+            {/* Sidebar wrapper — width animates to 0 when closed */}
+            <div
+              className="hidden md:block shrink-0 overflow-hidden transition-[width] duration-200 ease-out"
+              style={{ width: sidebarOpen ? sidebarWidth : 0 }}
+            >
+              <aside className="h-full" style={{ width: sidebarWidth }}>
+                <Sidebar
+                  isSettingsRoute={isSettingsRoute}
+                  onOpenShortcuts={openShortcuts}
+                  onCollapse={toggleSidebar}
+                />
+              </aside>
             </div>
-            <ThreadPanelSlot />
+
+            {/* Resize handle (desktop only) */}
+            {sidebarOpen && (
+              <div
+                className="hidden md:flex shrink-0 w-1 cursor-col-resize items-center justify-center hover:bg-ping-purple/20 active:bg-ping-purple/30 transition-colors"
+                onMouseDown={handleResizeStart}
+                onDoubleClick={() => setSidebarWidth(SIDEBAR_WIDTH_DEFAULT)}
+              />
+            )}
+
+            {/* Mobile sidebar — slides in as overlay */}
+            <aside
+              className={`fixed top-[--topbar-h] z-30 h-[calc(100vh-var(--topbar-h))] transition-transform duration-200 ease-out md:hidden ${
+                sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
+              style={{ width: sidebarWidth, "--topbar-h": `${TOPBAR_HEIGHT}px` } as React.CSSProperties}
+            >
+              <Sidebar
+                isSettingsRoute={isSettingsRoute}
+                onOpenShortcuts={openShortcuts}
+              />
+            </aside>
+
+            {/* Main content + Thread panel */}
+            <div className="flex flex-1 overflow-hidden">
+              <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
+              <ThreadPanelSlot />
+            </div>
           </div>
+
+          {/* Show sidebar button (bottom-left, visible when sidebar is hidden on desktop) */}
+          {!sidebarOpen && (
+            <button
+              onClick={toggleSidebar}
+              className="fixed bottom-4 left-4 z-30 hidden md:flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 border border-subtle text-muted-foreground shadow-sm transition-colors hover:bg-surface-3 hover:text-foreground"
+              title="Show sidebar (⌘B)"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Modals */}
           <CommandPalette

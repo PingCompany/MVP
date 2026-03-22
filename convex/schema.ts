@@ -459,6 +459,41 @@ export default defineSchema({
     sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
     sourceMessageId: v.optional(v.id("messages")),
     channelId: v.optional(v.id("channels")),
+    // Org trace: people directly involved in this decision
+    orgTrace: v.optional(
+      v.array(
+        v.object({
+          userId: v.optional(v.id("users")),
+          name: v.string(),
+          role: v.union(
+            v.literal("author"),    // wrote the triggering message
+            v.literal("assignee"),  // assigned to ticket/PR
+            v.literal("mentioned"), // @mentioned in source context
+            v.literal("to_consult"),
+          ),
+          avatarUrl: v.optional(v.string()),
+        }),
+      ),
+    ),
+    nextSteps: v.optional(
+      v.array(
+        v.object({
+          actionKey: v.string(),
+          label: v.string(),
+          automated: v.boolean(),
+        }),
+      ),
+    ),
+    recommendedActions: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          actionKey: v.string(),
+          primary: v.optional(v.boolean()),
+          needsComment: v.optional(v.boolean()),
+        }),
+      ),
+    ),
     outcome: v.optional(
       v.object({
         action: v.string(),
@@ -480,6 +515,7 @@ export default defineSchema({
     snoozedUntil: v.optional(v.number()),
     expiresAt: v.optional(v.number()),
     createdAt: v.number(),
+    graphitiEpisodeId: v.optional(v.string()),
   })
     .index("by_user_status", ["userId", "status"])
     .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])

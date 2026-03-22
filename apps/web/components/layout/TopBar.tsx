@@ -1,18 +1,20 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { Menu, Search } from "lucide-react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { Menu } from "lucide-react";
 import { TOPBAR_HEIGHT } from "@/lib/constants";
-import { Kbd } from "@/components/ui/kbd";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { SearchField } from "./SearchField";
 
+/** Still used by DashboardShell for document.title */
 export function titleFromPath(pathname: string): string | null {
-  // Strip /app/{slug} prefix
   const p = pathname.replace(/^\/app\/[^/]+/, "");
   if (p === "/inbox" || p === "") return "Inbox";
   if (p === "/dms") return "Direct Messages";
   if (p.startsWith("/dm/")) return "Direct Message";
-  if (p.startsWith("/channel/")) return null; // resolved by DashboardShell
+  if (p.startsWith("/channel/")) return null;
   if (p === "/settings/profile") return "Profile";
   if (p === "/settings/workspace") return "Workspace";
   if (p === "/settings/team") return "Team";
@@ -27,40 +29,59 @@ export function titleFromPath(pathname: string): string | null {
 
 interface TopBarProps {
   onToggleSidebar: () => void;
-  onOpenSearch?: () => void;
+  onOpenSearch: () => void;
   trailing?: ReactNode;
-  title?: ReactNode;
-  subtitle?: ReactNode;
+  workspaceName?: string;
+  channelName?: string | null;
+  conversationName?: string | null;
 }
 
-export function TopBar({ onToggleSidebar, onOpenSearch, trailing, title, subtitle }: TopBarProps) {
-  const fallback = titleFromPath(usePathname());
+export function TopBar({
+  onToggleSidebar,
+  onOpenSearch,
+  trailing,
+  workspaceName,
+  channelName,
+  conversationName,
+}: TopBarProps) {
+  const pathname = usePathname();
+  const workspacePrefix = pathname.match(/^\/app\/[^/]+/)?.[0] ?? "";
+  const inboxHref = workspacePrefix ? `${workspacePrefix}/inbox` : "/";
 
   return (
     <header
-      className="flex items-center justify-between border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
+      className="flex items-center border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
       style={{ height: TOPBAR_HEIGHT, minHeight: TOPBAR_HEIGHT }}
     >
-      <div className="flex items-center gap-2">
+      {/* Left: mobile menu + logo + workspace */}
+      <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onToggleSidebar}
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground md:hidden"
         >
           <Menu className="h-4 w-4" />
         </button>
-        <h1 className="text-sm font-medium text-foreground">{title ?? fallback}</h1>
-        {subtitle}
+        <Link href={inboxHref} className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
+          <span className="text-sm font-bold text-ping-purple">PING</span>
+          {workspaceName && (
+            <>
+              <span className="text-foreground/20">·</span>
+              <span className="text-sm font-medium text-foreground/60 hidden sm:inline">{workspaceName}</span>
+            </>
+          )}
+        </Link>
+        <div className="mx-2 h-4 w-px bg-foreground/10 hidden sm:block" aria-hidden="true" style={{ display: "none" }} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onOpenSearch}
-          className="hidden items-center gap-2 rounded border border-subtle px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground sm:flex"
-        >
-          <Search className="h-3 w-3" />
-          <span>Search or jump to...</span>
-          <Kbd>⌘K</Kbd>
-        </button>
+      {/* Center: breadcrumbs (hidden for now) */}
+      <div className="flex-1 min-w-0 hidden">
+        <Breadcrumbs channelName={channelName} conversationName={conversationName} />
+      </div>
+      <div className="flex-1" />
+
+      {/* Right: search + trailing */}
+      <div className="flex items-center gap-2 shrink-0 ml-2">
+        <SearchField onOpenSearch={onOpenSearch} />
         {trailing}
       </div>
     </header>

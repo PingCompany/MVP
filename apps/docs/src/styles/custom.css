@@ -97,6 +97,12 @@ nav.sidebar {
   margin-top: 0;
 }
 
+/* Logo sizing */
+.site-title img {
+  height: 1.5rem;
+  width: auto;
+}
+
 /* Cleaner header bar */
 header.header {
   backdrop-filter: blur(12px);

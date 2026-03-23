@@ -66,10 +66,9 @@ export function TopBar({
         </button>
         <Link href={inboxHref} className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ping-logo.png" alt="PING" width={20} height={20} className="dark:hidden" />
+          <img src="/bw_logotype_onwhite_padding.png" alt="PING" height={20} className="h-5 w-auto dark:hidden" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ping-logo-white.png" alt="PING" width={20} height={20} className="hidden dark:block" />
-          <span className="text-sm font-bold text-foreground">PING</span>
+          <img src="/bw_logotype_onbalck_padding.png" alt="PING" height={20} className="hidden h-5 w-auto dark:block" />
           {workspaceName && (
             <>
               <span className="text-foreground/40">·</span>

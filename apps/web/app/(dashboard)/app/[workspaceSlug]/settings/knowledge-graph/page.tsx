@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { Search, GitBranch, Zap, MessageSquare, Activity, RefreshCw, X } from "lucide-react";
+import {
+  Search,
+  GitBranch,
+  Zap,
+  MessageSquare,
+  Activity,
+  RefreshCw,
+  X,
+  SlidersHorizontal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -140,6 +149,50 @@ function useIsDark(): boolean {
   return dark;
 }
 
+// ── Force config ──────────────────────────────────────────────────
+
+interface ForceConfig {
+  charge: number;
+  linkDistance: number;
+  linkStrength: number;
+  velocityDecay: number;
+  alphaDecay: number;
+}
+
+const DEFAULT_FORCES: ForceConfig = {
+  charge: -10,
+  linkDistance: 70,
+  linkStrength: 0.6,
+  velocityDecay: 0.25,
+  alphaDecay: 0.02,
+};
+
+const FORCE_STORAGE_KEY = "kg-force-config";
+
+function loadForceConfig(): ForceConfig {
+  if (typeof window === "undefined") return DEFAULT_FORCES;
+  try {
+    const raw = localStorage.getItem(FORCE_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_FORCES, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_FORCES;
+}
+
+const FORCE_SLIDERS: {
+  key: keyof ForceConfig;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+}[] = [
+  { key: "charge", label: "Charge", min: -200, max: 0, step: 5, format: (v) => String(v) },
+  { key: "linkDistance", label: "Link Distance", min: 5, max: 200, step: 5, format: (v) => String(v) },
+  { key: "linkStrength", label: "Link Strength", min: 0.05, max: 2, step: 0.05, format: (v) => v.toFixed(2) },
+  { key: "velocityDecay", label: "Velocity Decay", min: 0.05, max: 0.9, step: 0.05, format: (v) => v.toFixed(2) },
+  { key: "alphaDecay", label: "Alpha Decay", min: 0.005, max: 0.1, step: 0.005, format: (v) => v.toFixed(3) },
+];
+
 // ── Component ─────────────────────────────────────────────────────
 
 export default function KnowledgeGraphPage() {
@@ -155,6 +208,26 @@ export default function KnowledgeGraphPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<GNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [forceConfig, setForceConfig] = useState<ForceConfig>(DEFAULT_FORCES);
+  const [forceEditorOpen, setForceEditorOpen] = useState(false);
+  const forceEditorRef = useRef<HTMLDivElement>(null);
+
+  // Load saved force config from localStorage on mount
+  useEffect(() => {
+    setForceConfig(loadForceConfig());
+  }, []);
+
+  // Close force editor on click outside
+  useEffect(() => {
+    if (!forceEditorOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (forceEditorRef.current && !forceEditorRef.current.contains(e.target as Node)) {
+        setForceEditorOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [forceEditorOpen]);
 
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -223,20 +296,23 @@ export default function KnowledgeGraphPage() {
     fetchGraph();
   }, [fetchGraph]);
 
-  // ── Force tuning: tighter clusters, more spread within ──────────
-  // Runs after each data load to reconfigure d3-force parameters.
-  // – Reduce charge magnitude → clusters sit closer together
-  // – Increase link distance → nodes within a cluster spread out
+  // ── Apply force config to the simulation ──────────────────────────
+  const applyForces = useCallback(
+    (config: ForceConfig, reheat = true) => {
+      if (!fgRef.current) return;
+      const fg = fgRef.current;
+      fg.d3Force("charge")?.strength(config.charge);
+      fg.d3Force("link")?.distance(config.linkDistance).strength(config.linkStrength);
+      if (reheat) fg.d3ReheatSimulation();
+    },
+    [],
+  );
+
+  // Apply forces after data loads or config changes
   useEffect(() => {
-    if (!fgRef.current || graphData.nodes.length === 0) return;
-    const fg = fgRef.current;
-    // Less global repulsion: brings disconnected clusters closer
-    fg.d3Force("charge")?.strength(-20);
-    // More distance along edges: spreads connected nodes within a cluster
-    fg.d3Force("link")?.distance(70).strength(0.6);
-    // Restart simulation with new forces
-    fg.d3ReheatSimulation();
-  }, [graphData.nodes.length]);
+    if (graphData.nodes.length === 0) return;
+    applyForces(forceConfig);
+  }, [graphData.nodes.length, forceConfig, applyForces]);
 
   useEffect(() => {
     if (graphData.nodes.length > 0 && !initialFitDone.current && fgRef.current) {
@@ -402,6 +478,76 @@ export default function KnowledgeGraphPage() {
         >
           Fit
         </button>
+        <div className="relative" ref={forceEditorRef}>
+          <button
+            onClick={() => setForceEditorOpen((v) => !v)}
+            className={cn(
+              "flex items-center gap-1.5 rounded border px-2 py-1.5 text-2xs transition-colors",
+              forceEditorOpen
+                ? "border-foreground/15 bg-surface-2 text-foreground"
+                : "border-subtle text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <SlidersHorizontal className="h-3 w-3" />
+            Forces
+          </button>
+          {forceEditorOpen && (
+            <div className="absolute right-0 top-full z-20 mt-1.5 w-64 rounded-lg border border-subtle bg-surface-1 shadow-xl">
+              <div className="flex items-center justify-between border-b border-subtle px-3 py-2">
+                <span className="text-xs font-medium text-foreground">Force Editor</span>
+                <button
+                  onClick={() => setForceEditorOpen(false)}
+                  className="text-foreground/40 hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="space-y-3 px-3 py-3">
+                {FORCE_SLIDERS.map(({ key, label, min, max, step, format }) => (
+                  <div key={key}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-2xs text-muted-foreground">{label}</label>
+                      <span className="font-mono text-2xs text-foreground/60 tabular-nums">
+                        {format(forceConfig[key])}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={forceConfig[key]}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setForceConfig((prev) => ({ ...prev, [key]: val }));
+                      }}
+                      className="h-1 w-full cursor-pointer appearance-none rounded-full bg-foreground/10 accent-foreground/60 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground/70"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 border-t border-subtle px-3 py-2">
+                <button
+                  onClick={() => {
+                    localStorage.setItem(FORCE_STORAGE_KEY, JSON.stringify(forceConfig));
+                  }}
+                  className="flex-1 rounded bg-foreground/10 px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-foreground/15"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setForceConfig(DEFAULT_FORCES);
+                    localStorage.removeItem(FORCE_STORAGE_KEY);
+                  }}
+                  className="flex-1 rounded bg-foreground/5 px-2 py-1 text-2xs text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Main area: graph + right panel ─────────────────── */}
@@ -454,8 +600,8 @@ export default function KnowledgeGraphPage() {
               backgroundColor={bgColor}
               linkColor={() => linkStroke}
               linkWidth={1.5}
-              d3AlphaDecay={0.02}
-              d3VelocityDecay={0.25}
+              d3AlphaDecay={forceConfig.alphaDecay}
+              d3VelocityDecay={forceConfig.velocityDecay}
               cooldownTicks={300}
               warmupTicks={100}
               enableNodeDrag

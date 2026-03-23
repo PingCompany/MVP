@@ -312,11 +312,8 @@ http.route({
 // Agent REST API
 // ---------------------------------------------------------------------------
 
-/** Extract and validate a Bearer token from the Authorization header. */
-async function authenticateAgent(
-  ctx: { runQuery: (ref: any, args: any) => Promise<any>; runMutation: (ref: any, args: any) => Promise<any> },
-  request: Request,
-) {
+/** Extract Bearer token from Authorization header and return { rawToken, tokenHash }. */
+async function extractBearerToken(request: Request) {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
 
@@ -327,12 +324,24 @@ async function authenticateAgent(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
+  return { rawToken, tokenHash };
+}
+
+type HttpCtx = {
+  runQuery: (ref: any, args: any) => Promise<any>;
+  runMutation: (ref: any, args: any) => Promise<any>;
+};
+
+/** Authenticate an agent-only Bearer token. */
+async function authenticateAgent(ctx: HttpCtx, request: Request) {
+  const token = await extractBearerToken(request);
+  if (!token) return null;
+
   const result = await ctx.runQuery(internal.agentApi.getAgentByTokenHash, {
-    tokenHash,
+    tokenHash: token.tokenHash,
   });
   if (!result) return null;
 
-  // Touch token last-used timestamp
   await ctx.runMutation(internal.agentApi.touchToken, {
     tokenId: result.tokenId,
   });
@@ -345,6 +354,32 @@ function jsonResponse(data: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/** Authenticate a Bearer token that may be a user token (ping_u_) or an agent token. */
+async function authenticateApiCaller(ctx: HttpCtx, request: Request) {
+  const token = await extractBearerToken(request);
+  if (!token) return null;
+
+  if (token.rawToken.startsWith("ping_u_")) {
+    const result = await ctx.runQuery(internal.apiAuth.getUserByTokenHash, {
+      tokenHash: token.tokenHash,
+    });
+    if (!result) return null;
+    await ctx.runMutation(internal.apiAuth.touchUserToken, {
+      tokenId: result.tokenId,
+    });
+    return { kind: "user" as const, ...result };
+  }
+
+  const result = await ctx.runQuery(internal.agentApi.getAgentByTokenHash, {
+    tokenHash: token.tokenHash,
+  });
+  if (!result) return null;
+  await ctx.runMutation(internal.agentApi.touchToken, {
+    tokenId: result.tokenId,
+  });
+  return { kind: "agent" as const, ...result };
 }
 
 // GET /api/agent/v1/me — Agent identity
@@ -477,6 +512,94 @@ http.route({
     );
 
     return jsonResponse({ conversations });
+  }),
+});
+
+// ---------------------------------------------------------------------------
+// Public API v1 — Channel Messages
+// ---------------------------------------------------------------------------
+
+// POST /api/v1/channels/messages — List messages with date filtering
+http.route({
+  path: "/api/v1/channels/messages",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { channelId, limit = 50, startTime, endTime } = body;
+    if (!channelId)
+      return jsonResponse({ error: "channelId is required" }, 400);
+
+    const messages = await ctx.runQuery(
+      internal.publicApi.readChannelMessages,
+      {
+        channelId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+        limit: Math.min(limit, 200),
+        startTime,
+        endTime,
+      },
+    );
+    return jsonResponse({ messages });
+  }),
+});
+
+// POST /api/v1/channels/messages/send — Send or reply
+http.route({
+  path: "/api/v1/channels/messages/send",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { channelId, message, threadId } = body;
+    if (!channelId || !message)
+      return jsonResponse(
+        { error: "channelId and message are required" },
+        400,
+      );
+
+    const result = await ctx.runMutation(
+      internal.publicApi.sendChannelMessageApi,
+      {
+        channelId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+        body: message,
+        messageType: auth.kind === "user" ? "user" : "bot",
+        threadId,
+      },
+    );
+    return jsonResponse(result, 201);
+  }),
+});
+
+// POST /api/v1/channels/messages/thread — List thread replies
+http.route({
+  path: "/api/v1/channels/messages/thread",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { threadId } = body;
+    if (!threadId)
+      return jsonResponse({ error: "threadId is required" }, 400);
+
+    const result = await ctx.runQuery(
+      internal.publicApi.listChannelThreadReplies,
+      {
+        threadId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+      },
+    );
+    return jsonResponse(result);
   }),
 });
 

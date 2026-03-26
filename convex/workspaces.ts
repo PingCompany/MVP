@@ -226,8 +226,8 @@ export const joinViaPublicLink = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
     if (!workspace) throw new Error("Workspace not found");
-    if (workspace.publicInviteEnabled !== true) {
-      throw new Error("Public invite is not enabled for this workspace");
+    if (!workspace.publicInviteEnabled) {
+      throw new Error("Public join is not enabled for this workspace");
     }
 
     const existingMembership = await ctx.db
@@ -236,6 +236,7 @@ export const joinViaPublicLink = mutation({
         q.eq("userId", user._id).eq("workspaceId", workspace._id),
       )
       .unique();
+
     if (existingMembership) {
       return { workspaceId: workspace._id, slug: workspace.slug, alreadyMember: true };
     }
@@ -247,12 +248,14 @@ export const joinViaPublicLink = mutation({
       joinedAt: Date.now(),
     });
 
+    // Auto-join #general channel
     const generalChannel = await ctx.db
       .query("channels")
       .withIndex("by_workspace_name", (q) =>
         q.eq("workspaceId", workspace._id).eq("name", "general"),
       )
       .unique();
+
     if (generalChannel) {
       await ctx.db.insert("channelMembers", {
         channelId: generalChannel._id,

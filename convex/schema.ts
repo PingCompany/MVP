@@ -69,6 +69,21 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_workos_org", ["workosOrgId"]),
 
+  accessRequests: defineTable({
+    workspaceId: v.id("workspaces"),
+    email: v.string(),
+    name: v.optional(v.string()),
+    message: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_status", ["workspaceId", "status"])
+    .index("by_email_workspace", ["email", "workspaceId"]),
+
   channels: defineTable({
     name: v.string(),
     description: v.optional(v.string()),

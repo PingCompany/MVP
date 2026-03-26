@@ -17,17 +17,16 @@ export const submit = mutation({
       .unique();
     if (!workspace) throw new Error("Workspace not found");
 
-    // Check for duplicate pending request
-    const existingRequests = await ctx.db
+    const existing = await ctx.db
       .query("accessRequests")
       .withIndex("by_email_workspace", (q) =>
         q.eq("email", args.email).eq("workspaceId", workspace._id),
       )
-      .collect();
-    const pendingRequest = existingRequests.find((r) => r.status === "pending");
-    if (pendingRequest) throw new Error("Request already pending");
+      .first();
+    if (existing && existing.status === "pending") {
+      throw new Error("You already have a pending access request");
+    }
 
-    // Optionally resolve userId if caller is authenticated
     let userId: Id<"users"> | undefined;
     const identity = await ctx.auth.getUserIdentity();
     if (identity) {
@@ -36,14 +35,6 @@ export const submit = mutation({
         .withIndex("by_workos_id", (q) => q.eq("workosUserId", identity.subject))
         .unique();
       if (user) {
-        // Check if already a member
-        const membership = await ctx.db
-          .query("workspaceMembers")
-          .withIndex("by_user_workspace", (q) =>
-            q.eq("userId", user._id).eq("workspaceId", workspace._id),
-          )
-          .unique();
-        if (membership) throw new Error("Already a member");
         userId = user._id;
       }
     }
@@ -67,11 +58,9 @@ export const list = query({
     if (user.role !== "admin") {
       throw new Error("Only admins can view access requests");
     }
-
     return await ctx.db
       .query("accessRequests")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .order("desc")
       .collect();
   },
 });
@@ -84,18 +73,19 @@ export const review = mutation({
   handler: async (ctx, args) => {
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Access request not found");
-    if (request.status !== "pending") {
-      throw new Error("Access request is no longer pending");
+
+    const admin = await requireAuth(ctx, request.workspaceId);
+    if (admin.role !== "admin") {
+      throw new Error("Only admins can review access requests");
     }
 
-    const user = await requireAuth(ctx, request.workspaceId);
-    if (user.role !== "admin") {
-      throw new Error("Only admins can review access requests");
+    if (request.status !== "pending") {
+      throw new Error("This request has already been reviewed");
     }
 
     if (args.decision === "approved") {
       if (request.userId) {
-        // Check not already a member
+        // Add user as member directly
         const existingMembership = await ctx.db
           .query("workspaceMembers")
           .withIndex("by_user_workspace", (q) =>
@@ -118,6 +108,7 @@ export const review = mutation({
               q.eq("workspaceId", request.workspaceId).eq("name", "general"),
             )
             .unique();
+
           if (generalChannel) {
             await ctx.db.insert("channelMembers", {
               channelId: generalChannel._id,
@@ -126,22 +117,24 @@ export const review = mutation({
           }
         }
       } else {
-        // No userId — create an invitation so they can join later
+        // Create an invitation for the email
+        const token = crypto.randomUUID();
+        const ninetyDays = 90 * 24 * 60 * 60 * 1000;
         await ctx.db.insert("invitations", {
           workspaceId: request.workspaceId,
           email: request.email,
-          invitedBy: user._id,
+          invitedBy: admin._id,
           role: "member",
           status: "pending",
-          token: crypto.randomUUID(),
-          expiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000,
+          token,
+          expiresAt: Date.now() + ninetyDays,
         });
       }
     }
 
     await ctx.db.patch(args.requestId, {
       status: args.decision,
-      reviewedBy: user._id,
+      reviewedBy: admin._id,
       reviewedAt: Date.now(),
     });
   },
@@ -154,13 +147,12 @@ export const countPending = query({
     if (user.role !== "admin") {
       throw new Error("Only admins can view access request counts");
     }
-
-    const pending = await ctx.db
+    const requests = await ctx.db
       .query("accessRequests")
       .withIndex("by_workspace_status", (q) =>
         q.eq("workspaceId", args.workspaceId).eq("status", "pending"),
       )
       .collect();
-    return pending.length;
+    return requests.length;
   },
 });

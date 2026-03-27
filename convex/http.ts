@@ -594,6 +594,135 @@ http.route({
 });
 
 // ---------------------------------------------------------------------------
+// Mobile Auth — Token Exchange
+// ---------------------------------------------------------------------------
+
+http.route({
+  path: "/auth/mobile-token",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const { code, redirect_uri } = body;
+
+      if (!code) {
+        return jsonResponse({ error: "code is required" }, 400);
+      }
+
+      const clientId = process.env.WORKOS_CLIENT_ID;
+      const clientSecret = process.env.WORKOS_API_KEY;
+
+      if (!clientId || !clientSecret) {
+        return jsonResponse({ error: "Server misconfigured" }, 500);
+      }
+
+      const tokenResponse = await fetch(
+        "https://api.workos.com/user_management/authenticate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "authorization_code",
+            client_id: clientId,
+            client_secret: clientSecret,
+            code,
+            ...(redirect_uri ? { redirect_uri } : {}),
+          }),
+        },
+      );
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.text();
+        return jsonResponse(
+          { error: "Token exchange failed", details: errorBody },
+          tokenResponse.status,
+        );
+      }
+
+      const tokenData = await tokenResponse.json();
+      const { access_token, refresh_token, user: workosUser } = tokenData;
+
+      if (workosUser) {
+        await ctx.runMutation(api.users.createOrUpdate, {
+          workosUserId: workosUser.id,
+          email: workosUser.email ?? "",
+          name:
+            [workosUser.first_name, workosUser.last_name]
+              .filter(Boolean)
+              .join(" ") || "User",
+          avatarUrl: workosUser.profile_picture_url ?? undefined,
+        });
+      }
+
+      return jsonResponse({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+      });
+    } catch (e: any) {
+      return jsonResponse(
+        { error: "Internal error", message: e?.message },
+        500,
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/auth/mobile-refresh",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const { refresh_token } = body;
+
+      if (!refresh_token) {
+        return jsonResponse({ error: "refresh_token is required" }, 400);
+      }
+
+      const clientId = process.env.WORKOS_CLIENT_ID;
+      const clientSecret = process.env.WORKOS_API_KEY;
+
+      if (!clientId || !clientSecret) {
+        return jsonResponse({ error: "Server misconfigured" }, 500);
+      }
+
+      const tokenResponse = await fetch(
+        "https://api.workos.com/user_management/authenticate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "refresh_token",
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token,
+          }),
+        },
+      );
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.text();
+        return jsonResponse(
+          { error: "Token refresh failed", details: errorBody },
+          tokenResponse.status,
+        );
+      }
+
+      const tokenData = await tokenResponse.json();
+      return jsonResponse({
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+      });
+    } catch (e: any) {
+      return jsonResponse(
+        { error: "Internal error", message: e?.message },
+        500,
+      );
+    }
+  }),
+});
+
+// ---------------------------------------------------------------------------
 // User / Unified API (v1)
 // ---------------------------------------------------------------------------
 

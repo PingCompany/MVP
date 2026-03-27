@@ -1,4 +1,10 @@
-import { View, Text, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import {
+  MessageReactions,
+  EmojiPickerModal,
+} from "@/components/MessageReactions";
+import type { ReactionGroup } from "@/hooks/useReactions";
 
 interface MessageBubbleProps {
   authorName: string;
@@ -6,6 +12,11 @@ interface MessageBubbleProps {
   timestamp: number;
   isOwn?: boolean;
   type?: "user" | "bot" | "system" | "integration";
+  messageId?: string;
+  reactions?: ReactionGroup[];
+  onToggleReaction?: (emoji: string) => void;
+  currentUserId?: string;
+  onLongPress?: () => void;
 }
 
 function formatTime(timestamp: number): string {
@@ -19,7 +30,21 @@ export function MessageBubble({
   timestamp,
   isOwn = false,
   type = "user",
+  reactions,
+  onToggleReaction,
+  currentUserId,
+  onLongPress,
 }: MessageBubbleProps) {
+  const [pickerVisible, setPickerVisible] = useState(false);
+
+  const handleLongPress = () => {
+    if (onLongPress) {
+      onLongPress();
+    } else if (onToggleReaction) {
+      setPickerVisible(true);
+    }
+  };
+
   if (type === "system") {
     return (
       <View style={styles.systemContainer}>
@@ -28,17 +53,38 @@ export function MessageBubble({
     );
   }
 
+  const hasReactions = reactions && reactions.length > 0 && onToggleReaction;
+
   return (
-    <View style={[styles.container, isOwn && styles.ownContainer]}>
-      <View style={styles.header}>
-        <Text style={[styles.author, type === "bot" && styles.botAuthor]}>
-          {authorName}
-          {type === "bot" ? " (bot)" : ""}
-        </Text>
-        <Text style={styles.time}>{formatTime(timestamp)}</Text>
+    <Pressable onLongPress={handleLongPress}>
+      <View style={[styles.container, isOwn && styles.ownContainer]}>
+        <View style={styles.header}>
+          <Text style={[styles.author, type === "bot" && styles.botAuthor]}>
+            {authorName}
+            {type === "bot" ? " (bot)" : ""}
+          </Text>
+          <Text style={styles.time}>{formatTime(timestamp)}</Text>
+        </View>
+        <Text style={styles.body}>{body}</Text>
+        {hasReactions && (
+          <MessageReactions
+            reactions={reactions}
+            onToggle={onToggleReaction}
+            currentUserId={currentUserId}
+          />
+        )}
       </View>
-      <Text style={styles.body}>{body}</Text>
-    </View>
+      {onToggleReaction && (
+        <EmojiPickerModal
+          visible={pickerVisible}
+          onClose={() => setPickerVisible(false)}
+          onSelect={(emoji) => {
+            onToggleReaction(emoji);
+            setPickerVisible(false);
+          }}
+        />
+      )}
+    </Pressable>
   );
 }
 

@@ -13,6 +13,7 @@ import {
   saveToken,
   saveRefreshToken,
 } from "@/lib/auth";
+import { notifyTokenSaved } from "@/hooks/useConvexAuth";
 import { useRouter } from "expo-router";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -47,8 +48,9 @@ export default function LoginScreen() {
         const tokens = await exchangeCodeForTokens(code);
         await saveToken(tokens.accessToken);
         await saveRefreshToken(tokens.refreshToken);
-
-        router.replace("/(tabs)");
+        // Notify the auth hook so Convex re-authenticates
+        notifyTokenSaved(tokens.accessToken);
+        // AuthGate will handle navigation once isAuthenticated flips to true
       } else if (result.type === "cancel") {
         // User cancelled — do nothing
       } else {

@@ -3,7 +3,6 @@ import { getInitials } from "@/lib/initials";
 
 interface MemberListItemProps {
   name: string;
-  avatarUrl?: string;
   role?: string;
   isOnline?: boolean;
   isAgent?: boolean;

@@ -4,11 +4,12 @@ import {
   FlatList,
   ActivityIndicator,
   Text,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -17,7 +18,13 @@ import { MessageComposer } from "@/components/MessageComposer";
 import { AttachmentPreview } from "@/components/AttachmentPreview";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { uploadFile } from "@/lib/fileUpload";
+import { getDMDisplayName } from "@/lib/dmDisplayName";
 import { useConvex } from "convex/react";
+
+// NOTE: Reactions are not supported in DMs. The reactions API (api.reactions.toggle)
+// accepts Id<"messages"> and checks channelMembers for authorization. DM messages
+// use Id<"directMessages"> which is incompatible. Reactions would need a separate
+// backend mutation that handles directMessages to work here.
 
 export default function DMDetailScreen() {
   const { conversationId } = useLocalSearchParams<{
@@ -33,6 +40,7 @@ export default function DMDetailScreen() {
     { conversationId: typedConversationId },
     { initialNumItems: 25 },
   );
+  const router = useRouter();
   const markRead = useMutation(api.directConversations.markRead);
   const sendMessage = useMutation(api.directMessages.send);
   const { user } = useCurrentUser();
@@ -81,11 +89,11 @@ export default function DMDetailScreen() {
     }
   }, [status, loadMore]);
 
-  // Build display name
-  const displayName =
-    conversation?.name ??
-    conversation?.members?.map((m: any) => m.name).join(", ") ??
-    "Conversation";
+  const displayName = getDMDisplayName(
+    conversation?.name,
+    conversation?.members ?? [],
+    user?._id,
+  );
 
   if (messages === undefined) {
     return (
@@ -106,6 +114,20 @@ export default function DMDetailScreen() {
           title: displayName,
           headerStyle: { backgroundColor: "#111" },
           headerTintColor: "#fff",
+          headerTitle: () => (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/dm-info/[conversationId]",
+                  params: { conversationId },
+                })
+              }
+            >
+              <Text style={styles.headerTitleText}>
+                {displayName}
+              </Text>
+            </Pressable>
+          ),
         }}
       />
 
@@ -194,5 +216,10 @@ const styles = StyleSheet.create({
   emptySubtext: {
     color: "#666",
     fontSize: 14,
+  },
+  headerTitleText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "600",
   },
 });

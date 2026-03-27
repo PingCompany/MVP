@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -9,13 +9,14 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageComposer } from "@/components/MessageComposer";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useReactions } from "@/hooks/useReactions";
 
 export default function ChannelDetailScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
@@ -28,9 +29,16 @@ export default function ChannelDetailScreen() {
   const markRead = useMutation(api.channels.markRead);
   const sendMessage = useMutation(api.messages.send);
   const joinChannel = useMutation(api.channels.join);
+  const router = useRouter();
   const { user } = useCurrentUser();
 
   const [joining, setJoining] = useState(false);
+
+  const messageIds = useMemo(
+    () => (messages ?? []).map((m: any) => m._id as Id<"messages">),
+    [messages],
+  );
+  const { reactionsByMessage, toggleReaction } = useReactions(messageIds);
 
   useEffect(() => {
     if (channel?.isMember) {
@@ -74,6 +82,20 @@ export default function ChannelDetailScreen() {
           title: channel ? `# ${channel.name}` : "Channel",
           headerStyle: { backgroundColor: "#111" },
           headerTintColor: "#fff",
+          headerTitle: () => (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/channel-info/[channelId]",
+                  params: { channelId },
+                })
+              }
+            >
+              <Text style={styles.headerTitleText}>
+                {channel ? `# ${channel.name}` : "Channel"}
+              </Text>
+            </Pressable>
+          ),
         }}
       />
 
@@ -87,6 +109,10 @@ export default function ChannelDetailScreen() {
             timestamp={item._creationTime}
             isOwn={item.authorId === user?._id}
             type={item.type}
+            messageId={item._id}
+            reactions={reactionsByMessage[item._id] ?? []}
+            onToggleReaction={(emoji) => toggleReaction(item._id, emoji)}
+            currentUserId={user?._id}
           />
         )}
         inverted
@@ -169,6 +195,11 @@ const styles = StyleSheet.create({
   joinBtnText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  headerTitleText: {
+    color: "#fff",
+    fontSize: 17,
     fontWeight: "600",
   },
 });

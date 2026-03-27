@@ -20,22 +20,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Inbox",
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📥</Text>,
+          title: "My Deck",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>{"📥"}</Text>
+          ),
         }}
       />
       <Tabs.Screen
-        name="channels"
+        name="communications"
         options={{
-          title: "Channels",
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>#</Text>,
+          title: "Comms",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>{"💬"}</Text>
+          ),
         }}
       />
       <Tabs.Screen
-        name="dms"
+        name="profile"
         options={{
-          title: "DMs",
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>💬</Text>,
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>{"👤"}</Text>
+          ),
         }}
       />
     </Tabs>

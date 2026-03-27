@@ -33,7 +33,8 @@
       "expo-router",
       "expo-secure-store",
       "expo-image-picker",
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

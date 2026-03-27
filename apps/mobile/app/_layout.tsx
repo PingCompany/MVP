@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth as useConvexAuthState } from "convex/react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useConvexAuth } from "@/hooks/useConvexAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 import { WorkspaceProvider } from "@/components/WorkspaceProvider";
-import { useEffect } from "react";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
 
@@ -13,18 +13,22 @@ function AuthGate() {
   const { isLoading, isAuthenticated } = useConvexAuthState();
   const segments = useSegments();
   const router = useRouter();
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+
+  useNotifications();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inLoginScreen = segments[0] === "login";
+    const inLoginScreen = segmentsRef.current[0] === "login";
 
     if (!isAuthenticated && !inLoginScreen) {
       router.replace("/login");
     } else if (isAuthenticated && inLoginScreen) {
       router.replace("/(tabs)");
     }
-  }, [isLoading, isAuthenticated, segments]);
+  }, [isLoading, isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -37,12 +41,63 @@ function AuthGate() {
   if (isAuthenticated) {
     return (
       <WorkspaceProvider>
-        <Slot />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: "#111" },
+            headerTintColor: "#fff",
+            contentStyle: { backgroundColor: "#000" },
+          }}
+        >
+          <Stack.Screen
+            name="(tabs)"
+            options={{ headerShown: false, headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="login"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="channel/[channelId]"
+            options={{ headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="dm/[conversationId]"
+            options={{ headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="new-conversation"
+            options={{ title: "New Conversation", headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="search"
+            options={{ title: "Search", headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="thread/[messageId]"
+            options={{ title: "Thread", headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="dm-thread/[messageId]"
+            options={{ title: "Thread", headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="channel-info/[channelId]"
+            options={{ title: "Channel Info", headerBackTitle: " " }}
+          />
+          <Stack.Screen
+            name="dm-info/[conversationId]"
+            options={{ title: "Conversation Info", headerBackTitle: " " }}
+          />
+        </Stack>
       </WorkspaceProvider>
     );
   }
 
-  return <Slot />;
+  return (
+    <Stack screenOptions={stackScreenOptions}>
+      <Stack.Screen name="login" />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

@@ -1016,4 +1016,30 @@ http.route({
   }),
 });
 
+// POST /api/v1/reactions/toggle — Add/remove emoji reaction
+http.route({
+  path: "/api/v1/reactions/toggle",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { messageId, emoji } = body;
+
+    if (!messageId || !emoji) {
+      return jsonResponse({ error: "messageId and emoji are required" }, 400);
+    }
+
+    const result = await ctx.runMutation(internal.publicApi.toggleReaction, {
+      messageId,
+      userId: auth.user._id,
+      workspaceId: auth.workspaceId,
+      emoji,
+    });
+
+    return jsonResponse(result);
+  }),
+});
+
 export default http;

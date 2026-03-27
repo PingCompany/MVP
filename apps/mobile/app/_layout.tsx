@@ -1,57 +1,54 @@
 import React from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
-import { Stack } from "expo-router";
+import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth as useConvexAuthState } from "convex/react";
+import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useConvexAuth } from "@/hooks/useConvexAuth";
 import { WorkspaceProvider } from "@/components/WorkspaceProvider";
+import { useEffect } from "react";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
 
-function AuthGate({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <AuthLoading>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0a7ea4" />
-        </View>
-      </AuthLoading>
+function AuthGate() {
+  const { isLoading, isAuthenticated } = useConvexAuthState();
+  const segments = useSegments();
+  const router = useRouter();
 
-      <Unauthenticated>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="login" />
-        </Stack>
-      </Unauthenticated>
+  useEffect(() => {
+    if (isLoading) return;
 
-      <Authenticated>
-        <WorkspaceProvider>{children}</WorkspaceProvider>
-      </Authenticated>
-    </>
-  );
-}
+    const inLoginScreen = segments[0] === "login";
 
-function AppLayout() {
-  return (
-    <AuthGate>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: "#111" },
-          headerTintColor: "#fff",
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="channel/[channelId]" options={{ headerShown: true }} />
-        <Stack.Screen name="dm/[conversationId]" options={{ headerShown: true }} />
-      </Stack>
-    </AuthGate>
-  );
+    if (!isAuthenticated && !inLoginScreen) {
+      router.replace("/login");
+    } else if (isAuthenticated && inLoginScreen) {
+      router.replace("/(tabs)");
+    }
+  }, [isLoading, isAuthenticated, segments]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0a7ea4" />
+      </View>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <WorkspaceProvider>
+        <Slot />
+      </WorkspaceProvider>
+    );
+  }
+
+  return <Slot />;
 }
 
 export default function RootLayout() {
   return (
     <ConvexProviderWithAuth client={convex} useAuth={useConvexAuth}>
-      <AppLayout />
+      <AuthGate />
       <StatusBar style="light" />
     </ConvexProviderWithAuth>
   );

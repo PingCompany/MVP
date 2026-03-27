@@ -869,4 +869,151 @@ http.route({
   }),
 });
 
+// ---------------------------------------------------------------------------
+// Public API v1 — DM Conversations & Messages
+// ---------------------------------------------------------------------------
+
+// GET /api/v1/conversations
+http.route({
+  path: "/api/v1/conversations",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const conversations = await ctx.runQuery(
+      internal.publicApi.listConversations,
+      { userId: auth.user._id },
+    );
+    return jsonResponse({ conversations });
+  }),
+});
+
+// POST /api/v1/conversations/create
+http.route({
+  path: "/api/v1/conversations/create",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json();
+    const { kind, memberIds, name } = body;
+    if (!kind || !memberIds)
+      return jsonResponse(
+        { error: "kind and memberIds are required" },
+        400,
+      );
+    const result = await ctx.runMutation(
+      internal.publicApi.createConversation,
+      {
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+        kind,
+        memberIds,
+        name,
+      },
+    );
+    return jsonResponse(result, 201);
+  }),
+});
+
+// POST /api/v1/conversations/members
+http.route({
+  path: "/api/v1/conversations/members",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json();
+    const { conversationId } = body;
+    if (!conversationId)
+      return jsonResponse(
+        { error: "conversationId is required" },
+        400,
+      );
+    const members = await ctx.runQuery(
+      internal.publicApi.listConversationMembers,
+      {
+        conversationId,
+        userId: auth.user._id,
+      },
+    );
+    return jsonResponse({ members });
+  }),
+});
+
+// POST /api/v1/conversations/messages
+http.route({
+  path: "/api/v1/conversations/messages",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json();
+    const { conversationId, limit = 50, startTime, endTime } = body;
+    if (!conversationId)
+      return jsonResponse(
+        { error: "conversationId is required" },
+        400,
+      );
+    const messages = await ctx.runQuery(
+      internal.publicApi.readDMMessages,
+      {
+        conversationId,
+        userId: auth.user._id,
+        limit: Math.min(limit, 200),
+        startTime,
+        endTime,
+      },
+    );
+    return jsonResponse({ messages });
+  }),
+});
+
+// POST /api/v1/conversations/messages/send
+http.route({
+  path: "/api/v1/conversations/messages/send",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json();
+    const { conversationId, message, threadId } = body;
+    if (!conversationId || !message)
+      return jsonResponse(
+        { error: "conversationId and message are required" },
+        400,
+      );
+    const result = await ctx.runMutation(internal.publicApi.sendDMApi, {
+      conversationId,
+      userId: auth.user._id,
+      body: message,
+      messageType: auth.kind === "user" ? "user" : "bot",
+      threadId,
+    });
+    return jsonResponse(result, 201);
+  }),
+});
+
+// POST /api/v1/conversations/messages/thread
+http.route({
+  path: "/api/v1/conversations/messages/thread",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await request.json();
+    const { threadId } = body;
+    if (!threadId)
+      return jsonResponse({ error: "threadId is required" }, 400);
+    const result = await ctx.runQuery(
+      internal.publicApi.listDMThreadReplies,
+      {
+        threadId,
+        userId: auth.user._id,
+      },
+    );
+    return jsonResponse(result);
+  }),
+});
+
 export default http;

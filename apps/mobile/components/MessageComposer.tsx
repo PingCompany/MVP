@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   View,
   TextInput,
@@ -9,11 +9,16 @@ import {
   ActionSheetIOS,
   Alert,
   Image,
+  type NativeSyntheticEvent,
+  type TextInputSelectionChangeEventData,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { Attachment } from "@/lib/fileUpload";
 import { formatFileSize, isImageType } from "@/lib/fileUpload";
+import { MentionPopover } from "./MentionPopover";
+import { useMentionUsers } from "@/hooks/useMentionUsers";
 
 interface PendingFile {
   uri: string;
@@ -35,7 +40,69 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const [text, setText] = useState("");
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [cursorPos, setCursorPos] = useState(0);
+  const [mentionVisible, setMentionVisible] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
   const inputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+  const mentionUsers = useMentionUsers();
+
+  const detectMention = useCallback(
+    (newText: string, cursor: number) => {
+      const textBeforeCursor = newText.slice(0, cursor);
+      const match = textBeforeCursor.match(/(^|[\s])@(\w*)$/);
+      if (match) {
+        setMentionQuery(match[2]);
+        setMentionVisible(true);
+      } else {
+        setMentionVisible(false);
+      }
+    },
+    [],
+  );
+
+  const handleChangeText = useCallback(
+    (newText: string) => {
+      setText(newText);
+      // Use text length as proxy for cursor when onSelectionChange hasn't fired yet
+      detectMention(newText, newText.length);
+    },
+    [detectMention],
+  );
+
+  const handleSelectionChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+      const pos = e.nativeEvent.selection.end;
+      setCursorPos(pos);
+      detectMention(text, pos);
+    },
+    [text, detectMention],
+  );
+
+  const handleMentionSelect = useCallback(
+    (user: { _id: string; name: string }) => {
+      // Find the "@query" portion before the cursor and replace it
+      const textBeforeCursor = text.slice(0, cursorPos);
+      const match = textBeforeCursor.match(/(^|[\s])@(\w*)$/);
+      if (match) {
+        const matchStart =
+          textBeforeCursor.length - match[0].length + match[1].length;
+        const before = text.slice(0, matchStart);
+        const after = text.slice(cursorPos);
+        const replacement = `@${user.name} `;
+        const newText = before + replacement + after;
+        setText(newText);
+        const newCursor = before.length + replacement.length;
+        setCursorPos(newCursor);
+      }
+      setMentionVisible(false);
+    },
+    [text, cursorPos],
+  );
+
+  const handleMentionDismiss = useCallback(() => {
+    setMentionVisible(false);
+  }, []);
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -134,7 +201,14 @@ export function MessageComposer({
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <MentionPopover
+        query={mentionQuery}
+        users={mentionUsers}
+        onSelect={handleMentionSelect}
+        onDismiss={handleMentionDismiss}
+        visible={mentionVisible}
+      />
       {pendingFiles.length > 0 && (
         <View style={styles.pendingFiles}>
           {pendingFiles.map((file, index) => (
@@ -168,7 +242,8 @@ export function MessageComposer({
           ref={inputRef}
           style={styles.input}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleChangeText}
+          onSelectionChange={handleSelectionChange}
           placeholder={placeholder}
           placeholderTextColor="#666"
           multiline

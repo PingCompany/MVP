@@ -720,6 +720,68 @@ http.route({
 });
 
 // ---------------------------------------------------------------------------
+// Public Channel API (v1)
+// ---------------------------------------------------------------------------
+
+// GET /api/v1/channels — List workspace channels
+http.route({
+  path: "/api/v1/channels",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const channels = await ctx.runQuery(internal.publicApi.listChannels, {
+      workspaceId: auth.workspaceId,
+    });
+    return jsonResponse({ channels });
+  }),
+});
+
+// POST /api/v1/channels — Create channel
+http.route({
+  path: "/api/v1/channels",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { name, description, isPrivate } = body;
+    if (!name) return jsonResponse({ error: "name is required" }, 400);
+
+    const result = await ctx.runMutation(internal.publicApi.createChannel, {
+      workspaceId: auth.workspaceId,
+      userId: auth.user._id,
+      name,
+      description,
+      isPrivate,
+    });
+    return jsonResponse(result, 201);
+  }),
+});
+
+// POST /api/v1/channels/members — List channel members
+http.route({
+  path: "/api/v1/channels/members",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { channelId } = body;
+    if (!channelId) return jsonResponse({ error: "channelId is required" }, 400);
+
+    const members = await ctx.runQuery(internal.publicApi.listChannelMembers, {
+      channelId,
+      workspaceId: auth.workspaceId,
+    });
+    return jsonResponse({ members });
+  }),
+});
+
+// ---------------------------------------------------------------------------
 // Public API v1 — Channel Messages
 // ---------------------------------------------------------------------------
 

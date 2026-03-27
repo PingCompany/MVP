@@ -719,4 +719,92 @@ http.route({
   }),
 });
 
+// ---------------------------------------------------------------------------
+// Public API v1 — Channel Messages
+// ---------------------------------------------------------------------------
+
+// POST /api/v1/channels/messages — List messages with date filtering
+http.route({
+  path: "/api/v1/channels/messages",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { channelId, limit = 50, startTime, endTime } = body;
+    if (!channelId)
+      return jsonResponse({ error: "channelId is required" }, 400);
+
+    const messages = await ctx.runQuery(
+      internal.publicApi.readChannelMessages,
+      {
+        channelId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+        limit: Math.min(limit, 200),
+        startTime,
+        endTime,
+      },
+    );
+    return jsonResponse({ messages });
+  }),
+});
+
+// POST /api/v1/channels/messages/send — Send or reply
+http.route({
+  path: "/api/v1/channels/messages/send",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { channelId, message, threadId } = body;
+    if (!channelId || !message)
+      return jsonResponse(
+        { error: "channelId and message are required" },
+        400,
+      );
+
+    const result = await ctx.runMutation(
+      internal.publicApi.sendChannelMessageApi,
+      {
+        channelId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+        body: message,
+        messageType: auth.kind === "user" ? "user" : "bot",
+        threadId,
+      },
+    );
+    return jsonResponse(result, 201);
+  }),
+});
+
+// POST /api/v1/channels/messages/thread — List thread replies
+http.route({
+  path: "/api/v1/channels/messages/thread",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateApiCaller(ctx, request);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const body = await request.json();
+    const { threadId } = body;
+    if (!threadId)
+      return jsonResponse({ error: "threadId is required" }, 400);
+
+    const result = await ctx.runQuery(
+      internal.publicApi.listChannelThreadReplies,
+      {
+        threadId,
+        workspaceId: auth.workspaceId,
+        userId: auth.user._id,
+      },
+    );
+    return jsonResponse(result);
+  }),
+});
+
 export default http;

@@ -37,11 +37,11 @@ import { GridBackground } from "@/components/landing/GridBackground";
 const SPRING_TRANSITION = { type: "spring" as const, damping: 20, stiffness: 250 };
 const FADE_UP_INITIAL = { opacity: 0, y: 12 };
 
-const DOCS_URL = "https://pingcompany.github.io/platform/";
-const GITHUB_URL = "https://github.com/PingCompany/Platform";
+const DOCS_URL = "https://the-focus-company.github.io/openping/";
+const GITHUB_URL = "https://github.com/the-focus-company/openping";
 
-const QUICKSTART_COMMANDS = `git clone https://github.com/PingCompany/Platform.git
-cd Platform
+const QUICKSTART_COMMANDS = `git clone https://github.com/the-focus-company/openping.git
+cd openping
 pnpm install
 pnpm dev`;
 

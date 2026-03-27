@@ -2,8 +2,8 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
-  site: "https://pingcompany.github.io",
-  base: "/platform/",
+  site: "https://the-focus-company.github.io",
+  base: "/openping/",
   integrations: [
     starlight({
       title: "PING Docs",
@@ -18,7 +18,7 @@ export default defineConfig({
         {
           label: "GitHub",
           icon: "github",
-          href: "https://github.com/PingCompany/Platform",
+          href: "https://github.com/the-focus-company/openping",
         },
       ],
       sidebar: [

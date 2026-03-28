@@ -1,20 +1,30 @@
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
+import { useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 import {
   requestPermissions,
   setupNotificationCategories,
+  getPushToken,
 } from "@/lib/notifications";
 
 export function useNotifications() {
   const router = useRouter();
+  const registerPushToken = useMutation(api.users.registerPushToken);
   const responseListener = useRef<Notifications.Subscription | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     (async () => {
-      await requestPermissions();
+      const granted = await requestPermissions();
       await setupNotificationCategories();
+      if (granted) {
+        const token = await getPushToken();
+        if (token) {
+          await registerPushToken({ token }).catch(() => {});
+        }
+      }
     })();
 
     responseListener.current =

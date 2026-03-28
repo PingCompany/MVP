@@ -113,6 +113,8 @@ export const list = query({
             unreadCount: membership?.unreadCount ?? 0,
             unreadMentionCount: membership?.unreadMentionCount ?? 0,
             isStarred: membership?.isStarred ?? false,
+            isMuted: membership?.isMuted ?? false,
+            folder: membership?.folder ?? null,
           };
         }),
     );
@@ -393,6 +395,37 @@ export const toggleStar = mutation({
     });
 
     return !membership.isStarred;
+  },
+});
+
+export const toggleMute = mutation({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", args.channelId).eq("userId", user._id),
+      )
+      .unique();
+    if (!membership) throw new Error("Not a member of this channel");
+    await ctx.db.patch(membership._id, { isMuted: !membership.isMuted });
+    return !membership.isMuted;
+  },
+});
+
+export const setFolder = mutation({
+  args: { channelId: v.id("channels"), folder: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", args.channelId).eq("userId", user._id),
+      )
+      .unique();
+    if (!membership) throw new Error("Not a member of this channel");
+    await ctx.db.patch(membership._id, { folder: args.folder });
   },
 });
 

@@ -39,8 +39,8 @@ export function SearchResultItem({
         ) : null}
       </View>
       {context ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{context}</Text>
+        <View style={[styles.badge, context === "AI" && styles.badgeAI]}>
+          <Text style={[styles.badgeText, context === "AI" && styles.badgeTextAI]}>{context}</Text>
         </View>
       ) : null}
       {timestamp ? (
@@ -98,6 +98,16 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     color: "#ccc",
+  },
+  badgeAI: {
+    backgroundColor: "rgba(124,58,237,0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(124,58,237,0.4)",
+  },
+  badgeTextAI: {
+    color: "#a78bfa",
+    fontWeight: "700" as const,
+    fontSize: 10,
   },
   time: {
     fontSize: 12,

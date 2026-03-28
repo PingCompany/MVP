@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -20,6 +20,7 @@ import { MessageComposer } from "@/components/MessageComposer";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDMReactions } from "@/hooks/useReactions";
 
 export default function DMThreadScreen() {
   const { messageId, conversationId } = useLocalSearchParams<{
@@ -34,6 +35,16 @@ export default function DMThreadScreen() {
   });
   const sendReply = useMutation(api.threads.sendReplyDM);
   const { user } = useCurrentUser();
+
+  // DM Reactions
+  const allMessageIds = useMemo(() => {
+    if (!thread) return [];
+    return [
+      thread.parent._id as Id<"directMessages">,
+      ...thread.replies.map((r: any) => r._id as Id<"directMessages">),
+    ];
+  }, [thread]);
+  const { reactionsByMessage, toggleReaction } = useDMReactions(allMessageIds);
 
   const [alsoSendToConversation, setAlsoSendToConversation] = useState(false);
   const [actionSheet, setActionSheet] = useState<{
@@ -89,6 +100,9 @@ export default function DMThreadScreen() {
               timestamp={thread.parent._creationTime}
               isOwn={thread.parent.authorId === user?._id}
               type={thread.parent.type}
+              reactions={reactionsByMessage[thread.parent._id] ?? []}
+              onToggleReaction={(emoji) => toggleReaction(thread.parent._id, emoji)}
+              currentUserId={user?._id}
               onLongPress={() =>
                 setActionSheet({
                   visible: true,
@@ -117,6 +131,9 @@ export default function DMThreadScreen() {
               timestamp={item._creationTime}
               isOwn={item.authorId === user?._id}
               type={item.type}
+              reactions={reactionsByMessage[item._id] ?? []}
+              onToggleReaction={(emoji) => toggleReaction(item._id, emoji)}
+              currentUserId={user?._id}
               onLongPress={() =>
                 setActionSheet({
                   visible: true,
@@ -153,8 +170,10 @@ export default function DMThreadScreen() {
       <MessageActionSheet
         visible={actionSheet.visible}
         onClose={() => setActionSheet({ visible: false })}
-        onReaction={() => {
-          Alert.alert("Reactions", "Reactions in DM threads coming soon");
+        onReaction={(emoji) => {
+          if (actionSheet.messageId) {
+            toggleReaction(actionSheet.messageId, emoji);
+          }
         }}
         onReply={() => {
           setActionSheet({ visible: false });

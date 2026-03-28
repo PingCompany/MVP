@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useRouter } from "expo-router";
 import { getInitials } from "@/lib/initials";
@@ -18,6 +19,7 @@ export default function SearchScreen() {
   const { workspaceId } = useWorkspace();
   const router = useRouter();
 
+  const createDM = useMutation(api.directConversations.create);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -40,6 +42,10 @@ export default function SearchScreen() {
     api.search.searchDirectMessages,
     shouldSearch ? { query: debouncedQuery } : "skip",
   );
+  const agents = useQuery(
+    api.agents.list,
+    { workspaceId },
+  );
 
   const isLoading =
     shouldSearch &&
@@ -55,17 +61,92 @@ export default function SearchScreen() {
     onPress: () => void;
   };
   const sections: { title: string; data: ResultItem[] }[] = [];
+
+  // Build a set of agent userIds to identify agents in people results
+  const agentUserIdMap = new Map<string, any>();
+  if (agents) {
+    for (const a of agents as any[]) {
+      if (a.agentUserId) {
+        agentUserIdMap.set(a.agentUserId, a);
+      }
+    }
+  }
+
+  // Merge people + agents into one "People" section
   if (people && people.length > 0) {
-    sections.push({
-      title: "People",
-      data: people.map((p) => ({
+    const peopleItems: ResultItem[] = people.map((p) => {
+      const agentRecord = agentUserIdMap.get(p._id);
+      const isAgent = !!agentRecord;
+      return {
         key: p._id,
         title: p.name,
-        subtitle: p.email,
+        subtitle: isAgent ? (agentRecord.description ?? "AI Agent") : p.email,
+        context: isAgent ? "AI" : undefined,
         initials: getInitials(p.name),
-        onPress: () => {},
-      })),
+        onPress: async () => {
+          if (isAgent) {
+            const conversationId = await createDM({
+              kind: "agent_1to1",
+              memberIds: [p._id as Id<"users">],
+              agentMemberIds: [p._id as Id<"users">],
+              workspaceId,
+            });
+            router.push({
+              pathname: "/dm/[conversationId]",
+              params: { conversationId },
+            });
+          } else {
+            const conversationId = await createDM({
+              kind: "1to1",
+              memberIds: [p._id as Id<"users">],
+              workspaceId,
+            });
+            router.push({
+              pathname: "/dm/[conversationId]",
+              params: { conversationId },
+            });
+          }
+        },
+      };
     });
+
+    // Add agents that matched by name/description but aren't in people results
+    // (e.g. agent has no workspace membership or different search match)
+    if (agents && shouldSearch) {
+      const lowerQ = debouncedQuery.toLowerCase();
+      const existingKeys = new Set(peopleItems.map((p) => p.key));
+      for (const a of agents as any[]) {
+        if (a.agentUserId && existingKeys.has(a.agentUserId)) continue;
+        if (
+          a.name.toLowerCase().includes(lowerQ) ||
+          (a.description && a.description.toLowerCase().includes(lowerQ))
+        ) {
+          peopleItems.push({
+            key: a._id,
+            title: a.name,
+            subtitle: a.description ?? "AI Agent",
+            context: "AI",
+            initials: a.name.charAt(0).toUpperCase(),
+            onPress: async () => {
+              if (a.agentUserId) {
+                const conversationId = await createDM({
+                  kind: "agent_1to1",
+                  memberIds: [a.agentUserId as Id<"users">],
+                  agentMemberIds: [a.agentUserId as Id<"users">],
+                  workspaceId,
+                });
+                router.push({
+                  pathname: "/dm/[conversationId]",
+                  params: { conversationId },
+                });
+              }
+            },
+          });
+        }
+      }
+    }
+
+    sections.push({ title: "People", data: peopleItems });
   }
   if (messages && messages.length > 0) {
     // Deduplicate by message ID
@@ -99,9 +180,36 @@ export default function SearchScreen() {
       seenDM.add(m._id);
       return true;
     });
-    sections.push({
-      title: "Direct Messages",
-      data: uniqueDMs.map((m) => ({
+
+    // Separate file matches from text matches
+    const fileMatches: ResultItem[] = [];
+    const dmMatches: ResultItem[] = [];
+    const lowerQuery = debouncedQuery.toLowerCase();
+
+    for (const m of uniqueDMs) {
+      const attachments = (m as any).attachments as { filename: string; mimeType: string }[] | undefined;
+      const matchingFiles = attachments?.filter((a) =>
+        a.filename.toLowerCase().includes(lowerQuery),
+      );
+
+      if (matchingFiles && matchingFiles.length > 0) {
+        for (const f of matchingFiles) {
+          fileMatches.push({
+            key: `${m._id}-${f.filename}`,
+            title: f.filename,
+            subtitle: `Shared by ${m.authorName}`,
+            context: f.mimeType.split("/")[0],
+            timestamp: m._creationTime,
+            onPress: () =>
+              router.push({
+                pathname: "/dm/[conversationId]",
+                params: { conversationId: m.conversationId, highlightMessage: m._id },
+              }),
+          });
+        }
+      }
+
+      dmMatches.push({
         key: m._id,
         title: m.authorName,
         subtitle: m.body,
@@ -112,8 +220,13 @@ export default function SearchScreen() {
             pathname: "/dm/[conversationId]",
             params: { conversationId: m.conversationId, highlightMessage: m._id },
           }),
-      })),
-    });
+      });
+    }
+
+    if (fileMatches.length > 0) {
+      sections.push({ title: "Files", data: fileMatches });
+    }
+    sections.push({ title: "Direct Messages", data: dmMatches });
   }
 
   return (

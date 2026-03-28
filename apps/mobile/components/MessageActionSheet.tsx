@@ -4,10 +4,16 @@ import {
   Text,
   Pressable,
   Modal,
+  ScrollView,
   StyleSheet,
 } from "react-native";
 import { SmilePlus, MessageCircle, CornerUpRight, Link, Info } from "lucide-react-native";
-import EmojiPicker from "rn-emoji-keyboard";
+
+const EMOJI_LIST = [
+  "👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "🙏",
+  "👏", "💯", "🚀", "👀", "💪", "✅", "❌", "⭐",
+  "🤔", "😍", "🙌", "💡", "👎", "😅", "🤝", "💀",
+];
 
 interface MessageActionSheetProps {
   visible: boolean;
@@ -39,116 +45,116 @@ export function MessageActionSheet({
     minute: "2-digit",
   });
 
+  function handleClose() {
+    setEmojiPickerOpen(false);
+    onClose();
+  }
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          {/* Action buttons row */}
-          <View style={styles.actionsRow}>
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => setEmojiPickerOpen(true)}
-            >
-              <View style={styles.actionIconWrap}>
-                <SmilePlus size={20} color="#fff" />
+          {emojiPickerOpen ? (
+            <>
+              <View style={styles.emojiHeader}>
+                <Text style={styles.emojiHeaderText}>Choose a reaction</Text>
               </View>
-              <Text style={styles.actionLabel}>React</Text>
-            </Pressable>
+              <ScrollView contentContainerStyle={styles.emojiGrid}>
+                {EMOJI_LIST.map((emoji) => (
+                  <Pressable
+                    key={emoji}
+                    style={({ pressed }) => [
+                      styles.emojiBtn,
+                      pressed && styles.emojiBtnPressed,
+                    ]}
+                    onPress={() => {
+                      onReaction(emoji);
+                      handleClose();
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable style={styles.cancelBtn} onPress={handleClose}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              {/* Action buttons row */}
+              <View style={styles.actionsRow}>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => setEmojiPickerOpen(true)}
+                >
+                  <View style={styles.actionIconWrap}>
+                    <SmilePlus size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.actionLabel}>React</Text>
+                </Pressable>
 
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => {
-                onReply();
-                onClose();
-              }}
-            >
-              <View style={styles.actionIconWrap}>
-                <MessageCircle size={20} color="#fff" />
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    onReply();
+                    onClose();
+                  }}
+                >
+                  <View style={styles.actionIconWrap}>
+                    <MessageCircle size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.actionLabel}>Reply</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    onForward();
+                    onClose();
+                  }}
+                >
+                  <View style={styles.actionIconWrap}>
+                    <CornerUpRight size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.actionLabel}>Forward</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    onCopyLink();
+                    onClose();
+                  }}
+                >
+                  <View style={styles.actionIconWrap}>
+                    <Link size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.actionLabel}>Copy Link</Text>
+                </Pressable>
               </View>
-              <Text style={styles.actionLabel}>Reply</Text>
-            </Pressable>
 
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => {
-                onForward();
-                onClose();
-              }}
-            >
-              <View style={styles.actionIconWrap}>
-                <CornerUpRight size={20} color="#fff" />
+              {/* Info line */}
+              <View style={styles.listActions}>
+                <View style={styles.listItem}>
+                  <Info size={18} color="#999" />
+                  <Text style={styles.listLabel}>Sent {formattedDate}</Text>
+                </View>
               </View>
-              <Text style={styles.actionLabel}>Forward</Text>
-            </Pressable>
 
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => {
-                onCopyLink();
-                onClose();
-              }}
-            >
-              <View style={styles.actionIconWrap}>
-                <Link size={20} color="#fff" />
-              </View>
-              <Text style={styles.actionLabel}>Copy Link</Text>
-            </Pressable>
-          </View>
-
-          {/* Info line */}
-          <View style={styles.listActions}>
-            <View style={styles.listItem}>
-              <Info size={18} color="#999" />
-              <Text style={styles.listLabel}>Sent {formattedDate}</Text>
-            </View>
-          </View>
-
-          {/* Cancel */}
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </Pressable>
+              {/* Cancel */}
+              <Pressable style={styles.cancelBtn} onPress={handleClose}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </Pressable>
-
-      <EmojiPicker
-        onEmojiSelected={(emojiObject) => {
-          onReaction(emojiObject.emoji);
-          setEmojiPickerOpen(false);
-          onClose();
-        }}
-        open={emojiPickerOpen}
-        onClose={() => setEmojiPickerOpen(false)}
-        theme={{
-          backdrop: "rgba(0,0,0,0.6)",
-          knob: "#555",
-          container: "#1c1c1e",
-          header: "#fff",
-          skinTonesContainer: "#252525",
-          category: {
-            icon: "#888",
-            iconActive: "#0a7ea4",
-            container: "#1c1c1e",
-            containerActive: "#333",
-          },
-          search: {
-            text: "#fff",
-            placeholder: "#666",
-            icon: "#666",
-            background: "#2c2c2e",
-          },
-          emoji: {
-            selected: "#333",
-          },
-        }}
-        categoryPosition="top"
-        enableSearchBar
-        enableRecentlyUsed
-      />
     </Modal>
   );
 }
@@ -216,5 +222,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#0a7ea4",
     fontWeight: "600",
+  },
+  emojiHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#333",
+  },
+  emojiHeaderText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ccc",
+    textAlign: "center",
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    padding: 12,
+    gap: 4,
+  },
+  emojiBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiBtnPressed: {
+    backgroundColor: "#333",
+  },
+  emojiText: {
+    fontSize: 28,
   },
 });

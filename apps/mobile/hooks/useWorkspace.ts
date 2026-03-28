@@ -17,7 +17,13 @@ export const WorkspaceContext = createContext<WorkspaceContextValue | null>(
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) {
-    throw new Error("useWorkspace must be used within a WorkspaceProvider");
+    // Return a placeholder — screens will be redirected to login before rendering
+    return {
+      workspaceId: "" as Id<"workspaces">,
+      workspaceName: "",
+      workspaceSlug: "",
+      role: "member",
+    };
   }
   return ctx;
 }

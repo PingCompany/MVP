@@ -21,9 +21,11 @@ import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDMReactions } from "@/hooks/useReactions";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { uploadFile } from "@/lib/fileUpload";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
+import { ForwardModal } from "@/components/ForwardModal";
 
 function isSameDay(a: number, b: number): boolean {
   const da = new Date(a);
@@ -60,11 +62,19 @@ export default function DMDetailScreen() {
   const convex = useConvex();
   const typingUsers = useQuery(api.typing.getTypingUsersDM, { conversationId: typedConversationId });
 
+  // DM Reactions
+  const allDMMessageIds = useMemo(() => {
+    if (!messages) return [];
+    return messages.map((m) => m._id as Id<"directMessages">);
+  }, [messages]);
+  const { reactionsByMessage, toggleReaction } = useDMReactions(allDMMessageIds);
+
   const [actionSheet, setActionSheet] = useState<{
     visible: boolean;
     messageId?: string;
     timestamp?: number;
   }>({ visible: false });
+  const [forwardMsg, setForwardMsg] = useState<{ body: string; author: string } | null>(null);
 
   useEffect(() => {
     markRead({ conversationId: typedConversationId });
@@ -188,6 +198,9 @@ export default function DMDetailScreen() {
                 showHeader={item.showHeader}
                 isOwn={msg.authorId === user?._id}
                 type={msg.type}
+                reactions={reactionsByMessage[msg._id] ?? []}
+                onToggleReaction={(emoji) => toggleReaction(msg._id, emoji)}
+                currentUserId={user?._id}
                 onPress={() =>
                   router.push({
                     pathname: "/dm-thread/[messageId]",
@@ -252,8 +265,10 @@ export default function DMDetailScreen() {
       <MessageActionSheet
         visible={actionSheet.visible}
         onClose={() => setActionSheet({ visible: false })}
-        onReaction={() => {
-          // DM reactions not yet supported by backend — silently close
+        onReaction={(emoji) => {
+          if (actionSheet.messageId) {
+            toggleReaction(actionSheet.messageId, emoji);
+          }
         }}
         onReply={() => {
           if (actionSheet.messageId) {
@@ -264,7 +279,13 @@ export default function DMDetailScreen() {
           }
         }}
         onForward={() => {
-          Alert.alert("Forward", "Forward feature coming soon");
+          if (actionSheet.messageId && messages) {
+            const msg = messages.find((m) => m._id === actionSheet.messageId);
+            if (msg) {
+              setForwardMsg({ body: msg.body, author: (msg as any).author?.name ?? "Unknown" });
+            }
+          }
+          setActionSheet({ visible: false });
         }}
         onCopyLink={() => {
           if (actionSheet.messageId) {
@@ -275,6 +296,15 @@ export default function DMDetailScreen() {
         }}
         messageDate={actionSheet.timestamp ?? Date.now()}
       />
+
+      {forwardMsg && (
+        <ForwardModal
+          visible={!!forwardMsg}
+          onClose={() => setForwardMsg(null)}
+          messageBody={forwardMsg.body}
+          authorName={forwardMsg.author}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }

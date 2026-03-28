@@ -7,10 +7,10 @@ export default function TabLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Tab bar height: icons (22) + padding (8+8) + safe area
-  const tabBarHeight = 38 + insets.bottom;
-  // Search sits above tab bar
-  const searchBottom = tabBarHeight + 4;
+  // Tab bar height: icons (22) + padding (6+6) + safe area
+  const tabBarHeight = 32 + insets.bottom;
+  // Search sits 12px above tab bar
+  const searchBottom = tabBarHeight + 12;
 
   return (
     <View style={styles.root}>
@@ -22,7 +22,7 @@ export default function TabLayout() {
             backgroundColor: "#111",
             borderTopColor: "#333",
             height: tabBarHeight,
-            paddingTop: 8,
+            paddingTop: 6,
           },
           tabBarShowLabel: false,
           tabBarHideOnKeyboard: true,
@@ -35,14 +35,14 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Home",
+            title: "My Deck",
             tabBarIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
         <Tabs.Screen
           name="communications"
           options={{
-            title: "DMs",
+            title: "Conversations",
             tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} />,
           }}
         />

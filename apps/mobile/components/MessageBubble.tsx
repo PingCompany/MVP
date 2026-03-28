@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { View, Text, Pressable, Image, StyleSheet } from "react-native";
+import { View, Text, Pressable, Image, Linking, StyleSheet } from "react-native";
 import {
   MessageReactions,
   EmojiPickerModal,
@@ -21,6 +21,7 @@ interface MessageBubbleProps {
   currentUserId?: string;
   onPress?: () => void;
   onLongPress?: () => void;
+  onMentionPress?: (name: string) => void;
   threadReplyCount?: number;
   threadLastReplyAuthor?: string;
   threadLastReplyAvatarUrl?: string | null;
@@ -72,19 +73,77 @@ function parseBody(body: string): Segment[] {
   return segments;
 }
 
-// Render inline code within text
-function renderInlineText(text: string) {
-  const parts = text.split(/(`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <Text key={i} style={styles.inlineCode}>
-          {part.slice(1, -1)}
-        </Text>
+// Inline formatting: code, links, bold, italic, strikethrough, @mentions
+// @mentions: @Word + optional capitalized continuation words (e.g. @Rafał Wyderka)
+const INLINE_REGEX = /(`[^`]+`|https?:\/\/[^\s<>)"']+|\*\*(.+?)\*\*|\*(.+?)\*|~~(.+?)~~|@(\w+(?:\s[A-Z\u00C0-\u024F]\w*)*))/g;
+
+function renderInlineText(text: string, onMentionPress?: (name: string) => void) {
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  INLINE_REGEX.lastIndex = 0;
+  while ((match = INLINE_REGEX.exec(text)) !== null) {
+    // Push preceding plain text
+    if (match.index > lastIndex) {
+      result.push(text.slice(lastIndex, match.index));
+    }
+
+    const full = match[0];
+    const key = `m${match.index}`;
+
+    if (full.startsWith("`")) {
+      result.push(
+        <Text key={key} style={styles.inlineCode}>
+          {full.slice(1, -1)}
+        </Text>,
+      );
+    } else if (full.startsWith("http")) {
+      result.push(
+        <Text key={key} style={styles.link} onPress={() => Linking.openURL(full)}>
+          {full}
+        </Text>,
+      );
+    } else if (full.startsWith("**")) {
+      result.push(
+        <Text key={key} style={styles.bold}>
+          {match[2]}
+        </Text>,
+      );
+    } else if (full.startsWith("*")) {
+      result.push(
+        <Text key={key} style={styles.italic}>
+          {match[3]}
+        </Text>,
+      );
+    } else if (full.startsWith("~~")) {
+      result.push(
+        <Text key={key} style={styles.strikethrough}>
+          {match[4]}
+        </Text>,
+      );
+    } else if (full.startsWith("@")) {
+      const mentionName = match[5];
+      result.push(
+        <Text
+          key={key}
+          style={styles.mention}
+          onPress={onMentionPress ? () => onMentionPress(mentionName) : undefined}
+        >
+          {full}
+        </Text>,
       );
     }
-    return part;
-  });
+
+    lastIndex = match.index + full.length;
+  }
+
+  // Push remaining plain text
+  if (lastIndex < text.length) {
+    result.push(text.slice(lastIndex));
+  }
+
+  return result;
 }
 
 export function MessageBubble({
@@ -99,6 +158,7 @@ export function MessageBubble({
   currentUserId,
   onPress,
   onLongPress,
+  onMentionPress,
   threadReplyCount,
   threadLastReplyAuthor,
   threadLastReplyAvatarUrl,
@@ -138,7 +198,7 @@ export function MessageBubble({
           <CodeBlock key={i} code={seg.content} language={seg.language} />
         ) : (
           <Text key={i} style={styles.body}>
-            {renderInlineText(seg.content)}
+            {renderInlineText(seg.content, onMentionPress)}
           </Text>
         ),
       )}
@@ -291,6 +351,28 @@ const styles = StyleSheet.create({
     color: "#f0abfc",
     borderRadius: 3,
     paddingHorizontal: 4,
+  },
+  link: {
+    color: "#0a7ea4",
+    textDecorationLine: "underline" as const,
+  },
+  bold: {
+    fontWeight: "700" as const,
+    color: "#fff",
+  },
+  italic: {
+    fontStyle: "italic" as const,
+  },
+  strikethrough: {
+    textDecorationLine: "line-through" as const,
+    color: "#999",
+  },
+  mention: {
+    color: "#0a7ea4",
+    fontWeight: "600" as const,
+    backgroundColor: "rgba(10,126,164,0.15)",
+    borderRadius: 3,
+    paddingHorizontal: 2,
   },
   systemContainer: {
     paddingHorizontal: 16,

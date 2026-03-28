@@ -7,6 +7,7 @@ import {
   Pressable,
   ActionSheetIOS,
   Platform,
+  Alert,
   StyleSheet,
 } from "react-native";
 import { useQuery } from "convex/react";
@@ -16,7 +17,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
 import { useRouter, Stack } from "expo-router";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
-import { User, Users, SlidersHorizontal, Plus } from "lucide-react-native";
+import { User, Users, Filter, Plus, Hash, BellOff } from "lucide-react-native";
 
 type CommunicationItem = {
   id: string;
@@ -26,6 +27,8 @@ type CommunicationItem = {
   lastMessageAuthor?: string;
   unreadCount: number;
   isStarred: boolean;
+  isMuted: boolean;
+  folder: string | null;
   timestamp: number;
   route: { pathname: string; params: Record<string, string> };
   kind?: "1to1" | "group" | "agent_1to1" | "agent_group";
@@ -58,6 +61,8 @@ export default function CommunicationsScreen() {
         lastMessagePreview: undefined,
         unreadCount: ch.unreadCount ?? 0,
         isStarred: ch.isStarred ?? false,
+        isMuted: (ch as any).isMuted ?? false,
+        folder: (ch as any).folder ?? null,
         timestamp: ch._creationTime,
         route: {
           pathname: "/channel/[channelId]",
@@ -79,7 +84,9 @@ export default function CommunicationsScreen() {
         lastMessagePreview: (conv as any).lastMessage?.body,
         lastMessageAuthor: (conv as any).lastMessage?.authorName,
         unreadCount: (conv as any).unreadCount ?? 0,
-        isStarred: false,
+        isStarred: (conv as any).isStarred ?? false,
+        isMuted: (conv as any).isMuted ?? false,
+        folder: (conv as any).folder ?? null,
         timestamp: (conv as any).lastMessage?.timestamp ?? conv._creationTime,
         route: {
           pathname: "/dm/[conversationId]",
@@ -108,12 +115,25 @@ export default function CommunicationsScreen() {
     }
 
     const favorites = filtered.filter((item) => item.isStarred);
-    const recent = filtered.filter((item) => !item.isStarred);
+    const foldered = filtered.filter((item) => !item.isStarred && item.folder);
+    const recent = filtered.filter((item) => !item.isStarred && !item.folder);
 
     const result: { title: string; data: CommunicationItem[] }[] = [];
     if (favorites.length > 0) {
       result.push({ title: "Favorites", data: favorites });
     }
+
+    // Group by folder
+    const folderMap = new Map<string, CommunicationItem[]>();
+    for (const item of foldered) {
+      const f = item.folder!;
+      if (!folderMap.has(f)) folderMap.set(f, []);
+      folderMap.get(f)!.push(item);
+    }
+    for (const [folderName, items] of folderMap) {
+      result.push({ title: folderName, data: items });
+    }
+
     result.push({ title: "Recent", data: recent });
 
     return result;
@@ -147,12 +167,24 @@ export default function CommunicationsScreen() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "New DM"],
+          options: ["Cancel", "New 1:1 conversation", "New group conversation", "Create folder"],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
             router.push("/new-conversation");
+          } else if (buttonIndex === 2) {
+            router.push({ pathname: "/new-conversation", params: { mode: "group" } });
+          } else if (buttonIndex === 3) {
+            Alert.prompt(
+              "New Folder",
+              "Enter folder name",
+              (folderName) => {
+                if (folderName?.trim()) {
+                  Alert.alert("Folder created", `Move conversations to "${folderName.trim()}" from their info page.`);
+                }
+              },
+            );
           }
         },
       );
@@ -174,14 +206,9 @@ export default function CommunicationsScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <View style={styles.headerButtons}>
-              <Pressable onPress={showFilterOptions} hitSlop={8}>
-                <SlidersHorizontal size={20} color="#0a7ea4" />
-              </Pressable>
-              <Pressable onPress={handleNewPress} hitSlop={8}>
-                <Text style={styles.addButton}>+</Text>
-              </Pressable>
-            </View>
+            <Pressable onPress={showFilterOptions} hitSlop={12} style={styles.filterBtn}>
+              <Filter size={18} color={filterUnread || filter1to1 ? "#0a7ea4" : "#888"} />
+            </Pressable>
           ),
         }}
       />
@@ -203,24 +230,21 @@ export default function CommunicationsScreen() {
               onPress={() => router.push(item.route as any)}
             >
               <View style={styles.iconWrap}>
-                {item.type === "channel" ? (
-                  <View style={styles.dmIconWrap}>
-                    <Users size={20} color="#aaa" />
-                  </View>
-                ) : (
-                  <View style={styles.dmIconWrap}>
-                    {item.kind === "group" || item.kind === "agent_group" ? (
-                      <Users size={20} color="#aaa" />
-                    ) : (
-                      <User size={20} color="#aaa" />
-                    )}
-                    {(item.kind === "agent_1to1" || item.kind === "agent_group") && (
-                      <View style={styles.agentBadge}>
-                        <Text style={styles.agentBadgeText}>AI</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
+                {item.unreadCount > 0 && <View style={styles.unreadDot} />}
+                <View style={styles.dmIconWrap}>
+                  {item.type === "channel" ? (
+                    <Hash size={18} color="#aaa" />
+                  ) : item.kind === "group" || item.kind === "agent_group" ? (
+                    <Users size={18} color="#aaa" />
+                  ) : (
+                    <User size={18} color="#aaa" />
+                  )}
+                  {(item.kind === "agent_1to1" || item.kind === "agent_group") && (
+                    <View style={styles.agentBadge}>
+                      <Text style={styles.agentBadgeText}>AI</Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <View style={styles.content}>
@@ -228,19 +252,20 @@ export default function CommunicationsScreen() {
                   <Text
                     style={[
                       styles.name,
-                      item.unreadCount > 0 && styles.nameBold,
+                      item.unreadCount > 0 && !item.isMuted && styles.nameBold,
+                      item.isMuted && styles.nameMuted,
                     ]}
                     numberOfLines={1}
                   >
                     {item.isStarred ? "\u2605 " : ""}
-                    {item.name}
+                    {item.type === "channel" ? `# ${item.name}` : item.name}
                   </Text>
                   <Text style={styles.time}>
                     {formatRelativeTime(item.timestamp)}
                   </Text>
                 </View>
                 {item.lastMessagePreview && (
-                  <Text style={styles.preview} numberOfLines={1}>
+                  <Text style={[styles.preview, item.unreadCount > 0 && styles.previewUnread]} numberOfLines={1}>
                     {item.lastMessageAuthor
                       ? `${item.lastMessageAuthor}: `
                       : ""}
@@ -249,7 +274,8 @@ export default function CommunicationsScreen() {
                 )}
               </View>
 
-              {item.unreadCount > 0 && (
+              {item.isMuted && <BellOff size={14} color="#555" />}
+              {item.unreadCount > 0 && !item.isMuted && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
                     {item.unreadCount > 99 ? "99+" : item.unreadCount}
@@ -274,7 +300,7 @@ export default function CommunicationsScreen() {
         {/* Floating Action Button */}
         <Pressable
           style={styles.fab}
-          onPress={() => router.push("/new-conversation")}
+          onPress={handleNewPress}
         >
           <Plus size={24} color="#fff" />
         </Pressable>
@@ -291,8 +317,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
   },
-  headerButtons: { flexDirection: "row", alignItems: "center", gap: 12 },
-  addButton: { color: "#0a7ea4", fontSize: 28, fontWeight: "300", paddingHorizontal: 4 },
+  filterBtn: { padding: 6, marginRight: 4 },
   sectionHeader: {
     backgroundColor: "#111",
     paddingHorizontal: 16,
@@ -315,7 +340,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowPressed: { backgroundColor: "#1a1a1a" },
-  iconWrap: { width: 44, alignItems: "center", justifyContent: "center" },
+  iconWrap: { width: 44, alignItems: "center", justifyContent: "center", position: "relative" as const },
+  unreadDot: {
+    position: "absolute" as const,
+    top: -2,
+    left: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#0a7ea4",
+    zIndex: 1,
+  },
   dmIconWrap: {
     width: 40,
     height: 40,
@@ -343,8 +378,10 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
   name: { fontSize: 16, color: "#ccc", flex: 1 },
   nameBold: { color: "#fff", fontWeight: "600" },
+  nameMuted: { color: "#555" },
   time: { fontSize: 12, color: "#666", marginLeft: 8 },
   preview: { fontSize: 14, color: "#888", marginTop: 2 },
+  previewUnread: { color: "#bbb" },
   badge: {
     backgroundColor: "#0a7ea4",
     borderRadius: 10,
@@ -361,7 +398,7 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1 },
   fab: {
     position: "absolute" as const,
-    bottom: 20,
+    bottom: 64,
     right: 20,
     width: 56,
     height: 56,

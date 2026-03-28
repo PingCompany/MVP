@@ -394,6 +394,19 @@ export const listByWorkspace = internalQuery({
   },
 });
 
+export const registerPushToken = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const existing = user.pushTokens ?? [];
+    if (!existing.includes(args.token)) {
+      await ctx.db.patch(user._id, {
+        pushTokens: [...existing, args.token],
+      });
+    }
+  },
+});
+
 export const createOrUpdate = mutation({
   args: {
     workosUserId: v.string(),

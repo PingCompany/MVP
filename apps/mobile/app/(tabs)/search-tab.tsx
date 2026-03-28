@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useRouter } from "expo-router";
 import { getInitials } from "@/lib/initials";
@@ -18,6 +19,7 @@ export default function SearchTabScreen() {
   const { workspaceId } = useWorkspace();
   const router = useRouter();
 
+  const createDM = useMutation(api.directConversations.create);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -40,6 +42,7 @@ export default function SearchTabScreen() {
     api.search.searchDirectMessages,
     shouldSearch ? { query: debouncedQuery } : "skip",
   );
+  const agents = useQuery(api.agents.list, { workspaceId });
 
   const isLoading =
     shouldSearch &&
@@ -55,17 +58,77 @@ export default function SearchTabScreen() {
     onPress: () => void;
   };
   const sections: { title: string; data: ResultItem[] }[] = [];
+
+  // Build agent userId map
+  const agentUserIdMap = new Map<string, any>();
+  if (agents) {
+    for (const a of agents as any[]) {
+      if (a.agentUserId) agentUserIdMap.set(a.agentUserId, a);
+    }
+  }
+
+  // Merge people + agents into one section
   if (people && people.length > 0) {
-    sections.push({
-      title: "People",
-      data: people.map((p) => ({
+    const peopleItems: ResultItem[] = people.map((p) => {
+      const agentRecord = agentUserIdMap.get(p._id);
+      const isAgent = !!agentRecord;
+      return {
         key: p._id,
         title: p.name,
-        subtitle: p.email,
+        subtitle: isAgent ? (agentRecord.description ?? "AI Agent") : p.email,
+        context: isAgent ? "AI" : undefined,
         initials: getInitials(p.name),
-        onPress: () => {},
-      })),
+        onPress: async () => {
+          const conversationId = await createDM({
+            kind: isAgent ? "agent_1to1" : "1to1",
+            memberIds: [p._id as Id<"users">],
+            ...(isAgent ? { agentMemberIds: [p._id as Id<"users">] } : {}),
+            workspaceId,
+          });
+          router.push({
+            pathname: "/dm/[conversationId]",
+            params: { conversationId },
+          });
+        },
+      };
     });
+
+    // Add agents not in people results
+    if (agents && shouldSearch) {
+      const lowerQ = debouncedQuery.toLowerCase();
+      const existingKeys = new Set(peopleItems.map((p) => p.key));
+      for (const a of agents as any[]) {
+        if (a.agentUserId && existingKeys.has(a.agentUserId)) continue;
+        if (
+          a.name.toLowerCase().includes(lowerQ) ||
+          (a.description && a.description.toLowerCase().includes(lowerQ))
+        ) {
+          peopleItems.push({
+            key: a._id,
+            title: a.name,
+            subtitle: a.description ?? "AI Agent",
+            context: "AI",
+            initials: a.name.charAt(0).toUpperCase(),
+            onPress: async () => {
+              if (a.agentUserId) {
+                const conversationId = await createDM({
+                  kind: "agent_1to1",
+                  memberIds: [a.agentUserId as Id<"users">],
+                  agentMemberIds: [a.agentUserId as Id<"users">],
+                  workspaceId,
+                });
+                router.push({
+                  pathname: "/dm/[conversationId]",
+                  params: { conversationId },
+                });
+              }
+            },
+          });
+        }
+      }
+    }
+
+    sections.push({ title: "People", data: peopleItems });
   }
   if (messages && messages.length > 0) {
     const seen = new Set<string>();

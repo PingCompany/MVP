@@ -18,6 +18,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { isImageType } from "@/lib/fileUpload";
 import { MentionPopover } from "./MentionPopover";
 import { useMentionUsers } from "@/hooks/useMentionUsers";
+import { Plus } from "lucide-react-native";
 
 interface PendingFile {
   uri: string;
@@ -116,19 +117,18 @@ export function MessageComposer({
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 20,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      setPendingFiles((prev) => [
-        ...prev,
-        {
-          uri: asset.uri,
-          name: asset.fileName ?? "image.jpg",
-          mimeType: asset.mimeType ?? "image/jpeg",
-          size: asset.fileSize ?? 0,
-        },
-      ]);
+    if (!result.canceled && result.assets.length > 0) {
+      const newFiles = result.assets.map((asset) => ({
+        uri: asset.uri,
+        name: asset.fileName ?? "image.jpg",
+        mimeType: asset.mimeType ?? "image/jpeg",
+        size: asset.fileSize ?? 0,
+      }));
+      setPendingFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
@@ -233,7 +233,7 @@ export function MessageComposer({
       <View style={styles.container}>
         {enableAttachments && (
           <Pressable onPress={showAttachmentOptions} style={styles.attachBtn}>
-            <Text style={styles.attachIcon}>+</Text>
+            <Plus size={20} color="#fff" />
           </Pressable>
         )}
 
@@ -325,11 +325,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
     justifyContent: "center",
     alignItems: "center",
-  },
-  attachIcon: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "600",
   },
   input: {
     flex: 1,

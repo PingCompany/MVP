@@ -22,6 +22,8 @@ export default defineSchema({
         proactiveAlerts: v.boolean(),
       }),
     ),
+    // Push notification tokens (one per device)
+    pushTokens: v.optional(v.array(v.string())),
     // Onboarding fields
     onboardingStatus: v.optional(v.union(v.literal("pending"), v.literal("completed"))),
     title: v.optional(v.string()),
@@ -104,6 +106,8 @@ export default defineSchema({
     unreadCount: v.optional(v.number()),
     unreadMentionCount: v.optional(v.number()),
     isStarred: v.optional(v.boolean()),
+    isMuted: v.optional(v.boolean()),
+    folder: v.optional(v.string()),
   })
     .index("by_channel", ["channelId"])
     .index("by_user", ["userId"])
@@ -326,6 +330,9 @@ export default defineSchema({
     userId: v.id("users"),
     isAgent: v.boolean(),
     lastReadAt: v.optional(v.number()),
+    isStarred: v.optional(v.boolean()),
+    isMuted: v.optional(v.boolean()),
+    folder: v.optional(v.string()),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_user", ["userId"])
@@ -396,6 +403,14 @@ export default defineSchema({
 
   reactions: defineTable({
     messageId: v.id("messages"),
+    userId: v.id("users"),
+    emoji: v.string(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_message_user", ["messageId", "userId"]),
+
+  dmReactions: defineTable({
+    messageId: v.id("directMessages"),
     userId: v.id("users"),
     emoji: v.string(),
   })

@@ -30,80 +30,63 @@ function AuthGate() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0a7ea4" />
-      </View>
-    );
-  }
-
-  if (isAuthenticated) {
-    return (
-      <WorkspaceProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: "#111" },
-            headerTintColor: "#fff",
-            contentStyle: { backgroundColor: "#000" },
-            headerBackButtonDisplayMode: "minimal",
-          }}
-        >
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false, headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="login"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="channel/[channelId]"
-            options={{ headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="dm/[conversationId]"
-            options={{ headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="new-conversation"
-            options={{ title: "New Conversation", headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{ title: "Search", headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="thread/[messageId]"
-            options={{ title: "Thread", headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="dm-thread/[messageId]"
-            options={{ title: "Thread", headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="channel-info/[channelId]"
-            options={{ title: "Channel Info", headerBackTitle: " " }}
-          />
-          <Stack.Screen
-            name="dm-info/[conversationId]"
-            options={{ title: "Conversation Info", headerBackTitle: " " }}
-          />
-        </Stack>
-      </WorkspaceProvider>
-    );
-  }
-
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: "#111" },
-        headerTintColor: "#fff",
-        contentStyle: { backgroundColor: "#000" },
-      }}
-    >
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-    </Stack>
+    <WorkspaceProvider>
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#0a7ea4" />
+        </View>
+      )}
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: "#111" },
+          headerTintColor: "#fff",
+          contentStyle: { backgroundColor: "#000" },
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      >
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false, headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="login"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="channel/[channelId]"
+          options={{ headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="dm/[conversationId]"
+          options={{ headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="new-conversation"
+          options={{ title: "New Conversation", headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="search"
+          options={{ title: "Search", headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="thread/[messageId]"
+          options={{ title: "Thread", headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="dm-thread/[messageId]"
+          options={{ title: "Thread", headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="channel-info/[channelId]"
+          options={{ title: "Channel Info", headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="dm-info/[conversationId]"
+          options={{ title: "Conversation Info", headerBackTitle: " " }}
+        />
+      </Stack>
+    </WorkspaceProvider>
   );
 }
 
@@ -117,10 +100,11 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
+    zIndex: 10,
   },
 });

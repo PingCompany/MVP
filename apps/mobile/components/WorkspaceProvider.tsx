@@ -1,9 +1,17 @@
 import { ReactNode } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { useConvexAuth } from "convex/react";
 import { WorkspaceContext, useWorkspaceData } from "@/hooks/useWorkspace";
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useConvexAuth();
   const { workspaces, isLoading } = useWorkspaceData();
+
+  // When not authenticated, just render children without workspace context
+  // (login screens don't need it, and this avoids race conditions with expo-router)
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (

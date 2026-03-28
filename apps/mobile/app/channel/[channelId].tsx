@@ -23,6 +23,8 @@ import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useReactions } from "@/hooks/useReactions";
 import { TypingIndicator } from "@/components/TypingIndicator";
+import { ForwardModal } from "@/components/ForwardModal";
+import { IntegrationCard } from "@/components/IntegrationCard";
 import { uploadFile } from "@/lib/fileUpload";
 
 function isSameDay(a: number, b: number): boolean {
@@ -60,6 +62,7 @@ export default function ChannelDetailScreen() {
     messageId?: string;
     timestamp?: number;
   }>({ visible: false });
+  const [forwardMsg, setForwardMsg] = useState<{ body: string; author: string } | null>(null);
 
   const messageIds = useMemo(
     () => (messages ?? []).map((m: any) => m._id as Id<"messages">),
@@ -225,6 +228,11 @@ export default function ChannelDetailScreen() {
               {msg.attachments && msg.attachments.length > 0 && (
                 <CollapsibleAttachments attachments={msg.attachments} />
               )}
+              {msg.integrationObject && (
+                <View style={{ marginLeft: 66, marginRight: 16 }}>
+                  <IntegrationCard integration={msg.integrationObject} />
+                </View>
+              )}
             </View>
           );
         }}
@@ -277,7 +285,13 @@ export default function ChannelDetailScreen() {
           }
         }}
         onForward={() => {
-          Alert.alert("Forward", "Forward feature coming soon");
+          if (actionSheet.messageId && messages) {
+            const msg = messages.find((m: any) => m._id === actionSheet.messageId);
+            if (msg) {
+              setForwardMsg({ body: msg.body, author: (msg as any).author?.name ?? "Unknown" });
+            }
+          }
+          setActionSheet({ visible: false });
         }}
         onCopyLink={() => {
           if (actionSheet.messageId) {
@@ -288,6 +302,15 @@ export default function ChannelDetailScreen() {
         }}
         messageDate={actionSheet.timestamp ?? Date.now()}
       />
+
+      {forwardMsg && (
+        <ForwardModal
+          visible={!!forwardMsg}
+          onClose={() => setForwardMsg(null)}
+          messageBody={forwardMsg.body}
+          authorName={forwardMsg.author}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }

@@ -2,6 +2,15 @@ import { View, Text, Image, Pressable, StyleSheet, Linking } from "react-native"
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { isImageType, formatFileSize } from "@/lib/fileUpload";
+import { FileText, File, FileSpreadsheet, FileArchive } from "lucide-react-native";
+
+function getFileIcon(mimeType: string) {
+  if (mimeType.includes("pdf")) return <FileText size={24} color="#ef4444" />;
+  if (mimeType.includes("word") || mimeType.includes("document")) return <FileText size={24} color="#3b82f6" />;
+  if (mimeType.includes("sheet") || mimeType.includes("excel") || mimeType.includes("csv")) return <FileSpreadsheet size={24} color="#22c55e" />;
+  if (mimeType.includes("zip") || mimeType.includes("archive") || mimeType.includes("tar") || mimeType.includes("rar")) return <FileArchive size={24} color="#f59e0b" />;
+  return <File size={24} color="#888" />;
+}
 
 interface AttachmentPreviewProps {
   storageId: string;
@@ -44,7 +53,7 @@ export function AttachmentPreview({
 
   return (
     <Pressable style={styles.file} onPress={handlePress}>
-      <Text style={styles.fileIcon}>📄</Text>
+      {getFileIcon(mimeType)}
       <View style={styles.fileInfo}>
         <Text style={styles.fileName} numberOfLines={1}>
           {filename}
@@ -82,9 +91,6 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 6,
     gap: 8,
-  },
-  fileIcon: {
-    fontSize: 24,
   },
   fileInfo: {
     flex: 1,

@@ -8,13 +8,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageComposer } from "@/components/MessageComposer";
+import { MessageActionSheet } from "@/components/MessageActionSheet";
+import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function DMThreadScreen() {
@@ -32,6 +36,11 @@ export default function DMThreadScreen() {
   const { user } = useCurrentUser();
 
   const [alsoSendToConversation, setAlsoSendToConversation] = useState(false);
+  const [actionSheet, setActionSheet] = useState<{
+    visible: boolean;
+    messageId?: string;
+    timestamp?: number;
+  }>({ visible: false });
 
   const handleSend = useCallback(
     (body: string) => {
@@ -75,10 +84,18 @@ export default function DMThreadScreen() {
           <View>
             <MessageBubble
               authorName={thread.parent.author?.name ?? "Unknown"}
+              authorAvatarUrl={thread.parent.author?.avatarUrl}
               body={thread.parent.body}
               timestamp={thread.parent._creationTime}
               isOwn={thread.parent.authorId === user?._id}
               type={thread.parent.type}
+              onLongPress={() =>
+                setActionSheet({
+                  visible: true,
+                  messageId: thread.parent._id,
+                  timestamp: thread.parent._creationTime,
+                })
+              }
             />
             <View style={styles.divider}>
               <Text style={styles.dividerText}>
@@ -89,13 +106,26 @@ export default function DMThreadScreen() {
           </View>
         }
         renderItem={({ item }: { item: any }) => (
-          <MessageBubble
-            authorName={item.author?.name ?? "Unknown"}
-            body={item.body}
-            timestamp={item._creationTime}
-            isOwn={item.authorId === user?._id}
-            type={item.type}
-          />
+          <View>
+            <MessageBubble
+              authorName={item.author?.name ?? "Unknown"}
+              authorAvatarUrl={item.author?.avatarUrl}
+              body={item.body}
+              timestamp={item._creationTime}
+              isOwn={item.authorId === user?._id}
+              type={item.type}
+              onLongPress={() =>
+                setActionSheet({
+                  visible: true,
+                  messageId: item._id,
+                  timestamp: item._creationTime,
+                })
+              }
+            />
+            {item.attachments && item.attachments.length > 0 && (
+              <CollapsibleAttachments attachments={item.attachments} />
+            )}
+          </View>
         )}
         contentContainerStyle={styles.messageList}
         ListEmptyComponent={
@@ -115,7 +145,29 @@ export default function DMThreadScreen() {
         />
       </View>
 
-      <MessageComposer onSend={handleSend} placeholder="Reply in thread..." />
+      <MessageComposer onSend={handleSend} enableAttachments placeholder="Reply in thread..." />
+
+      <MessageActionSheet
+        visible={actionSheet.visible}
+        onClose={() => setActionSheet({ visible: false })}
+        onReaction={() => {
+          Alert.alert("Reactions", "Reactions in DM threads coming soon");
+        }}
+        onReply={() => {
+          setActionSheet({ visible: false });
+        }}
+        onForward={() => {
+          Alert.alert("Forward", "Forward feature coming soon");
+        }}
+        onCopyLink={() => {
+          if (actionSheet.messageId) {
+            Clipboard.setStringAsync(
+              `https://openping.app/dm/${conversationId}?thread=${messageId}&msg=${actionSheet.messageId}`,
+            );
+          }
+        }}
+        messageDate={actionSheet.timestamp ?? Date.now()}
+      />
     </KeyboardAvoidingView>
   );
 }

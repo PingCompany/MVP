@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { getInitials } from "@/lib/initials";
 import { SearchResultItem } from "@/components/search/SearchResultItem";
 
-export default function SearchScreen() {
+export default function SearchTabScreen() {
   const { workspaceId } = useWorkspace();
   const router = useRouter();
 
@@ -68,11 +68,10 @@ export default function SearchScreen() {
     });
   }
   if (messages && messages.length > 0) {
-    // Deduplicate by message ID
-    const seenMsg = new Set<string>();
+    const seen = new Set<string>();
     const uniqueMessages = messages.filter((m) => {
-      if (seenMsg.has(m._id)) return false;
-      seenMsg.add(m._id);
+      if (seen.has(m._id)) return false;
+      seen.add(m._id);
       return true;
     });
     sections.push({
@@ -92,11 +91,10 @@ export default function SearchScreen() {
     });
   }
   if (directMessages && directMessages.length > 0) {
-    // Deduplicate by message ID
-    const seenDM = new Set<string>();
+    const seen = new Set<string>();
     const uniqueDMs = directMessages.filter((m) => {
-      if (seenDM.has(m._id)) return false;
-      seenDM.add(m._id);
+      if (seen.has(m._id)) return false;
+      seen.add(m._id);
       return true;
     });
     sections.push({
@@ -124,7 +122,6 @@ export default function SearchScreen() {
         placeholderTextColor="#666"
         value={query}
         onChangeText={setQuery}
-        autoFocus
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"

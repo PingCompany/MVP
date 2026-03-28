@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -5,9 +6,8 @@ import {
   Modal,
   StyleSheet,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
-
-const QUICK_EMOJI = ["😀", "👍", "✅", "❤️", "👀", "🎉"];
+import { SmilePlus, MessageCircle, CornerUpRight, Link, Info } from "lucide-react-native";
+import EmojiPicker from "rn-emoji-keyboard";
 
 interface MessageActionSheetProps {
   visible: boolean;
@@ -28,6 +28,8 @@ export function MessageActionSheet({
   onCopyLink,
   messageDate,
 }: MessageActionSheetProps) {
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+
   const formattedDate = new Date(messageDate).toLocaleString([], {
     weekday: "short",
     year: "numeric",
@@ -46,24 +48,18 @@ export function MessageActionSheet({
     >
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          {/* Quick emoji row */}
-          <View style={styles.emojiRow}>
-            {QUICK_EMOJI.map((emoji) => (
-              <Pressable
-                key={emoji}
-                style={styles.emojiBtn}
-                onPress={() => {
-                  onReaction(emoji);
-                  onClose();
-                }}
-              >
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </Pressable>
-            ))}
-          </View>
-
           {/* Action buttons row */}
           <View style={styles.actionsRow}>
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => setEmojiPickerOpen(true)}
+            >
+              <View style={styles.actionIconWrap}>
+                <SmilePlus size={20} color="#fff" />
+              </View>
+              <Text style={styles.actionLabel}>React</Text>
+            </Pressable>
+
             <Pressable
               style={styles.actionBtn}
               onPress={() => {
@@ -72,7 +68,7 @@ export function MessageActionSheet({
               }}
             >
               <View style={styles.actionIconWrap}>
-                <Feather name="message-circle" size={20} color="#fff" />
+                <MessageCircle size={20} color="#fff" />
               </View>
               <Text style={styles.actionLabel}>Reply</Text>
             </Pressable>
@@ -85,7 +81,7 @@ export function MessageActionSheet({
               }}
             >
               <View style={styles.actionIconWrap}>
-                <Feather name="corner-up-right" size={20} color="#fff" />
+                <CornerUpRight size={20} color="#fff" />
               </View>
               <Text style={styles.actionLabel}>Forward</Text>
             </Pressable>
@@ -98,16 +94,16 @@ export function MessageActionSheet({
               }}
             >
               <View style={styles.actionIconWrap}>
-                <Feather name="link" size={20} color="#fff" />
+                <Link size={20} color="#fff" />
               </View>
               <Text style={styles.actionLabel}>Copy Link</Text>
             </Pressable>
           </View>
 
-          {/* List actions */}
+          {/* Info line */}
           <View style={styles.listActions}>
             <View style={styles.listItem}>
-              <Feather name="info" size={18} color="#999" />
+              <Info size={18} color="#999" />
               <Text style={styles.listLabel}>Sent {formattedDate}</Text>
             </View>
           </View>
@@ -118,6 +114,41 @@ export function MessageActionSheet({
           </Pressable>
         </View>
       </Pressable>
+
+      <EmojiPicker
+        onEmojiSelected={(emojiObject) => {
+          onReaction(emojiObject.emoji);
+          setEmojiPickerOpen(false);
+          onClose();
+        }}
+        open={emojiPickerOpen}
+        onClose={() => setEmojiPickerOpen(false)}
+        theme={{
+          backdrop: "rgba(0,0,0,0.6)",
+          knob: "#555",
+          container: "#1c1c1e",
+          header: "#fff",
+          skinTonesContainer: "#252525",
+          category: {
+            icon: "#888",
+            iconActive: "#0a7ea4",
+            container: "#1c1c1e",
+            containerActive: "#333",
+          },
+          search: {
+            text: "#fff",
+            placeholder: "#666",
+            icon: "#666",
+            background: "#2c2c2e",
+          },
+          emoji: {
+            selected: "#333",
+          },
+        }}
+        categoryPosition="top"
+        enableSearchBar
+        enableRecentlyUsed
+      />
     </Modal>
   );
 }
@@ -134,26 +165,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 14,
     paddingTop: 12,
     paddingBottom: 34,
-  },
-  emojiRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#333",
-  },
-  emojiBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#2c2c2e",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emojiText: {
-    fontSize: 22,
   },
   actionsRow: {
     flexDirection: "row",

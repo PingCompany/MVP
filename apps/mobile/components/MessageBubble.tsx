@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import {
   MessageReactions,
   EmojiPickerModal,
@@ -10,6 +10,7 @@ import type { ReactionGroup } from "@/hooks/useReactions";
 
 interface MessageBubbleProps {
   authorName: string;
+  authorAvatarUrl?: string | null;
   body: string;
   timestamp: number;
   isOwn?: boolean;
@@ -18,10 +19,15 @@ interface MessageBubbleProps {
   reactions?: ReactionGroup[];
   onToggleReaction?: (emoji: string) => void;
   currentUserId?: string;
+  onPress?: () => void;
   onLongPress?: () => void;
   threadReplyCount?: number;
   threadLastReplyAuthor?: string;
+  threadLastReplyAvatarUrl?: string | null;
+  threadLastReplyAt?: number;
   onThreadPress?: () => void;
+  /** When false, hides avatar/name/time for grouped consecutive messages */
+  showHeader?: boolean;
 }
 
 function formatTime(timestamp: number): string {
@@ -83,6 +89,7 @@ function renderInlineText(text: string) {
 
 export function MessageBubble({
   authorName,
+  authorAvatarUrl,
   body,
   timestamp,
   isOwn = false,
@@ -90,10 +97,14 @@ export function MessageBubble({
   reactions,
   onToggleReaction,
   currentUserId,
+  onPress,
   onLongPress,
   threadReplyCount,
   threadLastReplyAuthor,
+  threadLastReplyAvatarUrl,
+  threadLastReplyAt,
   onThreadPress,
+  showHeader = true,
 }: MessageBubbleProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
 
@@ -118,40 +129,81 @@ export function MessageBubble({
   const hasReactions = reactions && reactions.length > 0 && onToggleReaction;
   const hasThread = threadReplyCount != null && threadReplyCount > 0 && onThreadPress;
 
-  return (
-    <Pressable onLongPress={handleLongPress}>
-      <View style={[styles.container, isOwn && styles.ownContainer]}>
-        <View style={styles.header}>
-          <Text style={[styles.author, type === "bot" && styles.botAuthor]}>
-            {authorName}
-            {type === "bot" ? " (bot)" : ""}
+  const initials = authorName ? authorName.charAt(0).toUpperCase() : "?";
+
+  const bodyContent = (
+    <View>
+      {segments.map((seg, i) =>
+        seg.type === "code" ? (
+          <CodeBlock key={i} code={seg.content} language={seg.language} />
+        ) : (
+          <Text key={i} style={styles.body}>
+            {renderInlineText(seg.content)}
           </Text>
-          <Text style={styles.time}>{formatTime(timestamp)}</Text>
-        </View>
-        <View>
-          {segments.map((seg, i) =>
-            seg.type === "code" ? (
-              <CodeBlock key={i} code={seg.content} language={seg.language} />
+        ),
+      )}
+    </View>
+  );
+
+  return (
+    <Pressable onPress={onPress} onLongPress={handleLongPress}>
+      <View style={[showHeader ? styles.container : styles.containerCompact, isOwn && styles.ownContainer]}>
+        {showHeader ? (
+          <View style={styles.row}>
+            {authorAvatarUrl ? (
+              <Image source={{ uri: authorAvatarUrl }} style={styles.avatar} />
             ) : (
-              <Text key={i} style={styles.body}>
-                {renderInlineText(seg.content)}
-              </Text>
-            ),
-          )}
-        </View>
-        {hasReactions && (
-          <MessageReactions
-            reactions={reactions}
-            onToggle={onToggleReaction}
-            currentUserId={currentUserId}
-          />
-        )}
-        {hasThread && (
-          <ThreadIndicator
-            replyCount={threadReplyCount}
-            lastReplyAuthor={threadLastReplyAuthor}
-            onPress={onThreadPress}
-          />
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+            )}
+            <View style={styles.contentColumn}>
+              <View style={styles.header}>
+                <Text style={[styles.author, type === "bot" && styles.botAuthor]}>
+                  {authorName}
+                  {type === "bot" ? " (bot)" : ""}
+                </Text>
+                <Text style={styles.time}>{formatTime(timestamp)}</Text>
+              </View>
+              {bodyContent}
+              {hasReactions && (
+                <MessageReactions
+                  reactions={reactions}
+                  onToggle={onToggleReaction}
+                  currentUserId={currentUserId}
+                />
+              )}
+              {hasThread && (
+                <ThreadIndicator
+                  replyCount={threadReplyCount}
+                  lastReplyAuthor={threadLastReplyAuthor}
+                  lastReplyAvatarUrl={threadLastReplyAvatarUrl}
+                  lastReplyAt={threadLastReplyAt}
+                  onPress={onThreadPress}
+                />
+              )}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.compactRow}>
+            {bodyContent}
+            {hasReactions && (
+              <MessageReactions
+                reactions={reactions}
+                onToggle={onToggleReaction}
+                currentUserId={currentUserId}
+              />
+            )}
+            {hasThread && (
+              <ThreadIndicator
+                replyCount={threadReplyCount}
+                lastReplyAuthor={threadLastReplyAuthor}
+                lastReplyAvatarUrl={threadLastReplyAvatarUrl}
+                lastReplyAt={threadLastReplyAt}
+                onPress={onThreadPress}
+              />
+            )}
+          </View>
         )}
       </View>
       {onToggleReaction && (
@@ -173,7 +225,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  containerCompact: {
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
   ownContainer: {},
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  avatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  avatarInitials: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  contentColumn: {
+    flex: 1,
+  },
+  compactRow: {
+    // 40px avatar + 10px gap = 50px left margin to align with content
+    marginLeft: 50,
+  },
   header: {
     flexDirection: "row",
     alignItems: "baseline",

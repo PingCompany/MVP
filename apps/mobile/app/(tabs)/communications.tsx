@@ -1,7 +1,8 @@
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   ActivityIndicator,
   Pressable,
   ActionSheetIOS,
@@ -15,7 +16,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
 import { useRouter, Stack } from "expo-router";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
-import { Feather } from "@expo/vector-icons";
+import { User, Users, SlidersHorizontal } from "lucide-react-native";
 
 type CommunicationItem = {
   id: string;
@@ -37,62 +38,110 @@ export default function CommunicationsScreen() {
   const { user } = useCurrentUser();
   const router = useRouter();
 
+  const [sortBy, setSortBy] = useState<"date" | "alpha">("date");
+  const [filterUnread, setFilterUnread] = useState(false);
+  const [filter1to1, setFilter1to1] = useState(false);
+
   const loading = channels === undefined || conversations === undefined;
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0a7ea4" />
-      </View>
-    );
+  const sections = useMemo(() => {
+    if (loading) return [];
+
+    const items: CommunicationItem[] = [];
+
+    for (const ch of channels) {
+      if (!ch.isMember || ch.isArchived) continue;
+      items.push({
+        id: ch._id,
+        type: "channel",
+        name: ch.name,
+        lastMessagePreview: undefined,
+        unreadCount: ch.unreadCount ?? 0,
+        isStarred: ch.isStarred ?? false,
+        timestamp: ch._creationTime,
+        route: {
+          pathname: "/channel/[channelId]",
+          params: { channelId: ch._id },
+        },
+      });
+    }
+
+    for (const conv of conversations) {
+      const displayName = getDMDisplayName(
+        conv.name,
+        (conv as any).members ?? [],
+        user?._id,
+      );
+      items.push({
+        id: conv._id,
+        type: "dm",
+        name: displayName,
+        lastMessagePreview: (conv as any).lastMessage?.body,
+        lastMessageAuthor: (conv as any).lastMessage?.authorName,
+        unreadCount: (conv as any).unreadCount ?? 0,
+        isStarred: false,
+        timestamp: (conv as any).lastMessage?.timestamp ?? conv._creationTime,
+        route: {
+          pathname: "/dm/[conversationId]",
+          params: { conversationId: conv._id },
+        },
+        kind: (conv as any).kind,
+      });
+    }
+
+    // Apply filters
+    let filtered = items;
+    if (filterUnread) {
+      filtered = filtered.filter((item) => item.unreadCount > 0);
+    }
+    if (filter1to1) {
+      filtered = filtered.filter(
+        (item) => item.type === "dm" && (item.kind === "1to1" || item.kind === "agent_1to1"),
+      );
+    }
+
+    // Apply sorting
+    if (sortBy === "alpha") {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      filtered.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    const favorites = filtered.filter((item) => item.isStarred);
+    const recent = filtered.filter((item) => !item.isStarred);
+
+    const result: { title: string; data: CommunicationItem[] }[] = [];
+    if (favorites.length > 0) {
+      result.push({ title: "Favorites", data: favorites });
+    }
+    result.push({ title: "Recent", data: recent });
+
+    return result;
+  }, [channels, conversations, user?._id, loading, sortBy, filterUnread, filter1to1]);
+
+  function showFilterOptions() {
+    if (Platform.OS === "ios") {
+      const options = [
+        "Cancel",
+        "Sort by Date",
+        "Sort by Name",
+        filterUnread ? "Show All" : "Only Unread",
+        filter1to1 ? "Show All Types" : "Only 1:1",
+      ];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) setSortBy("date");
+          if (buttonIndex === 2) setSortBy("alpha");
+          if (buttonIndex === 3) setFilterUnread((prev) => !prev);
+          if (buttonIndex === 4) setFilter1to1((prev) => !prev);
+        },
+      );
+    }
   }
-
-  const items: CommunicationItem[] = [];
-
-  for (const ch of channels) {
-    if (!ch.isMember || ch.isArchived) continue;
-    items.push({
-      id: ch._id,
-      type: "channel",
-      name: ch.name,
-      lastMessagePreview: undefined,
-      unreadCount: ch.unreadCount ?? 0,
-      isStarred: ch.isStarred ?? false,
-      timestamp: ch._creationTime,
-      route: {
-        pathname: "/channel/[channelId]",
-        params: { channelId: ch._id },
-      },
-    });
-  }
-
-  for (const conv of conversations) {
-    const displayName = getDMDisplayName(
-      conv.name,
-      (conv as any).members ?? [],
-      user?._id,
-    );
-    items.push({
-      id: conv._id,
-      type: "dm",
-      name: displayName,
-      lastMessagePreview: (conv as any).lastMessage?.body,
-      lastMessageAuthor: (conv as any).lastMessage?.authorName,
-      unreadCount: (conv as any).unreadCount ?? 0,
-      isStarred: false,
-      timestamp: (conv as any).lastMessage?.timestamp ?? conv._creationTime,
-      route: {
-        pathname: "/dm/[conversationId]",
-        params: { conversationId: conv._id },
-      },
-      kind: (conv as any).kind,
-    });
-  }
-
-  items.sort((a, b) => {
-    if (a.isStarred !== b.isStarred) return a.isStarred ? -1 : 1;
-    return b.timestamp - a.timestamp;
-  });
 
   function handleNewPress() {
     if (Platform.OS === "ios") {
@@ -112,14 +161,22 @@ export default function CommunicationsScreen() {
     }
   }
 
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0a7ea4" />
+      </View>
+    );
+  }
+
   return (
     <>
       <Stack.Screen
         options={{
           headerRight: () => (
             <View style={styles.headerButtons}>
-              <Pressable onPress={() => router.push("/search")} hitSlop={8}>
-                <Text style={styles.headerIcon}>🔍</Text>
+              <Pressable onPress={showFilterOptions} hitSlop={8}>
+                <SlidersHorizontal size={20} color="#0a7ea4" />
               </Pressable>
               <Pressable onPress={handleNewPress} hitSlop={8}>
                 <Text style={styles.addButton}>+</Text>
@@ -129,9 +186,14 @@ export default function CommunicationsScreen() {
         }}
       />
       <View style={styles.container}>
-        <FlatList
-          data={items}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{title}</Text>
+            </View>
+          )}
           renderItem={({ item }) => (
             <Pressable
               style={({ pressed }) => [
@@ -142,15 +204,15 @@ export default function CommunicationsScreen() {
             >
               <View style={styles.iconWrap}>
                 {item.type === "channel" ? (
-                  <View style={styles.channelIconWrap}>
-                    <Feather name="hash" size={20} color="#888" />
+                  <View style={styles.dmIconWrap}>
+                    <Users size={20} color="#aaa" />
                   </View>
                 ) : (
                   <View style={styles.dmIconWrap}>
                     {item.kind === "group" || item.kind === "agent_group" ? (
-                      <Feather name="users" size={20} color="#aaa" />
+                      <Users size={20} color="#aaa" />
                     ) : (
-                      <Feather name="user" size={20} color="#aaa" />
+                      <User size={20} color="#aaa" />
                     )}
                     {(item.kind === "agent_1to1" || item.kind === "agent_group") && (
                       <View style={styles.agentBadge}>
@@ -170,7 +232,7 @@ export default function CommunicationsScreen() {
                     ]}
                     numberOfLines={1}
                   >
-                    {item.isStarred ? "★ " : ""}
+                    {item.isStarred ? "\u2605 " : ""}
                     {item.name}
                   </Text>
                   <Text style={styles.time}>
@@ -205,7 +267,7 @@ export default function CommunicationsScreen() {
             </View>
           }
           contentContainerStyle={
-            items.length === 0 ? styles.emptyContainer : undefined
+            sections.every((s) => s.data.length === 0) ? styles.emptyContainer : undefined
           }
         />
       </View>
@@ -222,8 +284,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerIcon: { fontSize: 20 },
   addButton: { color: "#0a7ea4", fontSize: 28, fontWeight: "300", paddingHorizontal: 4 },
+  sectionHeader: {
+    backgroundColor: "#111",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sectionHeaderText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -235,14 +308,6 @@ const styles = StyleSheet.create({
   },
   rowPressed: { backgroundColor: "#1a1a1a" },
   iconWrap: { width: 44, alignItems: "center", justifyContent: "center" },
-  channelIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#222",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   dmIconWrap: {
     width: 40,
     height: 40,

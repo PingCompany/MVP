@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { AttachmentPreview } from "./AttachmentPreview";
-import { Feather } from "@expo/vector-icons";
+import { ChevronUp, ChevronDown } from "lucide-react-native";
 
 interface Attachment {
   storageId: string;
@@ -43,11 +43,11 @@ export function CollapsibleAttachments({
           style={styles.toggleBtn}
           onPress={() => setExpanded(!expanded)}
         >
-          <Feather
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={14}
-            color="#0a7ea4"
-          />
+          {expanded ? (
+            <ChevronUp size={14} color="#0a7ea4" />
+          ) : (
+            <ChevronDown size={14} color="#0a7ea4" />
+          )}
           <Text style={styles.toggleText}>
             {expanded ? "Show less" : `Show ${hiddenCount} more`}
           </Text>

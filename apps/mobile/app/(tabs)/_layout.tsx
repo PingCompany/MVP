@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { Home, MessageSquare, Search, User } from "lucide-react-native";
 
 export default function TabLayout() {
   return (
@@ -20,18 +20,27 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "My Deck",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>{"📥"}</Text>
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <Home size={size ?? 22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="communications"
         options={{
-          title: "Comms",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>{"💬"}</Text>
+          title: "DMs",
+          tabBarIcon: ({ color, size }) => (
+            <MessageSquare size={size ?? 22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="search-tab"
+        options={{
+          title: "Search",
+          tabBarIcon: ({ color, size }) => (
+            <Search size={size ?? 22} color={color} />
           ),
         }}
       />
@@ -39,8 +48,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>{"👤"}</Text>
+          tabBarIcon: ({ color, size }) => (
+            <User size={size ?? 22} color={color} />
           ),
         }}
       />

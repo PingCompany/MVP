@@ -21,6 +21,7 @@ import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { TypingIndicator } from "@/components/TypingIndicator";
 import { uploadFile } from "@/lib/fileUpload";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
 
@@ -35,7 +36,7 @@ function isSameDay(a: number, b: number): boolean {
 }
 
 type ListItem =
-  | { type: "message"; data: any }
+  | { type: "message"; data: any; showHeader: boolean }
   | { type: "date"; timestamp: number };
 
 export default function DMDetailScreen() {
@@ -57,6 +58,7 @@ export default function DMDetailScreen() {
   const sendMessage = useMutation(api.directMessages.send);
   const { user } = useCurrentUser();
   const convex = useConvex();
+  const typingUsers = useQuery(api.typing.getTypingUsersDM, { conversationId: typedConversationId });
 
   const [actionSheet, setActionSheet] = useState<{
     visible: boolean;
@@ -106,13 +108,19 @@ export default function DMDetailScreen() {
     user?._id,
   );
 
-  // Build list items with date separators
+  // Build list items with date separators + message grouping
   const listItems = useMemo(() => {
     if (!messages) return [];
     const items: ListItem[] = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      items.push({ type: "message", data: msg });
+      const olderMsg = messages[i + 1];
+      const sameAuthorAbove =
+        olderMsg &&
+        olderMsg.authorId === msg.authorId &&
+        isSameDay(msg._creationTime, olderMsg._creationTime) &&
+        msg._creationTime - olderMsg._creationTime < 5 * 60 * 1000;
+      items.push({ type: "message", data: msg, showHeader: !sameAuthorAbove });
       const nextMsg = messages[i + 1];
       if (nextMsg && !isSameDay(msg._creationTime, nextMsg._creationTime)) {
         items.push({ type: "date", timestamp: msg._creationTime });
@@ -167,21 +175,25 @@ export default function DMDetailScreen() {
         }
         renderItem={({ item }) => {
           if (item.type === "date") {
-            return (
-              <View style={styles.dateSeparatorInverted}>
-                <DateSeparator timestamp={item.timestamp} />
-              </View>
-            );
+            return <DateSeparator timestamp={item.timestamp} />;
           }
           const msg = item.data;
           return (
             <View>
               <MessageBubble
                 authorName={msg.author?.name ?? "Unknown"}
+                authorAvatarUrl={msg.author?.avatarUrl}
                 body={msg.body}
                 timestamp={msg._creationTime}
+                showHeader={item.showHeader}
                 isOwn={msg.authorId === user?._id}
                 type={msg.type}
+                onPress={() =>
+                  router.push({
+                    pathname: "/dm-thread/[messageId]",
+                    params: { messageId: msg._id, conversationId },
+                  })
+                }
                 onLongPress={() =>
                   setActionSheet({
                     visible: true,
@@ -193,6 +205,10 @@ export default function DMDetailScreen() {
                 threadLastReplyAuthor={
                   msg.threadParticipants?.[msg.threadParticipants.length - 1]?.name
                 }
+                threadLastReplyAvatarUrl={
+                  msg.threadParticipants?.[msg.threadParticipants.length - 1]?.avatarUrl
+                }
+                threadLastReplyAt={msg.threadLastReplyAt}
                 onThreadPress={() =>
                   router.push({
                     pathname: "/dm-thread/[messageId]",
@@ -225,6 +241,8 @@ export default function DMDetailScreen() {
         }
       />
 
+      <TypingIndicator userNames={(typingUsers ?? []).map((u: any) => u.name)} />
+
       <MessageComposer
         onSend={handleSend}
         enableAttachments
@@ -235,8 +253,7 @@ export default function DMDetailScreen() {
         visible={actionSheet.visible}
         onClose={() => setActionSheet({ visible: false })}
         onReaction={() => {
-          // DM reactions not yet supported by backend
-          Alert.alert("Reactions", "Reactions in DMs coming soon");
+          // DM reactions not yet supported by backend — silently close
         }}
         onReply={() => {
           if (actionSheet.messageId) {
@@ -252,7 +269,7 @@ export default function DMDetailScreen() {
         onCopyLink={() => {
           if (actionSheet.messageId) {
             Clipboard.setStringAsync(
-              `openping://dm/${conversationId}/message/${actionSheet.messageId}`,
+              `https://openping.app/dm/${conversationId}?msg=${actionSheet.messageId}`,
             );
           }
         }}
@@ -275,9 +292,6 @@ const styles = StyleSheet.create({
   },
   messageList: {
     paddingVertical: 8,
-  },
-  dateSeparatorInverted: {
-    transform: [{ scaleY: -1 }],
   },
   loadingMore: {
     paddingVertical: 16,

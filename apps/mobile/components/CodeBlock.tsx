@@ -3,11 +3,10 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
   StyleSheet,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Feather } from "@expo/vector-icons";
+import { Check, Copy, ChevronUp, ChevronDown } from "lucide-react-native";
 
 interface CodeBlockProps {
   code: string;
@@ -35,18 +34,18 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
       <View style={styles.header}>
         <Text style={styles.language}>{language || "code"}</Text>
         <Pressable onPress={handleCopy} hitSlop={8}>
-          <Feather
-            name={copied ? "check" : "copy"}
-            size={14}
-            color={copied ? "#4ade80" : "#666"}
-          />
+          {copied ? (
+            <Check size={14} color="#4ade80" />
+          ) : (
+            <Copy size={14} color="#666" />
+          )}
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.codeWrap}>
         <Text style={styles.code} selectable>
           {displayCode}
         </Text>
-      </ScrollView>
+      </View>
       {isLong && (
         <Pressable
           style={styles.toggleBtn}
@@ -57,11 +56,11 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
               ? "Hide"
               : `Show ${lines.length - COLLAPSE_THRESHOLD} more lines`}
           </Text>
-          <Feather
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={14}
-            color="#0a7ea4"
-          />
+          {expanded ? (
+            <ChevronUp size={14} color="#0a7ea4" />
+          ) : (
+            <ChevronDown size={14} color="#0a7ea4" />
+          )}
         </Pressable>
       )}
     </View>
@@ -91,12 +90,14 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
     color: "rgba(255,255,255,0.3)",
   },
+  codeWrap: {
+    padding: 12,
+  },
   code: {
     fontFamily: "monospace",
     fontSize: 13,
     color: "#e0e0e0",
     lineHeight: 20,
-    padding: 12,
   },
   toggleBtn: {
     flexDirection: "row",

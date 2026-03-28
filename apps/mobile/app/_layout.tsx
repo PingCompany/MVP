@@ -46,6 +46,7 @@ function AuthGate() {
             headerStyle: { backgroundColor: "#111" },
             headerTintColor: "#fff",
             contentStyle: { backgroundColor: "#000" },
+            headerBackButtonDisplayMode: "minimal",
           }}
         >
           <Stack.Screen

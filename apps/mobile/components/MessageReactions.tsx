@@ -3,76 +3,11 @@ import {
   View,
   Text,
   Pressable,
-  Modal,
   ScrollView,
   StyleSheet,
 } from "react-native";
+import EmojiPicker from "rn-emoji-keyboard";
 import type { ReactionGroup } from "@/hooks/useReactions";
-
-const EMOJI_CATEGORIES: { label: string; emoji: string[] }[] = [
-  {
-    label: "Popular",
-    emoji: [
-      "👍", "👎", "😂", "❤️", "🎉", "🙌", "👀", "🔥",
-      "💯", "✅", "❌", "🤔", "😍", "🚀", "👏", "💪",
-      "😢", "😮", "🙏", "💡", "⭐", "🫡", "👋", "➕",
-    ],
-  },
-  {
-    label: "Smileys",
-    emoji: [
-      "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂",
-      "🙂", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗",
-      "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝",
-      "🤑", "🤗", "🤭", "🫢", "🫣", "🤫", "🤨", "😐",
-      "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "🤥",
-      "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕",
-      "🤢", "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠",
-      "🥳", "🥸", "😎", "🤓", "🧐", "😕", "🫤", "😟",
-      "🙁", "☹️", "😮", "😯", "😲", "😳", "🥺", "🥹",
-      "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱",
-      "😖", "😣", "😞", "😓", "😩", "😫", "🥱", "😤",
-      "😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "💩",
-    ],
-  },
-  {
-    label: "Gestures",
-    emoji: [
-      "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳",
-      "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟",
-      "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️",
-      "🫵", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏",
-      "🙌", "🫶", "👐", "🤲", "🤝", "🙏", "💪", "🦾",
-    ],
-  },
-  {
-    label: "Hearts",
-    emoji: [
-      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
-      "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖",
-      "💘", "💝", "❤️‍🔥", "❤️‍🩹", "💟", "♥️",
-    ],
-  },
-  {
-    label: "Objects",
-    emoji: [
-      "🔥", "⭐", "🌟", "✨", "⚡", "💥", "🎉", "🎊",
-      "🏆", "🥇", "🥈", "🥉", "🎯", "🎪", "🎨", "🎬",
-      "🎵", "🎶", "🔔", "📣", "💬", "💭", "🗯️", "💤",
-      "💡", "🔑", "🗝️", "🔒", "🔓", "📌", "📎", "🔗",
-      "📝", "✏️", "📊", "📈", "📉", "🗓️", "⏰", "⏳",
-    ],
-  },
-  {
-    label: "Symbols",
-    emoji: [
-      "✅", "❌", "❓", "❗", "‼️", "⁉️", "💯", "🔴",
-      "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤",
-      "➕", "➖", "✖️", "➗", "♻️", "🔄", "🔃", "▶️",
-      "⏸️", "⏹️", "⏺️", "⏭️", "⏮️", "🔀", "🔁", "🔂",
-    ],
-  },
-];
 
 interface MessageReactionsProps {
   reactions: ReactionGroup[];
@@ -142,59 +77,37 @@ export function EmojiPickerModal({
   onClose: () => void;
   onSelect: (emoji: string) => void;
 }) {
-  const [activeCategory, setActiveCategory] = useState(0);
-
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.pickerContainer} onStartShouldSetResponder={() => true}>
-          {/* Category tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryTabs}
-          >
-            {EMOJI_CATEGORIES.map((cat, idx) => (
-              <Pressable
-                key={cat.label}
-                style={[
-                  styles.categoryTab,
-                  idx === activeCategory && styles.categoryTabActive,
-                ]}
-                onPress={() => setActiveCategory(idx)}
-              >
-                <Text
-                  style={[
-                    styles.categoryLabel,
-                    idx === activeCategory && styles.categoryLabelActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {/* Emoji grid */}
-          <View style={styles.emojiGrid}>
-            {EMOJI_CATEGORIES[activeCategory].emoji.map((emoji) => (
-              <Pressable
-                key={emoji}
-                style={styles.emojiButton}
-                onPress={() => onSelect(emoji)}
-              >
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
+    <EmojiPicker
+      onEmojiSelected={(emojiObject) => onSelect(emojiObject.emoji)}
+      open={visible}
+      onClose={onClose}
+      theme={{
+        backdrop: "rgba(0,0,0,0.6)",
+        knob: "#555",
+        container: "#1c1c1e",
+        header: "#fff",
+        skinTonesContainer: "#252525",
+        category: {
+          icon: "#888",
+          iconActive: "#0a7ea4",
+          container: "#1c1c1e",
+          containerActive: "#333",
+        },
+        search: {
+          text: "#fff",
+          placeholder: "#666",
+          icon: "#666",
+          background: "#2c2c2e",
+        },
+        emoji: {
+          selected: "#333",
+        },
+      }}
+      categoryPosition="top"
+      enableSearchBar
+      enableRecentlyUsed
+    />
   );
 }
 
@@ -244,59 +157,5 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     color: "#888",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
-  },
-  pickerContainer: {
-    backgroundColor: "#1c1c1e",
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    paddingTop: 8,
-    paddingBottom: 34,
-    maxHeight: 400,
-  },
-  categoryTabs: {
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#333",
-  },
-  categoryTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  categoryTabActive: {
-    backgroundColor: "#333",
-  },
-  categoryLabel: {
-    fontSize: 13,
-    color: "#888",
-  },
-  categoryLabelActive: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  emojiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    gap: 2,
-    padding: 12,
-  },
-  emojiButton: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  emojiText: {
-    fontSize: 24,
   },
 });

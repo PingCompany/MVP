@@ -12,15 +12,18 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageComposer } from "@/components/MessageComposer";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
+import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useReactions } from "@/hooks/useReactions";
+import { TypingIndicator } from "@/components/TypingIndicator";
+import { uploadFile } from "@/lib/fileUpload";
 
 function isSameDay(a: number, b: number): boolean {
   const da = new Date(a);
@@ -33,7 +36,7 @@ function isSameDay(a: number, b: number): boolean {
 }
 
 type ListItem =
-  | { type: "message"; data: any }
+  | { type: "message"; data: any; showHeader: boolean }
   | { type: "date"; timestamp: number };
 
 export default function ChannelDetailScreen() {
@@ -49,6 +52,7 @@ export default function ChannelDetailScreen() {
   const joinChannel = useMutation(api.channels.join);
   const router = useRouter();
   const { user } = useCurrentUser();
+  const convex = useConvex();
 
   const [joining, setJoining] = useState(false);
   const [actionSheet, setActionSheet] = useState<{
@@ -62,6 +66,7 @@ export default function ChannelDetailScreen() {
     [messages],
   );
   const { reactionsByMessage, toggleReaction } = useReactions(messageIds);
+  const typingUsers = useQuery(api.typing.getTypingUsers, { channelId: typedChannelId });
 
   useEffect(() => {
     if (channel?.isMember) {
@@ -70,11 +75,31 @@ export default function ChannelDetailScreen() {
   }, [channel?.isMember, typedChannelId, markRead]);
 
   const handleSend = useCallback(
-    (body: string) => {
-      if (!body) return;
-      sendMessage({ channelId: typedChannelId, body });
+    async (
+      body: string,
+      pendingFiles?: {
+        uri: string;
+        name: string;
+        mimeType: string;
+        size: number;
+      }[],
+    ) => {
+      if (!body && (!pendingFiles || pendingFiles.length === 0)) return;
+
+      let attachments;
+      if (pendingFiles && pendingFiles.length > 0) {
+        attachments = await Promise.all(
+          pendingFiles.map((file) => uploadFile(convex, file)),
+        );
+      }
+
+      await sendMessage({
+        channelId: typedChannelId,
+        body: body || " ",
+        ...(attachments ? { attachments } : {}),
+      });
     },
-    [sendMessage, typedChannelId],
+    [sendMessage, typedChannelId, convex],
   );
 
   const handleJoin = async () => {
@@ -87,19 +112,25 @@ export default function ChannelDetailScreen() {
   };
 
   // Build list items with date separators (inverted, so newest first)
+  // In inverted list: messages[0]=newest (bottom), messages[i+1]=older (above)
   const listItems = useMemo(() => {
     if (!messages) return [];
     const items: ListItem[] = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      items.push({ type: "message", data: msg });
-      // In inverted list, next item is older — add separator when day changes
+      // Show header unless the message above (older = i+1) is same author within 5min
+      const olderMsg = messages[i + 1];
+      const sameAuthorAbove =
+        olderMsg &&
+        olderMsg.authorId === msg.authorId &&
+        isSameDay(msg._creationTime, olderMsg._creationTime) &&
+        msg._creationTime - olderMsg._creationTime < 5 * 60 * 1000;
+      items.push({ type: "message", data: msg, showHeader: !sameAuthorAbove });
       const nextMsg = messages[i + 1];
       if (nextMsg && !isSameDay(msg._creationTime, nextMsg._creationTime)) {
         items.push({ type: "date", timestamp: msg._creationTime });
       }
     }
-    // Add separator for the oldest group
     if (messages.length > 0) {
       items.push({ type: "date", timestamp: messages[messages.length - 1]._creationTime });
     }
@@ -149,42 +180,52 @@ export default function ChannelDetailScreen() {
         }
         renderItem={({ item }) => {
           if (item.type === "date") {
-            return (
-              <View style={styles.dateSeparatorInverted}>
-                <DateSeparator timestamp={item.timestamp} />
-              </View>
-            );
+            return <DateSeparator timestamp={item.timestamp} />;
           }
           const msg = item.data;
+          const lastParticipant = msg.threadParticipants?.[msg.threadParticipants.length - 1];
           return (
-            <MessageBubble
-              authorName={msg.author?.name ?? "Unknown"}
-              body={msg.body}
-              timestamp={msg._creationTime}
-              isOwn={msg.authorId === user?._id}
-              type={msg.type}
-              messageId={msg._id}
-              reactions={reactionsByMessage[msg._id] ?? []}
-              onToggleReaction={(emoji) => toggleReaction(msg._id, emoji)}
-              currentUserId={user?._id}
-              onLongPress={() =>
-                setActionSheet({
-                  visible: true,
-                  messageId: msg._id,
-                  timestamp: msg._creationTime,
-                })
-              }
-              threadReplyCount={msg.threadReplyCount}
-              threadLastReplyAuthor={
-                msg.threadParticipants?.[msg.threadParticipants.length - 1]?.name
-              }
-              onThreadPress={() =>
-                router.push({
-                  pathname: "/thread/[messageId]",
-                  params: { messageId: msg._id, channelId },
-                })
-              }
-            />
+            <View>
+              <MessageBubble
+                authorName={msg.author?.name ?? "Unknown"}
+                authorAvatarUrl={msg.author?.avatarUrl}
+                body={msg.body}
+                timestamp={msg._creationTime}
+                isOwn={msg.authorId === user?._id}
+                type={msg.type}
+                messageId={msg._id}
+                reactions={reactionsByMessage[msg._id] ?? []}
+                onToggleReaction={(emoji) => toggleReaction(msg._id, emoji)}
+                currentUserId={user?._id}
+                showHeader={item.showHeader}
+                onPress={() =>
+                  router.push({
+                    pathname: "/thread/[messageId]",
+                    params: { messageId: msg._id, channelId },
+                  })
+                }
+                onLongPress={() =>
+                  setActionSheet({
+                    visible: true,
+                    messageId: msg._id,
+                    timestamp: msg._creationTime,
+                  })
+                }
+                threadReplyCount={msg.threadReplyCount}
+                threadLastReplyAuthor={lastParticipant?.name}
+                threadLastReplyAvatarUrl={lastParticipant?.avatarUrl}
+                threadLastReplyAt={msg.threadLastReplyAt}
+                onThreadPress={() =>
+                  router.push({
+                    pathname: "/thread/[messageId]",
+                    params: { messageId: msg._id, channelId },
+                  })
+                }
+              />
+              {msg.attachments && msg.attachments.length > 0 && (
+                <CollapsibleAttachments attachments={msg.attachments} />
+              )}
+            </View>
           );
         }}
         inverted
@@ -197,9 +238,12 @@ export default function ChannelDetailScreen() {
         }
       />
 
+      <TypingIndicator userNames={(typingUsers ?? []).map((u: any) => u.name)} />
+
       {channel?.isMember ? (
         <MessageComposer
           onSend={handleSend}
+          enableAttachments
           placeholder={`Message #${channel?.name ?? ""}...`}
         />
       ) : (
@@ -238,7 +282,7 @@ export default function ChannelDetailScreen() {
         onCopyLink={() => {
           if (actionSheet.messageId) {
             Clipboard.setStringAsync(
-              `openping://channel/${channelId}/message/${actionSheet.messageId}`,
+              `https://openping.app/channel/${channelId}?msg=${actionSheet.messageId}`,
             );
           }
         }}
@@ -261,9 +305,6 @@ const styles = StyleSheet.create({
   },
   messageList: {
     paddingVertical: 8,
-  },
-  dateSeparatorInverted: {
-    transform: [{ scaleY: -1 }],
   },
   emptyMessages: {
     alignItems: "center",

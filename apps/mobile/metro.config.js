@@ -10,6 +10,9 @@ const config = getDefaultConfig(projectRoot);
 // Watch the monorepo root so Metro sees convex/_generated changes
 config.watchFolders = [monorepoRoot];
 
+// Follow pnpm symlinks
+config.resolver.unstable_enableSymlinks = true;
+
 // Resolve node_modules from both project and monorepo root
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),

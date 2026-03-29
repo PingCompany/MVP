@@ -407,6 +407,8 @@ export default defineSchema({
         }),
       ),
     ),
+    // Legacy field (kept for schema compat with existing documents)
+    meetingId: v.optional(v.string()),
     // Thread fields
     threadId: v.optional(v.id("directMessages")),
     alsoSentToConversation: v.optional(v.boolean()),

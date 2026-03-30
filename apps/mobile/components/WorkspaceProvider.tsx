@@ -1,14 +1,18 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useCallback } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { useConvexAuth } from "convex/react";
 import { WorkspaceContext, useWorkspaceData } from "@/hooks/useWorkspace";
+import type { Id } from "@convex/_generated/dataModel";
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const { workspaces, isLoading } = useWorkspaceData();
+  const [selectedId, setSelectedId] = useState<Id<"workspaces"> | null>(null);
 
-  // When not authenticated, just render children without workspace context
-  // (login screens don't need it, and this avoids race conditions with expo-router)
+  const switchWorkspace = useCallback((id: Id<"workspaces">) => {
+    setSelectedId(id);
+  }, []);
+
   if (!isAuthenticated) {
     return <>{children}</>;
   }
@@ -32,8 +36,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // V1: auto-select first workspace
-  const workspace = workspaces[0];
+  const workspace =
+    (selectedId && workspaces.find((w) => w.workspaceId === selectedId)) ||
+    workspaces[0];
 
   return (
     <WorkspaceContext.Provider
@@ -42,6 +47,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         workspaceName: workspace.name,
         workspaceSlug: workspace.slug,
         role: workspace.role,
+        switchWorkspace,
       }}
     >
       {children}

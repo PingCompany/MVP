@@ -13,17 +13,18 @@ import {
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useWorkspace } from "@/hooks/useWorkspace";
+import { useWorkspace, useWorkspaceData } from "@/hooks/useWorkspace";
 import { signOut } from "@/lib/auth";
 import { getInitials } from "@/lib/initials";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { useRouter } from "expo-router";
-import { Bell, BellOff, AtSign, ChevronRight, Smile, Circle, Folder, Trash2, Plus } from "lucide-react-native";
+import { Bell, BellOff, AtSign, ChevronRight, Smile, Circle, Folder, Trash2, Plus, Building2, Check } from "lucide-react-native";
 import { StatusModal } from "@/components/StatusModal";
 
 export default function ProfileScreen() {
   const { user, isLoading } = useCurrentUser();
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, switchWorkspace } = useWorkspace();
+  const { workspaces } = useWorkspaceData();
   const router = useRouter();
 
   const channels = useQuery(api.channels.list, { workspaceId });
@@ -139,6 +140,37 @@ export default function ProfileScreen() {
         currentEmoji={user?.statusEmoji ?? undefined}
         currentText={user?.statusMessage ?? undefined}
       />
+
+      {/* Workspace Switcher */}
+      {workspaces && workspaces.length > 1 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Workspace</Text>
+          {workspaces.map((ws) => (
+            <Pressable
+              key={ws.workspaceId}
+              style={({ pressed }) => [
+                styles.workspaceRow,
+                pressed && { backgroundColor: "#1a1a1a" },
+              ]}
+              onPress={() => switchWorkspace(ws.workspaceId)}
+            >
+              <Building2 size={18} color={ws.workspaceId === workspaceId ? "#0a7ea4" : "#666"} />
+              <Text
+                style={[
+                  styles.workspaceName,
+                  ws.workspaceId === workspaceId && styles.workspaceNameActive,
+                ]}
+                numberOfLines={1}
+              >
+                {ws.name}
+              </Text>
+              {ws.workspaceId === workspaceId && (
+                <Check size={16} color="#0a7ea4" />
+              )}
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* Notification Settings */}
       <View style={styles.section}>
@@ -430,6 +462,25 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 15,
     color: "#ccc",
+  },
+
+  workspaceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#222",
+  },
+  workspaceName: {
+    flex: 1,
+    fontSize: 15,
+    color: "#ccc",
+  },
+  workspaceNameActive: {
+    color: "#fff",
+    fontWeight: "600",
   },
 
   folderRow: {

@@ -8,6 +8,7 @@ export interface WorkspaceContextValue {
   workspaceName: string;
   workspaceSlug: string;
   role: "admin" | "member" | "guest";
+  switchWorkspace: (workspaceId: Id<"workspaces">) => void;
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(
@@ -23,6 +24,7 @@ export function useWorkspace(): WorkspaceContextValue {
       workspaceName: "",
       workspaceSlug: "",
       role: "member",
+      switchWorkspace: () => {},
     };
   }
   return ctx;

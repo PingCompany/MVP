@@ -94,6 +94,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
   const router = useRouter();
   const wsCtx = useContext(WorkspaceContext);
   const isAdmin = wsCtx?.role === "admin";
+  const isGuest = wsCtx?.role === "guest";
 
   const workspaceSlug = pathname.match(/^\/app\/([^/]+)/)?.[1];
   const workspacePrefix = workspaceSlug ? `/app/${workspaceSlug}` : "";
@@ -822,6 +823,7 @@ function SettingsNav({ pathname, buildPath }: SettingsNavProps) {
   const router = useRouter();
   const wsCtx = useContext(WorkspaceContext);
   const isAdmin = wsCtx?.role === "admin";
+  const isGuest = wsCtx?.role === "guest";
 
   return (
     <>
@@ -867,18 +869,22 @@ function SettingsNav({ pathname, buildPath }: SettingsNavProps) {
           isActive={pathname.endsWith("/settings/agents")}
         />
       )}
-      <NavItem
-        href={buildPath("/settings/knowledge-graph")}
-        icon={GitBranch}
-        label="Knowledge Graph"
-        isActive={pathname.endsWith("/settings/knowledge-graph")}
-      />
-      <NavItem
-        href={buildPath("/settings/email")}
-        icon={Mail}
-        label="Email"
-        isActive={pathname.endsWith("/settings/email")}
-      />
+      {!isGuest && (
+        <NavItem
+          href={buildPath("/settings/knowledge-graph")}
+          icon={GitBranch}
+          label="Knowledge Graph"
+          isActive={pathname.endsWith("/settings/knowledge-graph")}
+        />
+      )}
+      {!isGuest && (
+        <NavItem
+          href={buildPath("/settings/email")}
+          icon={Mail}
+          label="Email"
+          isActive={pathname.endsWith("/settings/email")}
+        />
+      )}
       {isAdmin && (
         <NavItem
           href={buildPath("/settings/analytics")}

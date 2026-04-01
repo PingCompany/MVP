@@ -51,3 +51,36 @@ jobs:
         run: cd services/knowledge-engine && flyctl deploy -c graphiti-main.fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-deck:
+    name: Deploy Deck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for deck changes
+        id: changes
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q '^apps/deck/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.changed == 'true'
+        with:
+          node-version: 20
+
+      - name: Install and build
+        if: steps.changes.outputs.changed == 'true'
+        run: cd apps/deck && npm install && npm run build
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.changes.outputs.changed == 'true'
+        run: cd apps/deck && npx wrangler pages deploy dist --project-name openping-deck --branch main --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

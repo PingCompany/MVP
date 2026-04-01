@@ -4,11 +4,12 @@ set -euo pipefail
 export HOMEBREW_NO_AUTO_UPDATE=1
 
 echo ">>> Installing Node.js via Homebrew..."
-brew install node 2>/dev/null || brew upgrade node 2>/dev/null || echo "Node.js already installed: $(node --version)"
+brew install node 2>/dev/null || brew upgrade node 2>/dev/null || echo "Node.js already installed"
+echo "Node: $(node --version), npm: $(npm --version)"
 
-echo ">>> Enabling corepack and installing pnpm..."
-corepack enable
-corepack prepare pnpm@10.28.2 --activate
+echo ">>> Installing pnpm@10.28.2..."
+npm install -g pnpm@10.28.2
+echo "pnpm: $(pnpm --version)"
 
 echo ">>> Installing dependencies..."
 cd "$CI_PRIMARY_REPOSITORY_PATH"

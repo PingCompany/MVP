@@ -12,15 +12,15 @@ import { LinearIcon } from "@/components/icons/LinearIcon";
 import { Github, X, Plus } from "lucide-react";
 
 interface ChannelIntegrationRoutingProps {
-  channelId: Id<"channels">;
+  channelId: Id<"conversations">;
 }
 
 export function ChannelIntegrationRouting({
   channelId,
 }: ChannelIntegrationRoutingProps) {
   const wsCtx = useContext(WorkspaceContext);
-  const routingRules = useQuery(api.integrations.listRoutingByChannel, {
-    channelId,
+  const routingRules = useQuery(api.integrations.listRoutingByConversation, {
+    conversationId: channelId,
   });
   const workspace = useQuery(
     api.workspaces.get,
@@ -43,7 +43,7 @@ export function ChannelIntegrationRouting({
   async function handleAdd() {
     if (!adding || !target.trim()) return;
     await addRouting({
-      channelId,
+      conversationId: channelId,
       workspaceId: wsCtx!.workspaceId,
       integrationType: adding,
       externalTarget: target.trim(),

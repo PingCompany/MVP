@@ -71,16 +71,20 @@ export default function ConversationScreen() {
     author: string;
   } | null>(null);
 
-  const messageIds = useMemo(
-    () => (messages ?? []).map((m: any) => m._id as Id<"messages">),
+  const messageList = useMemo(
+    () => (Array.isArray(messages) ? messages : []),
     [messages],
+  );
+  const messageIds = useMemo(
+    () => messageList.map((m: any) => m._id as Id<"messages">),
+    [messageList],
   );
   const { reactionsByMessage, toggleReaction } = useReactions(messageIds);
   const typingUsers = useQuery(api.typing.getTypingUsers, {
     conversationId: typedConversationId,
   });
 
-  const isPublic = conversation?.kind === "public";
+  const isPublic = conversation?.visibility === "public";
 
   const displayName = useMemo(() => {
     if (!conversation) return "Conversation";
@@ -137,11 +141,11 @@ export default function ConversationScreen() {
 
   // Build list items with date separators (inverted, so newest first)
   const listItems = useMemo(() => {
-    if (!messages) return [];
+    if (!messageList.length) return [];
     const items: ListItem[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const olderMsg = messages[i + 1];
+    for (let i = 0; i < messageList.length; i++) {
+      const msg = messageList[i];
+      const olderMsg = messageList[i + 1];
       const sameAuthorAbove =
         olderMsg &&
         olderMsg.authorId === msg.authorId &&
@@ -152,14 +156,14 @@ export default function ConversationScreen() {
         items.push({ type: "date", timestamp: msg._creationTime });
       }
     }
-    if (messages.length > 0) {
+    if (messageList.length > 0) {
       items.push({
         type: "date",
-        timestamp: messages[messages.length - 1]._creationTime,
+        timestamp: messageList[messageList.length - 1]._creationTime,
       });
     }
     return items;
-  }, [messages]);
+  }, [messageList]);
 
   if (messages === undefined || conversation === undefined) {
     return (
@@ -188,7 +192,7 @@ export default function ConversationScreen() {
             <Pressable
               onPress={() =>
                 router.push({
-                  pathname: "/conversation-info/[conversationId]",
+                  pathname: "/conversation-info/[conversationId]" as any,
                   params: { conversationId },
                 })
               }
@@ -313,8 +317,8 @@ export default function ConversationScreen() {
           }
         }}
         onForward={() => {
-          if (actionSheet.messageId && messages) {
-            const msg = messages.find(
+          if (actionSheet.messageId && messageList.length) {
+            const msg = messageList.find(
               (m: any) => m._id === actionSheet.messageId,
             );
             if (msg) {

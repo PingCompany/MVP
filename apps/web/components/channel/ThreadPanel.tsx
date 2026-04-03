@@ -66,7 +66,7 @@ export function ThreadPanel({
       conversationId: typedConversationId,
       threadId,
       body: content,
-      alsoSendToChannel,
+      alsoSendToConversation: alsoSendToChannel,
       ...(attachments ? { attachments } : {}),
     });
     onSendClear();

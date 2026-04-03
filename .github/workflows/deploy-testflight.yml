@@ -36,6 +36,8 @@ jobs:
       - name: Generate Convex types
         run: npx convex codegen
         working-directory: .
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
 
       - name: Generate native project
         run: npx expo prebuild --platform ios --clean

@@ -110,13 +110,13 @@ export default function ConversationPage({ params }: Props) {
   }, [leaveConversation, typedId, toast, router, buildPath]);
 
   const handleArchive = useCallback(async () => {
-    await archiveConversation({ conversationId: typedId, workspaceId });
+    await archiveConversation({ conversationId: typedId });
     toast("Conversation archived", "success");
     router.push(buildPath("/conversations"));
   }, [archiveConversation, typedId, workspaceId, toast, router, buildPath]);
 
   const handleUnarchive = useCallback(async () => {
-    await unarchiveConversation({ conversationId: typedId, workspaceId });
+    await unarchiveConversation({ conversationId: typedId });
     toast("Conversation unarchived", "success");
   }, [unarchiveConversation, typedId, workspaceId, toast]);
 
@@ -144,7 +144,8 @@ export default function ConversationPage({ params }: Props) {
 
   const messages: Message[] = useMemo(() => {
     if (!results) return [];
-    return [...results].reverse().map((msg) => ({
+    const messageArray = Array.isArray(results) ? results : [];
+    return [...messageArray].reverse().map((msg) => ({
       id: msg._id,
       type: msg.type === "system" ? ("system" as const) : msg.type === "bot" ? ("bot" as const) : ("user" as const),
       authorId: msg.authorId,
@@ -208,7 +209,6 @@ export default function ConversationPage({ params }: Props) {
     (messageId: string) => {
       openThreadPanel({
         parentMessageId: messageId,
-        messageTable: "messages",
         conversationId,
         contextName: displayName,
         workspaceId,
@@ -290,7 +290,7 @@ export default function ConversationPage({ params }: Props) {
       ) : conversation ? (
         <ConversationTopBar
           name={displayName}
-          members={otherMembers}
+          members={otherMembers.map((m) => ({ userId: m._id as string, name: m.name, avatarUrl: m.avatarUrl, isAgent: m.isAgent }))}
           kind={(conversation.kind ?? "1to1") as "1to1" | "group" | "agent_1to1" | "agent_group"}
           onCopyId={handleCopyLink}
           onArchive={handleArchive}

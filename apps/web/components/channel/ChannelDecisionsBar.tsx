@@ -51,7 +51,7 @@ export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
         category: d.category as InboxCategory,
         priority: CATEGORY_TO_PRIORITY[d.category as InboxCategory],
         status: d.status,
-        channelName: d.channelName ?? "unknown",
+        channelName: d.conversationName ?? "unknown",
         pingWillDo: d.pingWillDo ?? undefined,
         createdAt: new Date(d.createdAt),
         agentExecutionStatus: d.agentExecutionStatus ?? undefined,

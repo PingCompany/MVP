@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
-import { useQuery, useMutation, usePaginatedQuery, useConvex } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -21,7 +21,7 @@ import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
 import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useDMReactions } from "@/hooks/useReactions";
+import { useReactions } from "@/hooks/useReactions";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { uploadFile } from "@/lib/fileUpload";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
@@ -45,29 +45,30 @@ export default function DMDetailScreen() {
   const { conversationId } = useLocalSearchParams<{
     conversationId: string;
   }>();
-  const typedConversationId = conversationId as Id<"directConversations">;
+  const typedConversationId = conversationId as Id<"conversations">;
 
-  const conversation = useQuery(api.directConversations.get, {
+  const conversation = useQuery(api.conversations.get, {
     conversationId: typedConversationId,
   });
-  const { results: messages, status, loadMore } = usePaginatedQuery(
-    api.directMessages.list,
-    { conversationId: typedConversationId },
-    { initialNumItems: 25 },
-  );
+  const messages = useQuery(api.messages.listByConversation, {
+    conversationId: typedConversationId,
+  });
   const router = useRouter();
-  const markRead = useMutation(api.directConversations.markRead);
-  const sendMessage = useMutation(api.directMessages.send);
+  const markRead = useMutation(api.conversations.markRead);
+  const sendMessage = useMutation(api.messages.send);
   const { user } = useCurrentUser();
   const convex = useConvex();
-  const typingUsers = useQuery(api.typing.getTypingUsersDM, { conversationId: typedConversationId });
+  const typingUsers = useQuery(api.typing.getTypingUsers, { conversationId: typedConversationId });
 
-  // DM Reactions
-  const allDMMessageIds = useMemo(() => {
-    if (!messages) return [];
-    return messages.map((m) => m._id as Id<"directMessages">);
-  }, [messages]);
-  const { reactionsByMessage, toggleReaction } = useDMReactions(allDMMessageIds);
+  const messageList = useMemo(
+    () => (Array.isArray(messages) ? messages : []),
+    [messages],
+  );
+  const messageIds = useMemo(
+    () => messageList.map((m: any) => m._id as Id<"messages">),
+    [messageList],
+  );
+  const { reactionsByMessage, toggleReaction } = useReactions(messageIds);
 
   const [actionSheet, setActionSheet] = useState<{
     visible: boolean;
@@ -106,12 +107,6 @@ export default function DMDetailScreen() {
     [sendMessage, typedConversationId, convex],
   );
 
-  const handleLoadMore = useCallback(() => {
-    if (status === "CanLoadMore") {
-      loadMore(25);
-    }
-  }, [status, loadMore]);
-
   const displayName = getDMDisplayName(
     conversation?.name,
     conversation?.members ?? [],
@@ -120,27 +115,27 @@ export default function DMDetailScreen() {
 
   // Build list items with date separators + message grouping
   const listItems = useMemo(() => {
-    if (!messages) return [];
+    if (!messageList.length) return [];
     const items: ListItem[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const olderMsg = messages[i + 1];
+    for (let i = 0; i < messageList.length; i++) {
+      const msg = messageList[i];
+      const olderMsg = messageList[i + 1];
       const sameAuthorAbove =
         olderMsg &&
         olderMsg.authorId === msg.authorId &&
         isSameDay(msg._creationTime, olderMsg._creationTime) &&
         msg._creationTime - olderMsg._creationTime < 5 * 60 * 1000;
       items.push({ type: "message", data: msg, showHeader: !sameAuthorAbove });
-      const nextMsg = messages[i + 1];
+      const nextMsg = messageList[i + 1];
       if (nextMsg && !isSameDay(msg._creationTime, nextMsg._creationTime)) {
         items.push({ type: "date", timestamp: msg._creationTime });
       }
     }
-    if (messages.length > 0) {
-      items.push({ type: "date", timestamp: messages[messages.length - 1]._creationTime });
+    if (messageList.length > 0) {
+      items.push({ type: "date", timestamp: messageList[messageList.length - 1]._creationTime });
     }
     return items;
-  }, [messages]);
+  }, [messageList]);
 
   if (messages === undefined) {
     return (
@@ -165,7 +160,7 @@ export default function DMDetailScreen() {
             <Pressable
               onPress={() =>
                 router.push({
-                  pathname: "/dm-info/[conversationId]",
+                  pathname: "/conversation-info/[conversationId]" as any,
                   params: { conversationId },
                 })
               }
@@ -203,7 +198,7 @@ export default function DMDetailScreen() {
                 currentUserId={user?._id}
                 onPress={() =>
                   router.push({
-                    pathname: "/dm-thread/[messageId]",
+                    pathname: "/thread/[messageId]",
                     params: { messageId: msg._id, conversationId },
                   })
                 }
@@ -224,7 +219,7 @@ export default function DMDetailScreen() {
                 threadLastReplyAt={msg.threadLastReplyAt}
                 onThreadPress={() =>
                   router.push({
-                    pathname: "/dm-thread/[messageId]",
+                    pathname: "/thread/[messageId]",
                     params: { messageId: msg._id, conversationId },
                   })
                 }
@@ -236,14 +231,7 @@ export default function DMDetailScreen() {
           );
         }}
         inverted
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
         contentContainerStyle={styles.messageList}
-        ListFooterComponent={
-          status === "LoadingMore" ? (
-            <ActivityIndicator style={styles.loadingMore} color="#0a7ea4" />
-          ) : null
-        }
         ListEmptyComponent={
           <View style={styles.emptyMessages}>
             <Text style={styles.emptyText}>No messages yet</Text>
@@ -273,14 +261,14 @@ export default function DMDetailScreen() {
         onReply={() => {
           if (actionSheet.messageId) {
             router.push({
-              pathname: "/dm-thread/[messageId]",
+              pathname: "/thread/[messageId]",
               params: { messageId: actionSheet.messageId, conversationId },
             });
           }
         }}
         onForward={() => {
-          if (actionSheet.messageId && messages) {
-            const msg = messages.find((m) => m._id === actionSheet.messageId);
+          if (actionSheet.messageId && messageList) {
+            const msg = messageList.find((m: any) => m._id === actionSheet.messageId);
             if (msg) {
               setForwardMsg({ body: msg.body, author: (msg as any).author?.name ?? "Unknown" });
             }
@@ -290,7 +278,7 @@ export default function DMDetailScreen() {
         onCopyLink={() => {
           if (actionSheet.messageId) {
             Clipboard.setStringAsync(
-              `https://openping.app/dm/${conversationId}?msg=${actionSheet.messageId}`,
+              `https://openping.app/c/${conversationId}?msg=${actionSheet.messageId}`,
             );
           }
         }}
@@ -322,9 +310,6 @@ const styles = StyleSheet.create({
   },
   messageList: {
     paddingVertical: 8,
-  },
-  loadingMore: {
-    paddingVertical: 16,
   },
   emptyMessages: {
     alignItems: "center",

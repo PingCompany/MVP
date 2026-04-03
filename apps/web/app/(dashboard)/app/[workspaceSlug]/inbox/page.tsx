@@ -180,7 +180,7 @@ export default function InboxPage() {
       category: d.category as InboxCategory,
       priority: CATEGORY_TO_PRIORITY[d.category as InboxCategory],
       status: d.status,
-      channelName: d.channelName ?? "unknown",
+      channelName: d.conversationName ?? "unknown",
       pingWillDo: d.pingWillDo ?? undefined,
       createdAt: new Date(d.createdAt),
       agentExecutionStatus: d.agentExecutionStatus ?? undefined,
@@ -433,8 +433,8 @@ export default function InboxPage() {
                 <DraftReminderCard
                   key={draft._id}
                   draftId={draft._id}
-                  channelId={draft.channelId}
-                  channelName={draft.channelName}
+                  channelId={draft.conversationId}
+                  channelName={draft.conversationName}
                   body={draft.body}
                   suggestedCompletion={draft.suggestedCompletion}
                   updatedAt={new Date(draft.updatedAt)}

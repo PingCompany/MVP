@@ -59,7 +59,7 @@ export default function ConversationInfoScreen() {
     return Array.from(set).sort();
   }, [allConversations]);
 
-  const messagesData = useQuery(api.messages.list, {
+  const messagesData = useQuery(api.messages.listByConversation, {
     conversationId: typedConversationId,
   });
 

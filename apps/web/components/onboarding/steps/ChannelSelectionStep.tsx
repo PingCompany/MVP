@@ -14,8 +14,8 @@ interface ChannelSelectionStepProps {
 }
 
 export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionStepProps) {
-  const channels = useQuery(api.channels.list, { workspaceId });
-  const joinChannel = useMutation(api.channels.join);
+  const conversations = useQuery(api.conversations.list, { workspaceId });
+  const joinConversation = useMutation(api.conversations.join);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -36,7 +36,7 @@ export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionSt
     try {
       await Promise.all(
         Array.from(selected).map((id) =>
-          joinChannel({ channelId: id as Id<"channels"> }),
+          joinConversation({ conversationId: id as Id<"conversations"> }),
         ),
       );
       onNext();
@@ -45,7 +45,7 @@ export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionSt
     }
   };
 
-  if (!channels) {
+  if (!conversations) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -53,10 +53,13 @@ export function ChannelSelectionStep({ workspaceId, onNext }: ChannelSelectionSt
     );
   }
 
-  const availableChannels = channels.filter(
-    (c) => !c.isMember && !c.isArchived,
-  );
-  const joinedChannels = channels.filter((c) => c.isMember);
+  // Filter to show only public named conversations (channels)
+  const channels = conversations.filter((c) => c.visibility === "public" && c.name);
+
+  // conversations.list returns only conversations the user is a member of,
+  // so all channels here are already joined
+  const availableChannels: typeof channels = [];
+  const joinedChannels = channels.filter((c) => !c.isArchived);
 
   return (
     <div className="space-y-5">

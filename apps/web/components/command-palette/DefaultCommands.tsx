@@ -7,21 +7,16 @@ import {
 } from "@/components/ui/command";
 import { PAGES, DECISIONS } from "./command-palette-config";
 
-interface Channel {
-  _id: string;
-  name: string;
-}
-
-interface DmConversation {
+interface Conversation {
   _id: string;
   kind: string;
   name?: string;
+  visibility?: string;
   members: Array<{ userId: string; name: string }>;
 }
 
 interface DefaultCommandsProps {
-  channels: Channel[] | undefined;
-  dmConversations: DmConversation[] | undefined;
+  conversations: Conversation[] | undefined;
   currentUserId: string | undefined;
   onNavigate: (href: string) => void;
   onToggleSidebar?: () => void;
@@ -30,14 +25,16 @@ interface DefaultCommandsProps {
 }
 
 export function DefaultCommands({
-  channels,
-  dmConversations,
+  conversations,
   currentUserId,
   onNavigate,
   onToggleSidebar,
   onStartMeeting,
   onClose,
 }: DefaultCommandsProps) {
+  const channels = conversations?.filter((c) => c.visibility === "public" && c.name);
+  const dmConversations = conversations?.filter((c) => c.visibility !== "public" || !c.name);
+
   return (
     <>
       <CommandEmpty>
@@ -59,7 +56,7 @@ export function DefaultCommands({
           {channels.map((channel) => (
             <CommandItem
               key={channel._id}
-              onSelect={() => onNavigate(`/channel/${channel._id}`)}
+              onSelect={() => onNavigate(`/c/${channel._id}`)}
             >
               <Hash className="h-3.5 w-3.5 text-white/25" />
               <span>{channel.name}</span>
@@ -84,7 +81,7 @@ export function DefaultCommands({
             return (
               <CommandItem
                 key={conv._id}
-                onSelect={() => onNavigate(`/dm/${conv._id}`)}
+                onSelect={() => onNavigate(`/c/${conv._id}`)}
               >
                 {isAgent ? (
                   <Bot className="h-3.5 w-3.5 text-violet-400" />

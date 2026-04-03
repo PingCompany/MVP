@@ -50,51 +50,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const workspace = useQuery(api.workspaces.getBySlug, isAuthenticated && workspaceSlug ? { slug: workspaceSlug } : "skip");
   const workspaceId = workspace?._id as Id<"workspaces"> | undefined;
-  const channels = useQuery(api.channels.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
-  const dmConversations = useQuery(api.directConversations.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
+  const conversations = useQuery(api.conversations.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const inboxUnread = useQuery(api.inboxItems.unreadCount, isAuthenticated ? {} : "skip");
-  const markChannelRead = useMutation(api.channels.markRead);
-  const markDMRead = useMutation(api.directConversations.markRead);
+  const markRead = useMutation(api.conversations.markRead);
   const { toast } = useToast();
-  const startChannelMeeting = useMutation(api.meetings.startInChannel);
-  const startDMMeeting = useMutation(api.meetings.startInDM);
-  const activeMeetingForChannel = useQuery(
+  const startMeeting = useMutation(api.meetings.startInConversation);
+  const conversationIdFromPath = pathname.match(/\/c\/([^/]+)$/)?.[1] as Id<"conversations"> | undefined;
+  const activeMeeting = useQuery(
     api.meetings.getActiveMeeting,
-    isAuthenticated && pathname.match(/\/channel\/([^/]+)$/)
-      ? { channelId: pathname.match(/\/channel\/([^/]+)$/)?.[1] as Id<"channels"> }
-      : "skip",
-  );
-  const activeMeetingForDM = useQuery(
-    api.meetings.getActiveMeeting,
-    isAuthenticated && pathname.match(/\/dm\/([^/]+)$/)
-      ? { conversationId: pathname.match(/\/dm\/([^/]+)$/)?.[1] as Id<"directConversations"> }
+    isAuthenticated && conversationIdFromPath
+      ? { conversationId: conversationIdFromPath }
       : "skip",
   );
 
   const handleStartMeeting = useCallback(async () => {
-    const channelMatch = pathname.match(/\/channel\/([^/]+)$/);
-    const dmMatch = pathname.match(/\/dm\/([^/]+)$/);
-
-    if (channelMatch) {
-      const channelId = channelMatch[1] as Id<"channels">;
-      if (activeMeetingForChannel) {
-        window.open(activeMeetingForChannel.meetingUrl, "_blank");
+    if (conversationIdFromPath) {
+      if (activeMeeting) {
+        window.open(activeMeeting.meetingUrl, "_blank");
       } else {
-        const result = await startChannelMeeting({ channelId });
-        window.open(result.meetingUrl, "_blank");
-      }
-    } else if (dmMatch) {
-      const conversationId = dmMatch[1] as Id<"directConversations">;
-      if (activeMeetingForDM) {
-        window.open(activeMeetingForDM.meetingUrl, "_blank");
-      } else {
-        const result = await startDMMeeting({ conversationId });
+        const result = await startMeeting({ conversationId: conversationIdFromPath });
         window.open(result.meetingUrl, "_blank");
       }
     } else {
-      toast("Navigate to a channel or DM to start a meeting");
+      toast("Navigate to a conversation to start a meeting");
     }
-  }, [pathname, activeMeetingForChannel, activeMeetingForDM, startChannelMeeting, startDMMeeting, toast]);
+  }, [conversationIdFromPath, activeMeeting, startMeeting, toast]);
 
   // Ordered list of navigable sidebar items for Alt+Arrow shortcuts
   const navItems = useMemo(() => {
@@ -102,32 +82,25 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     const items: Array<{ path: string; unread: number }> = [
       { path: `${workspacePrefix}/inbox`, unread: inboxUnread ?? 0 },
     ];
-    if (dmConversations) {
-      for (const conv of dmConversations.slice(0, 5)) {
-        items.push({ path: `${workspacePrefix}/dm/${conv._id}`, unread: conv.unreadCount ?? 0 });
-      }
-    }
-    if (channels) {
-      for (const ch of channels) {
-        if (!ch.isMember) continue;
-        items.push({ path: `${workspacePrefix}/channel/${ch._id}`, unread: ch.unreadCount ?? 0 });
+    if (conversations) {
+      for (const conv of conversations) {
+        items.push({ path: `${workspacePrefix}/c/${conv._id}`, unread: conv.unreadCount ?? 0 });
       }
     }
     return items;
-  }, [workspacePrefix, channels, dmConversations, inboxUnread]);
+  }, [workspacePrefix, conversations, inboxUnread]);
 
   const isSettingsRoute = pathname.includes("/settings/");
 
   useEffect(() => {
-    const channelUnread = channels?.reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0) ?? 0;
-    const dmUnread = dmConversations?.reduce((sum, conv) => sum + (conv.unreadCount ?? 0), 0) ?? 0;
+    const conversationUnread = conversations?.reduce((sum, conv) => sum + (conv.unreadCount ?? 0), 0) ?? 0;
     const inbox = inboxUnread ?? 0;
-    const total = channelUnread + dmUnread + inbox;
+    const total = conversationUnread + inbox;
     document.title = total > 0 ? `(${total}) PING` : "PING";
     return () => {
       document.title = "PING";
     };
-  }, [channels, dmConversations, inboxUnread]);
+  }, [conversations, inboxUnread]);
 
   useEffect(() => {
     if (window.innerWidth < 768) {
@@ -235,15 +208,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Shift+Escape — mark current channel/DM as read
+      // Shift+Escape — mark current conversation as read
       if (e.key === "Escape" && e.shiftKey) {
-        const channelMatch = pathname.match(/\/channel\/([^/]+)$/);
-        const dmMatch = pathname.match(/\/dm\/([^/]+)$/);
-        if (channelMatch) {
-          markChannelRead({ channelId: channelMatch[1] as Id<"channels"> });
-          toast("Marked as read", "success");
-        } else if (dmMatch) {
-          markDMRead({ conversationId: dmMatch[1] as Id<"directConversations"> });
+        const convMatch = pathname.match(/\/c\/([^/]+)$/);
+        if (convMatch) {
+          markRead({ conversationId: convMatch[1] as Id<"conversations"> });
           toast("Marked as read", "success");
         }
         return;
@@ -269,14 +238,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           router.push(`${workspacePrefix}/settings/team`);
           return;
         }
-        if (key === "c" && channels?.[0]) {
+        if (key === "c" && conversations?.[0]) {
           e.preventDefault();
-          router.push(`${workspacePrefix}/channel/${channels[0]._id}`);
+          router.push(`${workspacePrefix}/c/${conversations[0]._id}`);
           return;
         }
         if (key === "d") {
           e.preventDefault();
-          router.push(`${workspacePrefix}/dms`);
+          router.push(`${workspacePrefix}/conversations`);
           return;
         }
         return;
@@ -303,7 +272,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       window.removeEventListener("keydown", handleKeyDown);
       clearChord();
     };
-  }, [toggleSidebar, clearChord, router, workspacePrefix, pathname, navItems, channels, markChannelRead, markDMRead, toast, handleStartMeeting]);
+  }, [toggleSidebar, clearChord, router, workspacePrefix, pathname, navItems, conversations, markRead, toast, handleStartMeeting]);
 
   return (
     <SidebarContext.Provider value={{ sidebarOpen, setSidebarOpen }}>

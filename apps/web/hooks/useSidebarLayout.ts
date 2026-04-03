@@ -20,6 +20,7 @@ export interface UnifiedSidebarItem {
   isMember?: boolean;
   // DM-specific
   kind?: "1to1" | "group" | "agent_1to1" | "agent_group";
+  visibility?: string;
   members?: Array<{
     userId: string;
     name: string;
@@ -79,12 +80,8 @@ export function useSidebarLayout(
     api.sidebarLayout.getLayout,
     isAuthenticated && workspaceId ? { workspaceId } : "skip",
   );
-  const channels = useQuery(
-    api.channels.list,
-    isAuthenticated && workspaceId ? { workspaceId } : "skip",
-  );
-  const dmConversations = useQuery(
-    api.directConversations.list,
+  const conversations = useQuery(
+    api.conversations.list,
     isAuthenticated && workspaceId ? { workspaceId } : "skip",
   );
   const user = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
@@ -103,7 +100,7 @@ export function useSidebarLayout(
   }, [layout, workspaceId, initDefaultSection]);
 
   return useMemo(() => {
-    const isLoading = !layout || !channels || !dmConversations || !user;
+    const isLoading = !layout || !conversations || !user;
 
     if (isLoading) {
       return { sections: [], isLoading: true };
@@ -114,21 +111,15 @@ export function useSidebarLayout(
     const sections = layout.sections;
     const items = layout.items;
 
-    // Build maps for fast lookup
+    // Build map for fast lookup
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channelMap = new Map<string, any>();
-    for (const ch of channels) {
-      channelMap.set(ch._id, ch);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dmMap = new Map<string, any>();
-    for (const dm of dmConversations) {
-      dmMap.set(dm._id, dm);
+    const conversationMap = new Map<string, any>();
+    for (const conv of conversations) {
+      conversationMap.set(conv._id, conv);
     }
 
-    // Track which channels/DMs are explicitly placed
-    const placedChannelIds = new Set<string>();
-    const placedDmIds = new Set<string>();
+    // Track which conversations are explicitly placed
+    const placedConversationIds = new Set<string>();
 
     // Build unified items from sidebarItems
     const itemsBySectionId = new Map<string, UnifiedSidebarItem[]>();
@@ -136,113 +127,62 @@ export function useSidebarLayout(
       itemsBySectionId.set(section._id, []);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toSidebarItem = (conv: any, overrides: Partial<UnifiedSidebarItem>): UnifiedSidebarItem => {
+      const isChannel = conv.visibility === "public" && conv.name;
+      const otherMembers = conv.members.filter(
+        (m: { userId: string }) => m.userId !== user._id,
+      );
+      return {
+        id: conv._id,
+        type: isChannel ? "channel" : "dm",
+        name:
+          conv.name ||
+          otherMembers.map((m: { name: string }) => m.name).join(", ") ||
+          "Conversation",
+        kind: conv.kind,
+        visibility: conv.visibility,
+        isPrivate: conv.visibility !== "public",
+        isStarred: conv.isStarred,
+        isMember: conv.isMember,
+        members: conv.members,
+        unreadCount: conv.unreadCount,
+        unreadMentionCount: conv.unreadMentionCount ?? 0,
+        lastActivityAt: conv.lastMessageAt ?? conv._creationTime,
+        sectionId: "",
+        sortOrder: 0,
+        ...overrides,
+      };
+    };
+
     for (const item of items) {
-      let unified: UnifiedSidebarItem | null = null;
+      if (!item.conversationId) continue;
+      const conv = conversationMap.get(item.conversationId);
+      if (!conv) continue;
 
-      if (item.channelId) {
-        const ch = channelMap.get(item.channelId);
-        if (ch) {
-          placedChannelIds.add(item.channelId);
-          unified = {
-            id: ch._id,
-            type: "channel",
-            name: ch.name,
-            sidebarItemId: item._id,
-            sectionId: item.sectionId,
-            sortOrder: item.sortOrder,
-            isPrivate: ch.isPrivate,
-            isStarred: ch.isStarred,
-            isMember: ch.isMember,
-            unreadCount: ch.unreadCount,
-            unreadMentionCount: ch.unreadMentionCount,
-            lastActivityAt: ch.lastMessageAt ?? ch._creationTime,
-          };
-        }
-      } else if (item.conversationId) {
-        const dm = dmMap.get(item.conversationId);
-        if (dm) {
-          placedDmIds.add(item.conversationId);
-          const otherMembers = dm.members.filter(
-            (m: { userId: string }) => m.userId !== user._id,
-          );
-          unified = {
-            id: dm._id,
-            type: "dm",
-            name:
-              dm.name ||
-              otherMembers
-                .map((m: { name: string }) => m.name)
-                .join(", ") ||
-              "DM",
-            sidebarItemId: item._id,
-            sectionId: item.sectionId,
-            sortOrder: item.sortOrder,
-            isStarred: dm.isStarred,
-            kind: dm.kind,
-            members: dm.members,
-            unreadCount: dm.unreadCount,
-            unreadMentionCount: 0,
-            lastActivityAt:
-              dm.lastMessage?.timestamp ?? dm._creationTime,
-          };
-        }
-      }
+      placedConversationIds.add(item.conversationId);
+      const unified = toSidebarItem(conv, {
+        sidebarItemId: item._id,
+        sectionId: item.sectionId,
+        sortOrder: item.sortOrder,
+      });
 
-      if (unified && itemsBySectionId.has(item.sectionId)) {
+      if (itemsBySectionId.has(item.sectionId)) {
         itemsBySectionId.get(item.sectionId)!.push(unified);
       }
     }
 
-    // Collect unplaced items into the default section
+    // Collect unplaced conversations into the default section
     const defaultSection = sections.find((s) => s.isDefault);
     const defaultSectionId = defaultSection?._id ?? "";
     const unplacedItems: UnifiedSidebarItem[] = [];
 
-    // Unplaced channels
-    for (const ch of channels) {
-      if (!placedChannelIds.has(ch._id)) {
-        unplacedItems.push({
-          id: ch._id,
-          type: "channel",
-          name: ch.name,
-          sectionId: defaultSectionId,
-          sortOrder: 999999,
-          isPrivate: ch.isPrivate,
-          isStarred: ch.isStarred,
-          isMember: ch.isMember,
-          unreadCount: ch.unreadCount,
-          unreadMentionCount: ch.unreadMentionCount,
-          lastActivityAt: ch.lastMessageAt ?? ch._creationTime,
-        });
-      }
-    }
-
-    // Unplaced DMs
-    for (const dm of dmConversations) {
-      if (!placedDmIds.has(dm._id)) {
-        const otherMembers = dm.members.filter(
-          (m: { userId: string }) => m.userId !== user._id,
-        );
-        unplacedItems.push({
-          id: dm._id,
-          type: "dm",
-          name:
-            dm.name ||
-            otherMembers
-              .map((m: { name: string }) => m.name)
-              .join(", ") ||
-            "DM",
-          sectionId: defaultSectionId,
-          isStarred: dm.isStarred,
-          kind: dm.kind,
-          members: dm.members,
-          sortOrder: 999999,
-          unreadCount: dm.unreadCount,
-          unreadMentionCount: 0,
-          lastActivityAt:
-            dm.lastMessage?.timestamp ?? dm._creationTime,
-        });
-      }
+    for (const conv of conversations) {
+      if (placedConversationIds.has(conv._id)) continue;
+      unplacedItems.push(toSidebarItem(conv, {
+        sectionId: defaultSectionId,
+        sortOrder: 999999,
+      }));
     }
 
     if (defaultSectionId && itemsBySectionId.has(defaultSectionId)) {
@@ -291,5 +231,5 @@ export function useSidebarLayout(
     }
 
     return { sections: sectionModels, isLoading: false };
-  }, [layout, channels, dmConversations, user, pathname, buildPath]);
+  }, [layout, conversations, user, pathname, buildPath]);
 }

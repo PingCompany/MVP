@@ -127,7 +127,7 @@ export function SearchResults({
                       title="Go to conversation"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onNavigate(`/dm/${existingDm._id}`);
+                        onNavigate(`/c/${existingDm._id}`);
                       }}
                     >
                       <MessageSquare className="h-3 w-3" />

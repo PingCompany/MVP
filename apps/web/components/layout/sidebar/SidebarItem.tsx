@@ -87,14 +87,8 @@ export function SidebarItem({
   onMoveToSection,
   sections,
 }: SidebarItemProps) {
-  const href =
-    item.type === "channel"
-      ? buildPath(`/channel/${item.id}`)
-      : buildPath(`/dm/${item.id}`);
-  const isActive =
-    item.type === "channel"
-      ? pathname.endsWith(`/channel/${item.id}`)
-      : pathname.endsWith(`/dm/${item.id}`);
+  const href = buildPath(`/c/${item.id}`);
+  const isActive = pathname.endsWith(`/c/${item.id}`);
 
   const isCustom = sortMode === "custom";
   const {

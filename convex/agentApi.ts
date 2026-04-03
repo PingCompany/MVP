@@ -40,45 +40,45 @@ export const getAgentByTokenHash = internalQuery({
 });
 
 /**
- * Internal query: List channels the agent's workspace has access to.
+ * Internal query: List conversations the agent's workspace has access to.
  */
 export const listChannelsForWorkspace = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, { workspaceId }) => {
-    const channels = await ctx.db
-      .query("channels")
+    const conversations = await ctx.db
+      .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .collect();
 
-    return channels
+    return conversations
       .filter((c) => !c.isArchived)
       .map((c) => ({
         _id: c._id,
         name: c.name,
         description: c.description,
-        type: c.type,
+        kind: c.kind,
       }));
   },
 });
 
 /**
- * Internal query: Read messages from a channel.
+ * Internal query: Read messages from a conversation.
  */
 export const readChannelMessages = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     limit: v.number(),
   },
   handler: async (ctx, { channelId, workspaceId, limit }) => {
-    const channel = await ctx.db.get(channelId);
-    if (!channel || channel.workspaceId !== workspaceId) {
-      throw new Error("Channel not found or access denied");
+    const conversation = await ctx.db.get(channelId);
+    if (!conversation || conversation.workspaceId !== workspaceId) {
+      throw new Error("Conversation not found or access denied");
     }
 
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", channelId))
       .order("desc")
       .take(limit);
 
@@ -101,23 +101,23 @@ export const readChannelMessages = internalQuery({
 });
 
 /**
- * Internal mutation: Send a message to a channel as an agent.
+ * Internal mutation: Send a message to a conversation as an agent.
  */
 export const sendChannelMessage = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     authorId: v.id("users"),
     body: v.string(),
   },
   handler: async (ctx, { channelId, workspaceId, authorId, body }) => {
-    const channel = await ctx.db.get(channelId);
-    if (!channel || channel.workspaceId !== workspaceId) {
-      throw new Error("Channel not found or access denied");
+    const conversation = await ctx.db.get(channelId);
+    if (!conversation || conversation.workspaceId !== workspaceId) {
+      throw new Error("Conversation not found or access denied");
     }
 
     const messageId = await ctx.db.insert("messages", {
-      channelId,
+      conversationId: channelId,
       authorId,
       body,
       type: "bot",
@@ -129,13 +129,13 @@ export const sendChannelMessage = internalMutation({
 });
 
 /**
- * Internal query: List DM conversations for an agent's workspace.
+ * Internal query: List conversations for a user.
  */
 export const listConversationsForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     const memberships = await ctx.db
-      .query("directConversationMembers")
+      .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
@@ -145,7 +145,7 @@ export const listConversationsForUser = internalQuery({
         if (!conv || conv.isArchived) return null;
 
         const members = await ctx.db
-          .query("directConversationMembers")
+          .query("conversationMembers")
           .withIndex("by_conversation", (q) =>
             q.eq("conversationId", conv._id),
           )
@@ -172,19 +172,19 @@ export const listConversationsForUser = internalQuery({
 });
 
 /**
- * Internal query: Read messages from a DM conversation.
+ * Internal query: Read messages from a conversation.
  */
 export const readConversationMessages = internalQuery({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
     limit: v.number(),
   },
   handler: async (ctx, { conversationId, userId, limit }) => {
     // Verify the user is a member of this conversation
     const membership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q.eq("conversationId", conversationId).eq("userId", userId),
       )
       .first();
@@ -194,7 +194,7 @@ export const readConversationMessages = internalQuery({
     }
 
     const messages = await ctx.db
-      .query("directMessages")
+      .query("messages")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", conversationId),
       )
@@ -220,19 +220,19 @@ export const readConversationMessages = internalQuery({
 });
 
 /**
- * Internal mutation: Send a DM as an agent.
+ * Internal mutation: Send a message in a conversation as an agent.
  */
 export const sendDirectMessage = internalMutation({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
     body: v.string(),
   },
   handler: async (ctx, { conversationId, userId, body }) => {
     // Verify the user is a member of this conversation
     const membership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q.eq("conversationId", conversationId).eq("userId", userId),
       )
       .first();
@@ -241,7 +241,7 @@ export const sendDirectMessage = internalMutation({
       throw new Error("Not a member of this conversation");
     }
 
-    const messageId = await ctx.db.insert("directMessages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId,
       authorId: userId,
       body,

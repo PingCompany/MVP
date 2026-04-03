@@ -15,10 +15,10 @@ export const listActive = query({
 
     return Promise.all(
       drafts.map(async (draft) => {
-        const channel = await ctx.db.get(draft.channelId);
+        const conversation = await ctx.db.get(draft.conversationId);
         return {
           ...draft,
-          channelName: channel?.name ?? "unknown",
+          conversationName: conversation?.name ?? "unknown",
         };
       }),
     );

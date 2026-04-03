@@ -156,11 +156,15 @@ export const upsert = internalMutation({
           continue;
         }
 
+        // Skip rules that don't have a conversationId (legacy channelId-only records)
+        const ruleConversationId = rule.conversationId;
+        if (!ruleConversationId) continue;
+
         // For updates, find and edit the existing message instead of creating a new one
         if (isUpdate) {
           const existingMessages = await ctx.db
             .query("messages")
-            .withIndex("by_channel", (q) => q.eq("channelId", rule.channelId))
+            .withIndex("by_conversation", (q) => q.eq("conversationId", ruleConversationId))
             .order("desc")
             .take(100);
 
@@ -181,7 +185,7 @@ export const upsert = internalMutation({
         }
 
         const messageId = await ctx.db.insert("messages", {
-          channelId: rule.channelId,
+          conversationId: ruleConversationId,
           authorId: botUserId,
           body,
           type: "integration",
@@ -281,7 +285,7 @@ export const listByWorkspace = query({
 
 export const addRouting = mutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     integrationType: v.union(v.literal("github"), v.literal("linear")),
     externalTarget: v.string(),
@@ -290,16 +294,16 @@ export const addRouting = mutation({
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
 
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel || channel.workspaceId !== args.workspaceId) {
-      throw new Error("Channel not found in this workspace");
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.workspaceId !== args.workspaceId) {
+      throw new Error("Conversation not found in this workspace");
     }
 
     const existing = await ctx.db
       .query("integrationRouting")
-      .withIndex("by_channel_type_target", (q) =>
+      .withIndex("by_conversation_and_type_and_target", (q) =>
         q
-          .eq("channelId", args.channelId)
+          .eq("conversationId", args.conversationId)
           .eq("integrationType", args.integrationType)
           .eq("externalTarget", args.externalTarget),
       )
@@ -307,7 +311,7 @@ export const addRouting = mutation({
     if (existing) throw new Error("Routing rule already exists");
 
     return await ctx.db.insert("integrationRouting", {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       workspaceId: args.workspaceId,
       integrationType: args.integrationType,
       externalTarget: args.externalTarget,
@@ -334,16 +338,16 @@ export const removeRouting = mutation({
   },
 });
 
-export const listRoutingByChannel = query({
+export const listRoutingByConversation = query({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
     await requireUser(ctx);
 
     return await ctx.db
       .query("integrationRouting")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
   },
 });

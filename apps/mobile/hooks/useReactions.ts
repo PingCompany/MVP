@@ -29,21 +29,3 @@ export function useReactions(messageIds: Id<"messages">[]) {
   return { reactionsByMessage, toggleReaction } as const;
 }
 
-export function useDMReactions(messageIds: Id<"directMessages">[]) {
-  const reactionsByMessage =
-    useQuery(
-      api.reactions.getByDMMessages,
-      messageIds.length > 0 ? { messageIds } : "skip",
-    ) ?? {};
-
-  const toggle = useMutation(api.reactions.toggleDM);
-
-  const toggleReaction = useCallback(
-    (messageId: string, emoji: string) => {
-      toggle({ messageId: messageId as Id<"directMessages">, emoji });
-    },
-    [toggle],
-  );
-
-  return { reactionsByMessage, toggleReaction } as const;
-}

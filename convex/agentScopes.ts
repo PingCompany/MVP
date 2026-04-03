@@ -5,7 +5,7 @@ import { requireAuth } from "./auth";
 export const grantAccess = mutation({
   args: {
     agentId: v.id("agents"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     permissions: v.union(v.literal("read"), v.literal("read_write")),
   },
   handler: async (ctx, args) => {
@@ -16,14 +16,16 @@ export const grantAccess = mutation({
     if (user.role !== "admin")
       throw new Error("Only admins can manage agent scopes");
 
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel || channel.workspaceId !== agent.workspaceId)
-      throw new Error("Channel not found");
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.workspaceId !== agent.workspaceId)
+      throw new Error("Conversation not found");
 
     const existing = await ctx.db
-      .query("agentChannelScopes")
-      .withIndex("by_agent_channel", (q) =>
-        q.eq("agentId", args.agentId).eq("channelId", args.channelId),
+      .query("agentConversationScopes")
+      .withIndex("by_agent_and_conversation", (q) =>
+        q
+          .eq("agentId", args.agentId)
+          .eq("conversationId", args.conversationId),
       )
       .unique();
 
@@ -32,9 +34,9 @@ export const grantAccess = mutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("agentChannelScopes", {
+    return await ctx.db.insert("agentConversationScopes", {
       agentId: args.agentId,
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       permissions: args.permissions,
       grantedBy: user._id,
       grantedAt: Date.now(),
@@ -45,7 +47,7 @@ export const grantAccess = mutation({
 export const revokeAccess = mutation({
   args: {
     agentId: v.id("agents"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
     const agent = await ctx.db.get(args.agentId);
@@ -56,9 +58,11 @@ export const revokeAccess = mutation({
       throw new Error("Only admins can manage agent scopes");
 
     const scope = await ctx.db
-      .query("agentChannelScopes")
-      .withIndex("by_agent_channel", (q) =>
-        q.eq("agentId", args.agentId).eq("channelId", args.channelId),
+      .query("agentConversationScopes")
+      .withIndex("by_agent_and_conversation", (q) =>
+        q
+          .eq("agentId", args.agentId)
+          .eq("conversationId", args.conversationId),
       )
       .unique();
 
@@ -70,7 +74,7 @@ export const revokeAccess = mutation({
 
 export const updatePermission = mutation({
   args: {
-    scopeId: v.id("agentChannelScopes"),
+    scopeId: v.id("agentConversationScopes"),
     permissions: v.union(v.literal("read"), v.literal("read_write")),
   },
   handler: async (ctx, args) => {
@@ -97,18 +101,18 @@ export const listByAgent = query({
     await requireAuth(ctx, agent.workspaceId);
 
     const scopes = await ctx.db
-      .query("agentChannelScopes")
+      .query("agentConversationScopes")
       .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
       .take(100);
 
     const result = [];
     for (const scope of scopes) {
-      const channel = await ctx.db.get(scope.channelId);
-      if (channel) {
+      const conversation = await ctx.db.get(scope.conversationId);
+      if (conversation) {
         result.push({
           _id: scope._id,
-          channelId: scope.channelId,
-          channelName: channel.name,
+          conversationId: scope.conversationId,
+          conversationName: conversation.name,
           permissions: scope.permissions,
           grantedAt: scope.grantedAt,
         });
@@ -118,17 +122,19 @@ export const listByAgent = query({
   },
 });
 
-export const listByChannel = query({
-  args: { channelId: v.id("channels") },
+export const listByConversation = query({
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new Error("Channel not found");
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
 
-    await requireAuth(ctx, channel.workspaceId);
+    await requireAuth(ctx, conversation.workspaceId);
 
     const scopes = await ctx.db
-      .query("agentChannelScopes")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .query("agentConversationScopes")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
       .take(50);
 
     const result = [];
@@ -150,14 +156,16 @@ export const listByChannel = query({
 export const checkAccess = internalQuery({
   args: {
     agentId: v.id("agents"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     requiredPermission: v.union(v.literal("read"), v.literal("read_write")),
   },
   handler: async (ctx, args) => {
     const scope = await ctx.db
-      .query("agentChannelScopes")
-      .withIndex("by_agent_channel", (q) =>
-        q.eq("agentId", args.agentId).eq("channelId", args.channelId),
+      .query("agentConversationScopes")
+      .withIndex("by_agent_and_conversation", (q) =>
+        q
+          .eq("agentId", args.agentId)
+          .eq("conversationId", args.conversationId),
       )
       .unique();
 

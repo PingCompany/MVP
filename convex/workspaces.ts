@@ -36,18 +36,20 @@ export const create = mutation({
       joinedAt: Date.now(),
     });
 
-    // Create a default #general channel
-    const channelId = await ctx.db.insert("channels", {
+    // Create a default #general conversation
+    const conversationId = await ctx.db.insert("conversations", {
       name: "general",
       description: "General discussion",
       workspaceId,
       createdBy: user._id,
       isDefault: true,
       isArchived: false,
+      kind: "group",
+      visibility: "public",
     });
 
-    await ctx.db.insert("channelMembers", {
-      channelId,
+    await ctx.db.insert("conversationMembers", {
+      conversationId,
       userId: user._id,
     });
 
@@ -246,17 +248,17 @@ export const joinViaPublicLink = mutation({
       joinedAt: Date.now(),
     });
 
-    // Auto-join #general channel
-    const generalChannel = await ctx.db
-      .query("channels")
-      .withIndex("by_workspace_name", (q) =>
+    // Auto-join #general conversation
+    const generalConversation = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace_and_name", (q) =>
         q.eq("workspaceId", workspace._id).eq("name", "general"),
       )
       .unique();
 
-    if (generalChannel) {
-      await ctx.db.insert("channelMembers", {
-        channelId: generalChannel._id,
+    if (generalConversation) {
+      await ctx.db.insert("conversationMembers", {
+        conversationId: generalConversation._id,
         userId: user._id,
       });
     }

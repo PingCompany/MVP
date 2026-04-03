@@ -23,12 +23,12 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useReactions } from "@/hooks/useReactions";
 
 export default function ThreadScreen() {
-  const { messageId, channelId } = useLocalSearchParams<{
+  const { messageId, conversationId } = useLocalSearchParams<{
     messageId: string;
-    channelId: string;
+    conversationId: string;
   }>();
   const typedThreadId = messageId as Id<"messages">;
-  const typedChannelId = channelId as Id<"channels">;
+  const typedConversationId = conversationId as Id<"conversations">;
 
   const thread = useQuery(api.threads.listReplies, {
     threadId: typedThreadId,
@@ -57,13 +57,12 @@ export default function ThreadScreen() {
     (body: string) => {
       if (!body) return;
       sendReply({
-        channelId: typedChannelId,
+        conversationId: typedConversationId,
         threadId: typedThreadId,
         body,
-        alsoSendToChannel,
       });
     },
-    [sendReply, typedChannelId, typedThreadId, alsoSendToChannel],
+    [sendReply, typedConversationId, typedThreadId],
   );
 
   if (thread === undefined) {
@@ -158,7 +157,7 @@ export default function ThreadScreen() {
       />
 
       <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Also send to channel</Text>
+        <Text style={styles.toggleLabel}>Also send to conversation</Text>
         <Switch
           value={alsoSendToChannel}
           onValueChange={setAlsoSendToChannel}
@@ -187,7 +186,7 @@ export default function ThreadScreen() {
         onCopyLink={() => {
           if (actionSheet.messageId) {
             Clipboard.setStringAsync(
-              `https://openping.app/channel/${channelId}?thread=${messageId}&msg=${actionSheet.messageId}`,
+              `https://openping.app/conversation/${conversationId}?thread=${messageId}&msg=${actionSheet.messageId}`,
             );
           }
         }}

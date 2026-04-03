@@ -122,16 +122,16 @@ export async function cleanupEmptyPersonalWorkspaces(
       .collect();
     if (members.length > 1) continue;
 
-    const channels = await ctx.db
-      .query("channels")
+    const conversations = await ctx.db
+      .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", ws._id))
       .collect();
 
     let hasMessages = false;
-    for (const ch of channels) {
+    for (const conv of conversations) {
       const msg = await ctx.db
         .query("messages")
-        .withIndex("by_channel", (q) => q.eq("channelId", ch._id))
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
         .first();
       if (msg) {
         hasMessages = true;
@@ -140,13 +140,13 @@ export async function cleanupEmptyPersonalWorkspaces(
     }
     if (hasMessages) continue;
 
-    for (const ch of channels) {
+    for (const conv of conversations) {
       const cms = await ctx.db
-        .query("channelMembers")
-        .withIndex("by_channel", (q) => q.eq("channelId", ch._id))
+        .query("conversationMembers")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
         .collect();
       for (const cm of cms) await ctx.db.delete(cm._id);
-      await ctx.db.delete(ch._id);
+      await ctx.db.delete(conv._id);
     }
     await ctx.db.delete(membership._id);
     await ctx.db.delete(ws._id);
@@ -198,18 +198,18 @@ export const accept = mutation({
         joinedAt: Date.now(),
       });
 
-      // Auto-join #general channel (guests must be explicitly added to channels)
+      // Auto-join #general conversation (guests must be explicitly added)
       if (invitation.role !== "guest") {
-        const generalChannel = await ctx.db
-          .query("channels")
-          .withIndex("by_workspace_name", (q) =>
+        const generalConversation = await ctx.db
+          .query("conversations")
+          .withIndex("by_workspace_and_name", (q) =>
             q.eq("workspaceId", invitation.workspaceId).eq("name", "general"),
           )
           .unique();
 
-        if (generalChannel) {
-          await ctx.db.insert("channelMembers", {
-            channelId: generalChannel._id,
+        if (generalConversation) {
+          await ctx.db.insert("conversationMembers", {
+            conversationId: generalConversation._id,
             userId: user._id,
           });
         }

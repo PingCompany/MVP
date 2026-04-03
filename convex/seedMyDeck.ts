@@ -367,12 +367,12 @@ export const seedMyDeckDemo = internalMutation({
     }
 
     // ── Create channels (idempotent) ──────────────────────────────────────
-    const channelMap: Record<string, Id<"channels">> = {};
+    const channelMap: Record<string, Id<"conversations">> = {};
 
     for (const ch of CHANNELS) {
       const existing = await ctx.db
-        .query("channels")
-        .withIndex("by_workspace_name", (q) =>
+        .query("conversations")
+        .withIndex("by_workspace_and_name", (q) =>
           q.eq("workspaceId", workspaceId).eq("name", ch.name),
         )
         .unique();
@@ -381,14 +381,15 @@ export const seedMyDeckDemo = internalMutation({
         channelMap[ch.slug] = existing._id;
       } else {
         const creator = userMap["kate_nowak"]!;
-        const cid = await ctx.db.insert("channels", {
+        const cid = await ctx.db.insert("conversations", {
           name: ch.name,
           description: ch.description,
           workspaceId,
           createdBy: creator,
           isDefault: ch.slug === "general",
           isArchived: false,
-          type: "public",
+          kind: "group",
+          visibility: "public",
         });
         channelMap[ch.slug] = cid;
       }
@@ -399,14 +400,14 @@ export const seedMyDeckDemo = internalMutation({
         const uid = userMap[memberKey];
         if (!uid) continue;
         const existingMember = await ctx.db
-          .query("channelMembers")
-          .withIndex("by_channel_user", (q) =>
-            q.eq("channelId", cid).eq("userId", uid),
+          .query("conversationMembers")
+          .withIndex("by_conversation_and_user", (q) =>
+            q.eq("conversationId", cid).eq("userId", uid),
           )
           .unique();
         if (!existingMember) {
-          await ctx.db.insert("channelMembers", {
-            channelId: cid,
+          await ctx.db.insert("conversationMembers", {
+            conversationId: cid,
             userId: uid,
           });
         }
@@ -432,7 +433,7 @@ export const seedMyDeckDemo = internalMutation({
       }
 
       const msgId = await ctx.db.insert("messages", {
-        channelId: cid,
+        conversationId: cid,
         authorId: uid,
         body: msg.body,
         type: "user",
@@ -456,7 +457,7 @@ export const seedMyDeckDemo = internalMutation({
       if (!cid || !uid || !parentMsgId) continue;
 
       const replyId = await ctx.db.insert("messages", {
-        channelId: cid,
+        conversationId: cid,
         authorId: uid,
         body: msg.body,
         type: "user",
@@ -491,18 +492,19 @@ export const seedMyDeckDemo = internalMutation({
       const creatorKey = dm.participants[0]!;
       const creator = userMap[creatorKey]!;
 
-      const convId = await ctx.db.insert("directConversations", {
+      const convId = await ctx.db.insert("conversations", {
         workspaceId,
         kind: dm.kind,
         name: dm.name,
         createdBy: creator,
         isArchived: false,
+        visibility: "secret",
       });
 
       for (const key of dm.participants) {
         const uid = userMap[key];
         if (!uid) continue;
-        await ctx.db.insert("directConversationMembers", {
+        await ctx.db.insert("conversationMembers", {
           conversationId: convId,
           userId: uid,
           isAgent: false,
@@ -511,7 +513,7 @@ export const seedMyDeckDemo = internalMutation({
 
       for (const dmMsg of dm.messages) {
         const authorId = userMap[dmMsg.author]!;
-        const dmId = await ctx.db.insert("directMessages", {
+        const dmId = await ctx.db.insert("messages", {
           conversationId: convId,
           authorId,
           body: dmMsg.body,
@@ -519,7 +521,7 @@ export const seedMyDeckDemo = internalMutation({
           isEdited: false,
         });
 
-        await ctx.scheduler.runAfter(0, internal.ingest.processDirectMessage, {
+        await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
           messageId: dmId,
         });
       }
@@ -555,22 +557,22 @@ export const clearMyDeckDemo = internalMutation({
     );
     const mydeckUserIds = mydeckUsers.map((u) => u._id);
 
-    // Find channels created by mydeck users in this workspace
-    const allChannels = await ctx.db
-      .query("channels")
+    // Find conversations created by mydeck users in this workspace
+    const allConversations = await ctx.db
+      .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .collect();
-    const mydeckChannels = allChannels.filter((c) =>
+    const mydeckConversations = allConversations.filter((c) =>
       mydeckUserIds.includes(c.createdBy),
     );
-    const mydeckChannelIds = mydeckChannels.map((c) => c._id);
+    const mydeckConversationIds = mydeckConversations.map((c) => c._id);
 
-    // Delete messages in mydeck channels
+    // Delete messages in mydeck conversations
     stats.messages = 0;
-    for (const channelId of mydeckChannelIds) {
+    for (const conversationId of mydeckConversationIds) {
       const msgs = await ctx.db
         .query("messages")
-        .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
         .collect();
       for (const m of msgs) {
         await ctx.db.delete(m._id);
@@ -578,63 +580,24 @@ export const clearMyDeckDemo = internalMutation({
       }
     }
 
-    // Delete channel members
-    stats.channelMembers = 0;
-    for (const channelId of mydeckChannelIds) {
+    // Delete conversation members
+    stats.conversationMembers = 0;
+    for (const conversationId of mydeckConversationIds) {
       const members = await ctx.db
-        .query("channelMembers")
-        .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+        .query("conversationMembers")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
         .collect();
       for (const m of members) {
         await ctx.db.delete(m._id);
-        stats.channelMembers++;
+        stats.conversationMembers++;
       }
     }
 
-    // Delete channels
-    stats.channels = 0;
-    for (const ch of mydeckChannels) {
-      await ctx.db.delete(ch._id);
-      stats.channels++;
-    }
-
-    // Delete DM conversations created by mydeck users
-    const dmConvs = await ctx.db
-      .query("directConversations")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-      .collect();
-
-    stats.directMessages = 0;
-    stats.directConversationMembers = 0;
-    stats.directConversations = 0;
-
-    for (const conv of dmConvs) {
-      if (!mydeckUserIds.includes(conv.createdBy)) continue;
-
-      const dmMsgs = await ctx.db
-        .query("directMessages")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", conv._id),
-        )
-        .collect();
-      for (const m of dmMsgs) {
-        await ctx.db.delete(m._id);
-        stats.directMessages++;
-      }
-
-      const dmMembers = await ctx.db
-        .query("directConversationMembers")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", conv._id),
-        )
-        .collect();
-      for (const m of dmMembers) {
-        await ctx.db.delete(m._id);
-        stats.directConversationMembers++;
-      }
-
+    // Delete conversations
+    stats.conversations = 0;
+    for (const conv of mydeckConversations) {
       await ctx.db.delete(conv._id);
-      stats.directConversations++;
+      stats.conversations++;
     }
 
     // Delete workspace members for mydeck users

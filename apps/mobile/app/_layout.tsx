@@ -53,13 +53,14 @@ function AuthGate() {
           name="login"
           options={{ headerShown: false }}
         />
+        {/* Unified conversation routes */}
         <Stack.Screen
-          name="channel/[channelId]"
+          name="conversation/[conversationId]"
           options={{ headerBackTitle: " " }}
         />
         <Stack.Screen
-          name="dm/[conversationId]"
-          options={{ headerBackTitle: " " }}
+          name="conversation-info/[conversationId]"
+          options={{ title: "Info", headerBackTitle: " " }}
         />
         <Stack.Screen
           name="new-conversation"
@@ -72,6 +73,15 @@ function AuthGate() {
         <Stack.Screen
           name="thread/[messageId]"
           options={{ title: "Thread", headerBackTitle: " " }}
+        />
+        {/* Legacy routes — kept for backward compatibility while old screens still exist */}
+        <Stack.Screen
+          name="channel/[channelId]"
+          options={{ headerBackTitle: " " }}
+        />
+        <Stack.Screen
+          name="dm/[conversationId]"
+          options={{ headerBackTitle: " " }}
         />
         <Stack.Screen
           name="dm-thread/[messageId]"

@@ -12,9 +12,10 @@ import { SearchField } from "./SearchField";
 export function titleFromPath(pathname: string): string | null {
   const p = pathname.replace(/^\/app\/[^/]+/, "");
   if (p === "/inbox" || p === "") return "My Deck";
-  if (p === "/dms") return "Direct Messages";
+  if (p === "/conversations") return "Conversations";
+  if (p === "/dms") return "Conversations";
   if (p.startsWith("/dm/")) return "Direct Message";
-  if (p === "/channels") return "Channels";
+  if (p === "/channels") return "Conversations";
   if (p.startsWith("/channel/")) return null;
   if (p === "/settings/profile") return "Profile";
   if (p === "/settings/workspace") return "Workspace";

@@ -284,16 +284,16 @@ export const getWorkspaceForUser = internalQuery({
   },
 });
 
-export const getUserDefaultChannel = internalQuery({
+export const getUserDefaultConversation = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    // Find any channel membership for the user to use as the alert channel
+    // Find any conversation membership for the user to use as the alert conversation
     const membership = await ctx.db
-      .query("channelMembers")
+      .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
 
-    return membership ? { channelId: membership.channelId } : null;
+    return membership ? { conversationId: membership.conversationId } : null;
   },
 });
 
@@ -312,10 +312,10 @@ export const checkReminders = internalAction({
         });
         if (!workspace) continue;
 
-        const channel = await ctx.runQuery(internal.emailAgent.getUserDefaultChannel, {
+        const conversation = await ctx.runQuery(internal.emailAgent.getUserDefaultConversation, {
           userId: email.userId,
         });
-        if (!channel) continue;
+        if (!conversation) continue;
 
         // Create an inbox item for the reminder
         await ctx.runMutation(internal.inboxItems.insertItem, {
@@ -323,7 +323,7 @@ export const checkReminders = internalAction({
           workspaceId: workspace.workspaceId,
           type: "email_summary",
           category: "do",
-          channelId: channel.channelId,
+          conversationId: conversation.conversationId,
           title: `Email reminder: ${email.subject}`,
           summary: email.agentSummary ?? `Follow up on email from ${email.from}`,
           pingWillDo: email.suggestedAction ?? "Follow up on this email",

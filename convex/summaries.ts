@@ -24,9 +24,9 @@ interface GeneratedSummary {
   eisenhowerQuadrant: EisenhowerQuadrant;
 }
 
-interface ChannelMessages {
-  channelId: string;
-  channelName: string;
+interface ConversationMessages {
+  conversationId: string;
+  conversationName: string;
   messages: Array<{ body: string; authorName: string; _id: string }>;
 }
 
@@ -114,18 +114,18 @@ function formatMessages(
 }
 
 /**
- * Generate a single base summary for one channel. Shared across all members.
+ * Generate a single base summary for one conversation. Shared across all members.
  */
-async function generateChannelSummary(
+async function generateConversationSummary(
   messages: Array<{ body: string; authorName: string; _id: string }>,
-  channelName: string,
+  conversationName: string,
 ): Promise<GeneratedSummary> {
   const prompt = `You are an AI assistant that summarizes Slack-like channel messages using the Eisenhower Matrix.
 
 Classify each bullet into one of these quadrants:
 ${QUADRANT_DESCRIPTIONS}
 
-Channel: #${channelName}
+Channel: #${conversationName}
 
 Messages:
 ${formatMessages(messages)}
@@ -146,13 +146,13 @@ ${BULLET_RULES}`;
 }
 
 /**
- * Batch-summarize multiple low-activity channels in a single LLM call.
+ * Batch-summarize multiple low-activity conversations in a single LLM call.
  */
 async function generateBatchSummary(
-  channelsBatch: ChannelMessages[],
+  conversationsBatch: ConversationMessages[],
 ): Promise<Map<string, GeneratedSummary>> {
-  const sections = channelsBatch.map((ch) => {
-    return `### Channel: #${ch.channelName} (id: ${ch.channelId})\n${formatMessages(ch.messages)}`;
+  const sections = conversationsBatch.map((ch) => {
+    return `### Channel: #${ch.conversationName} (id: ${ch.conversationId})\n${formatMessages(ch.messages)}`;
   });
 
   const prompt = `You are an AI assistant that summarizes Slack-like channel messages using the Eisenhower Matrix.
@@ -167,7 +167,7 @@ ${sections.join("\n\n")}
 Respond with valid JSON only, no markdown:
 {
   "channels": {
-    "<channelId>": {
+    "<conversationId>": {
       "bullets": [
         ${BULLET_SCHEMA}
       ]
@@ -183,12 +183,12 @@ ${BULLET_RULES}`;
   const results = new Map<string, GeneratedSummary>();
   const channelsMap = raw.channels ?? {};
 
-  for (const ch of channelsBatch) {
-    const chRaw = channelsMap[ch.channelId];
+  for (const ch of conversationsBatch) {
+    const chRaw = channelsMap[ch.conversationId];
     if (!chRaw) continue;
 
     const bullets = parseBullets(chRaw.bullets ?? [], ch.messages);
-    results.set(ch.channelId, {
+    results.set(ch.conversationId, {
       bullets,
       eisenhowerQuadrant: computeTopQuadrant(bullets),
     });
@@ -239,26 +239,26 @@ function personalizeForUser(
 // Convex queries / mutations
 // ---------------------------------------------------------------------------
 
-export const getActiveChannels = internalQuery({
+export const getActiveConversations = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const channels = await ctx.db
-      .query("channels")
+    const conversations = await ctx.db
+      .query("conversations")
       .filter((q) => q.eq(q.field("isArchived"), false))
       .take(100);
 
     return Promise.all(
-      channels.map(async (channel) => {
+      conversations.map(async (conversation) => {
         const memberRows = await ctx.db
-          .query("channelMembers")
-          .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
+          .query("conversationMembers")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
           .take(500);
 
         const members = (
           await Promise.all(memberRows.map((m) => ctx.db.get(m.userId)))
         ).filter(Boolean) as Array<{ _id: Id<"users">; name: string }>;
 
-        return { _id: channel._id, name: channel.name, members };
+        return { _id: conversation._id, name: conversation.name, members };
       }),
     );
   },
@@ -266,13 +266,13 @@ export const getActiveChannels = internalQuery({
 
 export const getRecentMessages = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     since: v.number(),
   },
   handler: async (ctx, args) => {
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .filter((q) =>
         q.and(
           q.gte(q.field("_creationTime"), args.since),
@@ -299,13 +299,13 @@ export const getRecentMessages = internalQuery({
  * with no new messages since the last run.
  */
 export const getLastSummaryTime = internalQuery({
-  args: { channelId: v.id("channels") },
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     const latest = await ctx.db
       .query("inboxItems")
       .filter((q) =>
         q.and(
-          q.eq(q.field("channelId"), args.channelId),
+          q.eq(q.field("conversationId"), args.conversationId),
           q.eq(q.field("type"), "channel_summary"),
         ),
       )
@@ -345,7 +345,7 @@ const QUADRANT_TO_CATEGORY: Record<string, "do" | "decide" | "delegate" | "skip"
 export const writeSummary = internalMutation({
   args: {
     userId: v.id("users"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     eisenhowerQuadrant: v.union(
       v.literal("urgent-important"),
       v.literal("important"),
@@ -369,8 +369,8 @@ export const writeSummary = internalMutation({
     periodEnd: v.number(),
   },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return;
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
 
     const title = args.bullets[0]?.text ?? "New activity";
     const summary = args.bullets.slice(1).map((b) => b.text).join(". ");
@@ -378,13 +378,13 @@ export const writeSummary = internalMutation({
 
     await ctx.db.insert("inboxItems", {
       userId: args.userId,
-      workspaceId: channel.workspaceId,
+      workspaceId: conversation.workspaceId,
       type: "channel_summary",
       category,
       title,
       summary,
       status: "pending",
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       createdAt: Date.now(),
     });
   },
@@ -394,9 +394,9 @@ export const writeSummary = internalMutation({
 // Main cron entry point
 // ---------------------------------------------------------------------------
 
-/** Channels with <= this many messages are batched into a single LLM call. */
+/** Conversations with <= this many messages are batched into a single LLM call. */
 const LOW_ACTIVITY_THRESHOLD = 10;
-/** Max channels per single batch LLM call. */
+/** Max conversations per single batch LLM call. */
 const MAX_BATCH_SIZE = 5;
 
 export const generateChannelSummaries = internalAction({
@@ -406,85 +406,85 @@ export const generateChannelSummaries = internalAction({
     const windowMs = 15 * 60 * 1000;
     const periodStart = now - windowMs;
 
-    const channels = await ctx.runQuery(internal.summaries.getActiveChannels, {});
+    const conversations = await ctx.runQuery(internal.summaries.getActiveConversations, {});
 
-    // 1. Fetch messages for all channels & skip those with no new activity
-    const channelData: Array<{
-      channelId: Id<"channels">;
-      channelName: string;
+    // 1. Fetch messages for all conversations & skip those with no new activity
+    const conversationData: Array<{
+      conversationId: Id<"conversations">;
+      conversationName: string;
       messages: Array<{ body: string; authorName: string; _id: string }>;
       members: Array<{ _id: Id<"users">; name: string }>;
     }> = [];
 
-    for (const channel of channels) {
+    for (const conversation of conversations) {
       // Check if we already generated a summary for this period before fetching messages
       const lastSummaryTime = await ctx.runQuery(
         internal.summaries.getLastSummaryTime,
-        { channelId: channel._id },
+        { conversationId: conversation._id },
       );
       if (lastSummaryTime !== null && lastSummaryTime >= periodStart) continue;
 
       const messages = await ctx.runQuery(internal.summaries.getRecentMessages, {
-        channelId: channel._id,
+        conversationId: conversation._id,
         since: periodStart,
       });
 
       if (messages.length < 3) continue;
 
-      channelData.push({
-        channelId: channel._id,
-        channelName: channel.name,
+      conversationData.push({
+        conversationId: conversation._id,
+        conversationName: conversation.name ?? "Conversation",
         messages,
-        members: channel.members,
+        members: conversation.members,
       });
     }
 
-    // 2. Separate high-activity vs low-activity channels
-    const highActivity = channelData.filter(
+    // 2. Separate high-activity vs low-activity conversations
+    const highActivity = conversationData.filter(
       (ch) => ch.messages.length > LOW_ACTIVITY_THRESHOLD,
     );
-    const lowActivity = channelData.filter(
+    const lowActivity = conversationData.filter(
       (ch) => ch.messages.length <= LOW_ACTIVITY_THRESHOLD,
     );
 
-    // 3. Generate one summary per high-activity channel (1 LLM call each)
+    // 3. Generate one summary per high-activity conversation (1 LLM call each)
     const summaryMap = new Map<string, GeneratedSummary>();
 
     for (const ch of highActivity) {
       try {
-        const summary = await generateChannelSummary(ch.messages, ch.channelName);
-        summaryMap.set(ch.channelId as string, summary);
+        const summary = await generateConversationSummary(ch.messages, ch.conversationName);
+        summaryMap.set(ch.conversationId as string, summary);
       } catch (err) {
         console.error(
-          `[summaries] Failed to summarize channel ${ch.channelId}:`,
+          `[summaries] Failed to summarize conversation ${ch.conversationId}:`,
           err,
         );
       }
     }
 
-    // 4. Batch low-activity channels into groups and summarize together
+    // 4. Batch low-activity conversations into groups and summarize together
     for (let i = 0; i < lowActivity.length; i += MAX_BATCH_SIZE) {
       const batch = lowActivity.slice(i, i + MAX_BATCH_SIZE);
-      const batchInput: ChannelMessages[] = batch.map((ch) => ({
-        channelId: ch.channelId as string,
-        channelName: ch.channelName,
+      const batchInput: ConversationMessages[] = batch.map((ch) => ({
+        conversationId: ch.conversationId as string,
+        conversationName: ch.conversationName,
         messages: ch.messages,
       }));
 
       try {
         const batchResults = await generateBatchSummary(batchInput);
-        for (const [channelId, summary] of batchResults) {
-          summaryMap.set(channelId, summary);
+        for (const [conversationId, summary] of batchResults) {
+          summaryMap.set(conversationId, summary);
         }
       } catch (err) {
         console.error("[summaries] Batch summary failed, falling back to individual calls:", err);
         for (const ch of batch) {
           try {
-            const summary = await generateChannelSummary(ch.messages, ch.channelName);
-            summaryMap.set(ch.channelId as string, summary);
+            const summary = await generateConversationSummary(ch.messages, ch.conversationName);
+            summaryMap.set(ch.conversationId as string, summary);
           } catch (innerErr) {
             console.error(
-              `[summaries] Fallback failed for channel ${ch.channelId}:`,
+              `[summaries] Fallback failed for conversation ${ch.conversationId}:`,
               innerErr,
             );
           }
@@ -493,8 +493,8 @@ export const generateChannelSummaries = internalAction({
     }
 
     // 5. Personalise per user and write summaries
-    for (const ch of channelData) {
-      const baseSummary = summaryMap.get(ch.channelId as string);
+    for (const ch of conversationData) {
+      const baseSummary = summaryMap.get(ch.conversationId as string);
       if (!baseSummary) continue;
 
       for (const member of ch.members) {
@@ -514,7 +514,7 @@ export const generateChannelSummaries = internalAction({
 
           await ctx.runMutation(internal.summaries.writeSummary, {
             userId: member._id,
-            channelId: ch.channelId,
+            conversationId: ch.conversationId,
             eisenhowerQuadrant: personalised.eisenhowerQuadrant,
             bullets: sortedBullets.map((b) => ({
               text: b.text,
@@ -527,7 +527,7 @@ export const generateChannelSummaries = internalAction({
           });
         } catch (err) {
           console.error(
-            `[summaries] Failed for user ${member._id} in channel ${ch.channelId}:`,
+            `[summaries] Failed for user ${member._id} in conversation ${ch.conversationId}:`,
             err,
           );
         }
@@ -577,7 +577,7 @@ export const getRecentClassifiedEmails = internalQuery({
 export const writeEmailSummary = internalMutation({
   args: {
     userId: v.id("users"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     eisenhowerQuadrant: v.union(
       v.literal("urgent-important"),
       v.literal("important"),
@@ -601,8 +601,8 @@ export const writeEmailSummary = internalMutation({
     periodEnd: v.number(),
   },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return;
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
 
     const title = args.bullets[0]?.text ?? "Email summary";
     const summary = args.bullets.slice(1).map((b) => b.text).join(". ");
@@ -610,13 +610,13 @@ export const writeEmailSummary = internalMutation({
 
     await ctx.db.insert("inboxItems", {
       userId: args.userId,
-      workspaceId: channel.workspaceId,
+      workspaceId: conversation.workspaceId,
       type: "email_summary",
       category,
       title,
       summary,
       status: "pending",
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       createdAt: Date.now(),
     });
   },
@@ -667,16 +667,16 @@ export const generateEmailSummaries = internalAction({
       const topQuadrant = sortedBullets[0]?.priority ?? "fyi";
 
       // Find user's default channel for the summary
-      const channelMembership = await ctx.runQuery(
-        internal.emailAgent.getUserDefaultChannel,
+      const conversationMembership = await ctx.runQuery(
+        internal.emailAgent.getUserDefaultConversation,
         { userId: group.userId },
       );
-      if (!channelMembership) continue;
+      if (!conversationMembership) continue;
 
       try {
         await ctx.runMutation(internal.summaries.writeEmailSummary, {
           userId: group.userId,
-          channelId: channelMembership.channelId,
+          conversationId: conversationMembership.conversationId,
           eisenhowerQuadrant: topQuadrant,
           bullets: sortedBullets.slice(0, 5),
           messageCount: group.emails.length,

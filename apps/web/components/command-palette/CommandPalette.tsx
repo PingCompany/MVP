@@ -42,8 +42,7 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar, onStartMee
   const workspace = useQuery(api.workspaces.getBySlug, isAuthenticated && workspaceSlug ? { slug: workspaceSlug } : "skip");
   const workspaceId = workspace?._id as Id<"workspaces"> | undefined;
 
-  const channels = useQuery(api.channels.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
-  const dmConversations = useQuery(api.directConversations.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
+  const conversations = useQuery(api.conversations.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
 
   // Fetch managed agents from DB
@@ -78,14 +77,8 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar, onStartMee
       ? { workspaceId, query: debouncedSearch.trim() }
       : "skip",
   );
-  const dmResults = useQuery(
-    api.search.searchDirectMessages,
-    isAuthenticated && workspaceId && hasSearch
-      ? { workspaceId, query: debouncedSearch.trim() }
-      : "skip",
-  );
 
-  const isSearching = hasSearch && (peopleResults === undefined || messageResults === undefined || dmResults === undefined);
+  const isSearching = hasSearch && (peopleResults === undefined || messageResults === undefined);
 
   // Agent mention state
   const [selectedAgent, setSelectedAgent] = useState<AgentPickerItem | null>(null);
@@ -146,44 +139,20 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar, onStartMee
   };
 
   const allMessageResults = useMemo(() => {
-    const msgs: Array<{
-      _id: string;
-      body: string;
-      authorName: string;
-      _creationTime: number;
-      href: string;
-      context: string;
-    }> = [];
+    if (!messageResults) return [];
 
-    if (messageResults) {
-      for (const m of messageResults) {
-        msgs.push({
-          _id: m._id,
-          body: m.body,
-          authorName: m.authorName,
-          _creationTime: m._creationTime,
-          href: `/channel/${m.channelId}`,
-          context: m.channelName ? `#${m.channelName}` : "channel",
-        });
-      }
-    }
-
-    if (dmResults) {
-      for (const m of dmResults) {
-        msgs.push({
-          _id: m._id,
-          body: m.body,
-          authorName: m.authorName,
-          _creationTime: m._creationTime,
-          href: `/dm/${m.conversationId}`,
-          context: m.conversationName || "DM",
-        });
-      }
-    }
+    const msgs = messageResults.map((m) => ({
+      _id: m._id,
+      body: m.body,
+      authorName: m.authorName,
+      _creationTime: m._creationTime,
+      href: `/c/${m.conversationId}`,
+      context: m.conversationName ? `#${m.conversationName}` : "conversation",
+    }));
 
     msgs.sort((a, b) => b._creationTime - a._creationTime);
     return msgs.slice(0, 15);
-  }, [messageResults, dmResults]);
+  }, [messageResults]);
 
   const showSearchResults = hasSearch && !isAtMode;
   const hasAnyResults = (peopleResults && peopleResults.length > 0) || allMessageResults.length > 0;
@@ -277,14 +246,13 @@ export function CommandPalette({ open, onOpenChange, onToggleSidebar, onStartMee
                 debouncedSearch={debouncedSearch}
                 peopleResults={peopleResults}
                 allMessageResults={allMessageResults}
-                dmConversations={dmConversations}
+                dmConversations={conversations}
                 onNavigate={navigate}
                 onOpenProfile={openProfile}
               />
             ) : (
               <DefaultCommands
-                channels={channels}
-                dmConversations={dmConversations}
+                conversations={conversations}
                 currentUserId={currentUser?._id}
                 onNavigate={navigate}
                 onToggleSidebar={onToggleSidebar}

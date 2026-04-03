@@ -10,9 +10,7 @@ import {
 
 export interface OpenThread {
   parentMessageId: string;
-  messageTable: "messages" | "directMessages";
-  channelId?: string;
-  conversationId?: string;
+  conversationId: string;
   contextName: string;
   workspaceId?: string;
 }

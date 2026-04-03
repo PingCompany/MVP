@@ -29,12 +29,12 @@ export const list = query({
 
     const enriched = await Promise.all(
       all.map(async (item) => {
-        const channel = item.channelId
-          ? await ctx.db.get(item.channelId)
+        const conversation = item.conversationId
+          ? await ctx.db.get(item.conversationId)
           : null;
         return {
           ...item,
-          channelName: channel?.name ?? null,
+          conversationName: conversation?.name ?? null,
         };
       }),
     );
@@ -93,11 +93,11 @@ export const getContext = query({
       authorName: string;
       createdAt: number;
     }> = [];
-    if (item.channelId) {
+    if (item.conversationId) {
       const messages = await ctx.db
         .query("messages")
-        .withIndex("by_channel", (q) =>
-          q.eq("channelId", item.channelId!),
+        .withIndex("by_conversation", (q) =>
+          q.eq("conversationId", item.conversationId!),
         )
         .order("desc")
         .take(10);
@@ -331,7 +331,7 @@ export const insertItem = internalMutation({
     summary: v.string(),
     context: v.optional(v.string()),
     pingWillDo: v.optional(v.string()),
-    channelId: v.optional(v.id("channels")),
+    conversationId: v.optional(v.id("conversations")),
     sourceMessageId: v.optional(v.id("messages")),
     sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
     orgTrace: v.optional(

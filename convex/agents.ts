@@ -200,7 +200,7 @@ export const remove = mutation({
 
     // Delete agent channel scopes
     const channelScopes = await ctx.db
-      .query("agentChannelScopes")
+      .query("agentConversationScopes")
       .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
       .take(500);
     for (const scope of channelScopes) {

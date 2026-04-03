@@ -43,7 +43,7 @@ export const deactivateUser = internalMutation({
 export const postSystemMessage = internalMutation({
   args: {
     workspaceId: v.id("workspaces"),
-    channelName: v.string(),
+    conversationName: v.string(),
     body: v.string(),
     integrationObjectId: v.optional(v.id("integrationObjects")),
   },
@@ -56,36 +56,36 @@ export const postSystemMessage = internalMutation({
 
     if (!systemUser) return;
 
-    // Find channel by name, fall back to "engineering" then "general"
-    let channel = await ctx.db
-      .query("channels")
-      .withIndex("by_workspace_name", (q) =>
-        q.eq("workspaceId", args.workspaceId).eq("name", args.channelName),
+    // Find conversation by name, fall back to "engineering" then "general"
+    let conversation = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace_and_name", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("name", args.conversationName),
       )
       .unique();
 
-    if (!channel) {
-      channel = await ctx.db
-        .query("channels")
-        .withIndex("by_workspace_name", (q) =>
+    if (!conversation) {
+      conversation = await ctx.db
+        .query("conversations")
+        .withIndex("by_workspace_and_name", (q) =>
           q.eq("workspaceId", args.workspaceId).eq("name", "engineering"),
         )
         .unique();
     }
 
-    if (!channel) {
-      channel = await ctx.db
-        .query("channels")
-        .withIndex("by_workspace_name", (q) =>
+    if (!conversation) {
+      conversation = await ctx.db
+        .query("conversations")
+        .withIndex("by_workspace_and_name", (q) =>
           q.eq("workspaceId", args.workspaceId).eq("name", "general"),
         )
         .unique();
     }
 
-    if (!channel) return;
+    if (!conversation) return;
 
     await ctx.db.insert("messages", {
-      channelId: channel._id,
+      conversationId: conversation._id,
       authorId: systemUser._id,
       body: args.body,
       type: "system",

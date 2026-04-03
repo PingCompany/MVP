@@ -128,7 +128,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
     isAuthenticated && workspaceId ? { workspaceId } : "skip",
   );
   const onlineUserIds = useMemo(
-    () => new Set(onlineUsers?.map((u) => u._id)),
+    () => new Set<string>(onlineUsers?.map((u) => u._id)),
     [onlineUsers],
   );
 
@@ -141,7 +141,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
   );
 
   // Mutations
-  const createConversationMut = useMutation(api.conversations.create);
+  const createConversation = useMutation(api.conversations.create);
   const toggleStarConversation = useMutation(api.conversations.toggleStar);
   const setSectionSortModeMut = useMutation(api.sidebarLayout.setSectionSortMode);
   const createSectionMut = useMutation(api.sidebarLayout.createSection);
@@ -164,15 +164,16 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
     api.users.listAll,
     isAuthenticated && workspaceId ? { workspaceId } : "skip",
   );
+
   const handleCreateChannel = async () => {
     const name = newChannelName.trim().toLowerCase().replace(/\s+/g, "-");
     if (!name || !workspaceId) return;
     try {
-      const conversationId = await createConversationMut({
+      const conversationId = await createConversation({
         workspaceId,
-        kind: "group",
+        kind: "group" as const,
         name,
-        visibility: newChannelPrivate ? "secret" : "public",
+        visibility: newChannelPrivate ? "secret" as const : "public" as const,
       });
       setNewChannelName("");
       setNewChannelPrivate(false);
@@ -249,6 +250,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
 
   const handleMoveItemToSection = async (
     itemId: string,
+    _itemType: "channel" | "dm",
     targetSectionId: string,
   ) => {
     if (!workspaceId) return;
@@ -308,9 +310,10 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
 
   const handleDndMoveItem = async (
     itemId: string,
+    itemType: "channel" | "dm",
     toSectionId: string,
   ) => {
-    await handleMoveItemToSection(itemId, toSectionId);
+    await handleMoveItemToSection(itemId, itemType, toSectionId);
   };
 
   const userInitial = user?.name?.[0]?.toUpperCase() ?? "U";
@@ -671,10 +674,10 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
                     key={u._id}
                     onClick={async () => {
                       if (!workspaceId) return;
-                      const id = await createConversationMut({
+                      const id = await createConversation({
                         workspaceId,
                         kind: u.isAgent ? "agent_1to1" : "1to1",
-                        visibility: "secret",
+                        visibility: "secret" as const,
                         memberIds: u.isAgent ? [] : [u._id],
                         agentMemberIds: u.isAgent ? [u._id] : undefined,
                       });

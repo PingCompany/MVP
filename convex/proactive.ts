@@ -148,12 +148,12 @@ export const scanPRReviewNudges = internalAction({
       return;
     }
 
-    const channels = await ctx.runQuery(internal.channels.getByWorkspaceName, {
+    const conversation = await ctx.runQuery(internal.conversations.getByWorkspaceName, {
       workspaceId: workspace._id,
       name: "engineering",
     });
-    if (!channels) {
-      console.log("[scanPRReviewNudges] No #engineering channel found");
+    if (!conversation) {
+      console.log("[scanPRReviewNudges] No #engineering conversation found");
       return;
     }
 
@@ -236,8 +236,8 @@ export const scanPRReviewNudges = internalAction({
             );
 
       for (const user of targetUsers) {
-        const isMember = await ctx.runQuery(internal.channels.isMember, {
-          channelId: channels._id,
+        const isMember = await ctx.runQuery(internal.conversations.isMember, {
+          conversationId: conversation._id,
           userId: user._id,
         });
         if (!isMember) continue;
@@ -251,7 +251,7 @@ export const scanPRReviewNudges = internalAction({
           summary: `"${pr.title}" by ${pr.author} has been open for ${hoursOpen}h without approval.`,
           pingWillDo: `Review PR at ${pr.url}`,
           sourceIntegrationObjectId: pr._id,
-          channelId: channels._id,
+          conversationId: conversation._id,
         });
         nudgeCount++;
       }
@@ -297,11 +297,11 @@ export const scanBlockedTasks = internalAction({
       return;
     }
 
-    const channels = await ctx.runQuery(internal.channels.getByWorkspaceName, {
+    const conversation = await ctx.runQuery(internal.conversations.getByWorkspaceName, {
       workspaceId: workspace._id,
       name: "engineering",
     });
-    if (!channels) return;
+    if (!conversation) return;
 
     const allUsers = await ctx.runQuery(internal.users.listByWorkspace, {
       workspaceId: workspace._id,
@@ -341,8 +341,8 @@ export const scanBlockedTasks = internalAction({
       const targetUser = assigneeUser ?? allUsers.find((u: any) => u.status === "active");
       if (!targetUser) continue;
 
-      const isMember = await ctx.runQuery(internal.channels.isMember, {
-        channelId: channels._id,
+      const isMember = await ctx.runQuery(internal.conversations.isMember, {
+        conversationId: conversation._id,
         userId: targetUser._id,
       });
       if (!isMember) continue;
@@ -368,7 +368,7 @@ export const scanBlockedTasks = internalAction({
         summary: `"${ticket.title}" has been in progress for ${daysStuck} days without updates.`,
         pingWillDo,
         sourceIntegrationObjectId: ticket._id,
-        channelId: channels._id,
+        conversationId: conversation._id,
       });
       alertCount++;
     }

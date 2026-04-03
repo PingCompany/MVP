@@ -106,25 +106,26 @@ export const createDefaultChannels = mutation({
 
     for (const name of args.channelNames) {
       const existing = await ctx.db
-        .query("channels")
-        .withIndex("by_workspace_name", (q) =>
+        .query("conversations")
+        .withIndex("by_workspace_and_name", (q) =>
           q.eq("workspaceId", args.workspaceId).eq("name", name),
         )
         .unique();
 
       if (existing) continue;
 
-      const channelId = await ctx.db.insert("channels", {
+      const conversationId = await ctx.db.insert("conversations", {
         name,
         workspaceId: args.workspaceId,
         createdBy: user._id,
         isDefault: false,
         isArchived: false,
-        type: "public",
+        kind: "group",
+        visibility: "public",
       });
 
-      await ctx.db.insert("channelMembers", {
-        channelId,
+      await ctx.db.insert("conversationMembers", {
+        conversationId,
         userId: user._id,
       });
 

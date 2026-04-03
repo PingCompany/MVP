@@ -51,71 +51,105 @@ function Nav({ idx }: { idx: number }) {
   );
 }
 
-function S({ id, idx, children, wide = false }: { id: string; idx: number; children: React.ReactNode; wide?: boolean }) {
+function S({ id, idx, children, wide = false, stretch = false }: { id: string; idx: number; children: React.ReactNode; wide?: boolean; stretch?: boolean }) {
   return (
-    <section id={id} data-idx={idx} className="snap-start snap-always min-h-[100dvh] flex flex-col justify-center items-center px-4 md:px-8 py-8 md:py-10 relative">
-      <div className={`w-full ${wide ? "max-w-7xl" : "max-w-5xl"}`}>{children}</div>
+    <section id={id} data-idx={idx} className={`snap-start snap-always h-[100dvh] flex flex-col items-center px-4 md:px-8 relative ${stretch ? "justify-between py-10 md:py-14" : "justify-center py-8 md:py-10"}`}>
+      <div className={`w-full ${wide ? "max-w-7xl" : "max-w-5xl"} ${stretch ? "flex flex-col h-full" : ""}`}>{children}</div>
     </section>
   );
 }
 
 function FadeUp({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay, ease: "easeOut" }} viewport={{ once: false, amount: 0.25 }} className={className}>
+    <motion.div
+      initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
+      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ type: "spring", stiffness: 70, damping: 18, delay }}
+      viewport={{ once: false, amount: 0.2 }}
+      className={className}>
       {children}
     </motion.div>
   );
 }
 
+/* ══ SLIDE 0 - COVER ══ */
 function Cover() {
   return (
     <S id="s0" idx={0}>
+      {/* Animated aurora background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], x: [0, 40, -20, 0], y: [0, -30, 20, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] rounded-full"
+          style={{ background: "radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 70%)" }}
+        />
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], x: [0, -50, 30, 0], y: [0, 40, -20, 0] }}
+          transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] rounded-full"
+          style={{ background: "radial-gradient(ellipse, rgba(139,92,246,0.14) 0%, transparent 70%)" }}
+        />
+        {/* Signature: slowly rotating ring of nodes — the decision graph */}
+        <motion.svg
+          animate={{ rotate: 360 }}
+          transition={{ duration: 90, repeat: Infinity, ease: "linear" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[640px] opacity-[0.07]"
+          viewBox="0 0 200 200">
+          {[0,1,2,3,4,5,6,7].map(i => {
+            const a = (i / 8) * Math.PI * 2;
+            const x = 100 + 85 * Math.cos(a);
+            const y = 100 + 85 * Math.sin(a);
+            const nx = 100 + 85 * Math.cos(a + Math.PI * 2 / 8);
+            const ny = 100 + 85 * Math.sin(a + Math.PI * 2 / 8);
+            return <g key={i}>
+              <circle cx={x} cy={y} r="4" fill="#818cf8"/>
+              <line x1={x} y1={y} x2={nx} y2={ny} stroke="#4f46e5" strokeWidth="0.5"/>
+              <line x1={x} y1={y} x2="100" y2="100" stroke="#4f46e5" strokeWidth="0.3"/>
+            </g>;
+          })}
+          <circle cx="100" cy="100" r="6" fill="#6366f1"/>
+        </motion.svg>
+      </div>
       <div className="relative text-center">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
-          <div className="w-[500px] h-[500px] rounded-full border border-neutral-900 opacity-60" />
-          <div className="absolute w-[330px] h-[330px] rounded-full border border-neutral-900 opacity-80" />
-          <div className="absolute w-[160px] h-[160px] rounded-full border border-neutral-900" />
-        </div>
-        <FadeUp>
-          <div className="mb-5 flex justify-center">
-            <img src="/bw_logotype_onbalck_padding.png" alt="PING" className="h-8 md:h-10" />
-          </div>
-        </FadeUp>
+        {/* Signature sweep reveal on headline */}
         <FadeUp delay={0.05}>
-          <div className="mb-7 inline-flex items-center gap-2 border border-neutral-800 rounded-full px-4 py-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-neutral-500 tracking-[0.15em] uppercase">Investor Overview - 2026</span>
-          </div>
+          <motion.h1
+            className="text-[2.6rem] md:text-[4.5rem] lg:text-[6.5rem] font-semibold tracking-tight leading-[0.92] mb-5 md:mb-7"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.01 }}>
+            <motion.span
+              className="text-white inline-block"
+              initial={{ clipPath: "inset(0 100% 0 0)" }}
+              animate={{ clipPath: "inset(0 0% 0 0)" }}
+              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}>
+              Service firms don&apos;t
+            </motion.span>
+            <br />
+            <motion.span
+              className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent inline-block"
+              initial={{ clipPath: "inset(0 100% 0 0)" }}
+              animate={{ clipPath: "inset(0 0% 0 0)" }}
+              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.55 }}>
+              scale decisions.
+            </motion.span>
+          </motion.h1>
         </FadeUp>
-        <FadeUp delay={0.1}>
-          <h1 className="text-[2.6rem] md:text-[4.5rem] lg:text-[6.5rem] font-semibold tracking-tight leading-[0.92] mb-5 md:mb-7">
-            <span className="text-white">Service firms don&apos;t</span><br />
-            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">scale decisions.</span>
-          </h1>
-        </FadeUp>
-        <FadeUp delay={0.2}>
+        <FadeUp delay={0.9}>
           <p className="text-neutral-400 text-base md:text-xl max-w-xl mx-auto leading-relaxed">
-            OpenPing removes coordination overhead so delivery teams can handle more clients, close decisions faster, and grow without adding operations headcount.
+            OpenPing removes coordination overhead so delivery teams handle more clients, close decisions faster, and grow without adding operations headcount.
           </p>
         </FadeUp>
-        <FadeUp delay={0.3}>
-          <div className="mt-8 md:mt-10 flex items-center justify-center gap-6 md:gap-8 text-xs text-neutral-700 tracking-widest uppercase">
-            <span>thefocus.company</span>
-            <span className="w-px h-3 bg-neutral-800" />
-            <span>openping.app</span>
-          </div>
-        </FadeUp>
-        <motion.div animate={{ y: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          className="mt-10 md:mt-12 flex flex-col items-center gap-1.5 text-neutral-700">
+        <motion.div animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+          className="mt-14 md:mt-16 flex flex-col items-center gap-1.5 text-neutral-700">
           <span className="text-[10px] tracking-[0.2em] uppercase">scroll</span>
-          <div className="w-px h-5 bg-gradient-to-b from-neutral-700 to-transparent" />
+          <div className="w-px h-6 bg-gradient-to-b from-neutral-700 to-transparent" />
         </motion.div>
       </div>
     </S>
   );
 }
 
+/* ══ SLIDE 1 - THE COORDINATION TAX ══ */
 function CoordTax() {
   const items = [
     { pct: 40, label: "Senior expert time on low-value routing", color: "bg-rose-500" },
@@ -124,8 +158,12 @@ function CoordTax() {
     { pct: 14, label: "Actual billable delivery work", color: "bg-emerald-500" },
   ];
   return (
-    <S id="s1" idx={1} wide>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+    <S id="s1" idx={1} wide stretch>
+      {/* Background glow for slide 1 */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(225,29,72,0.06),transparent_60%)]" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center flex-1">
         <FadeUp>
           <Tag color="rose">The Coordination Tax</Tag>
           <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white mb-4">
@@ -164,9 +202,13 @@ function CoordTax() {
   );
 }
 
+/* ══ SLIDE 2 - WHAT IT COSTS ══ */
 function WhatItCosts() {
   return (
-    <S id="s2" idx={2} wide>
+    <S id="s2" idx={2} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute bottom-0 left-[-20%] w-[800px] h-[800px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.05),transparent_60%)]" />
+      </div>
       <FadeUp className="mb-6">
         <Tag color="amber">What It Costs</Tag>
         <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white">
@@ -202,6 +244,7 @@ function WhatItCosts() {
   );
 }
 
+/* ══ SLIDE 3 - WHAT OPENPING DOES ══ */
 function WhatWeDo() {
   const steps = [
     { n: "01", title: "Signal Detection", detail: "Every message, file, document, and connected data source scanned for coordination signals.", icon: "📡", color: "border-indigo-800/50 bg-indigo-950/20" },
@@ -211,7 +254,10 @@ function WhatWeDo() {
     { n: "05", title: "Follow-Through", detail: "Commitments tracked. Slips surfaced before the client notices. Outcomes logged.", icon: "✅", color: "border-emerald-700/50 bg-emerald-900/10" },
   ];
   return (
-    <S id="s3" idx={3} wide>
+    <S id="s3" idx={3} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[20%] right-[-10%] w-[700px] h-[700px] bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_60%)]" />
+      </div>
       <FadeUp className="mb-5">
         <Tag color="emerald">What OpenPing Does</Tag>
         <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white">
@@ -262,6 +308,7 @@ function WhatWeDo() {
   );
 }
 
+/* ══ SLIDE 4 - DATA MOAT (now before PropTech) ══ */
 function DataMoat() {
   return (
     <S id="s4" idx={4} wide>
@@ -306,6 +353,7 @@ function DataMoat() {
   );
 }
 
+/* ══ SLIDE 5 - PROPRIETARY TECHNOLOGY ══ */
 function PropTech() {
   const engines = [
     { title: "Temporal Decision Graph", badge: "CORE INFRA", badgeColor: "text-violet-400", accent: "border-violet-700/50 bg-violet-950/10",
@@ -322,7 +370,10 @@ function PropTech() {
       points: ["Captures signals before any formalization occurs", "Distinguishes commitment, intent, blocker, complaint", "12,000+ labeled traces - cold start not replicable"] },
   ];
   return (
-    <S id="s5" idx={5} wide>
+    <S id="s5" idx={5} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute bottom-[-10%] left-[10%] w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.06),transparent_60%)]" />
+      </div>
       <FadeUp className="mb-6">
         <Tag color="violet">Proprietary Technology</Tag>
         <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white">
@@ -355,6 +406,7 @@ function PropTech() {
   );
 }
 
+/* ══ SLIDE 6 - VS SLACK + AI (left text / right table) ══ */
 function VsStatusQuo() {
   const dims = [
     { dim: "Core unit", slack: "Message", ping: "Decision" },
@@ -366,8 +418,11 @@ function VsStatusQuo() {
     { dim: "Switching cost", slack: "High - data export restricted, no portability", ping: "Low - all data belongs to you, free or paid" },
   ];
   return (
-    <S id="s6" idx={6} wide>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-end">
+    <S id="s6" idx={6} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[30%] left-[50%] -translate-x-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.04),transparent_60%)]" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-end flex-1">
         <FadeUp>
           <Tag color="amber">Why Not Slack + AI?</Tag>
           <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white mb-4">
@@ -409,6 +464,7 @@ function VsStatusQuo() {
   );
 }
 
+/* ══ SLIDE 7 - ROI MATH (redo) ══ */
 function RoiMath() {
   return (
     <S id="s7" idx={7} wide>
@@ -421,7 +477,8 @@ function RoiMath() {
           Service firms don&apos;t budget $100k for software. They budget $100k for an ops lead. OpenPing delivers that function - plus unlocks revenue capacity the ops lead was constraining.
         </p>
       </FadeUp>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_60px_1fr] gap-5 md:gap-0 items-center">
+        {/* Left: The CFO's view */}
         <FadeUp delay={0.1}>
           <p className="text-xs text-neutral-600 uppercase tracking-widest font-medium mb-3">The buyer&apos;s alternative</p>
           <div className="space-y-3">
@@ -442,7 +499,7 @@ function RoiMath() {
                 ))}
               </ul>
             </div>
-            <div className="p-4 md:p-5 rounded-2xl border border-emerald-800/40 bg-emerald-950/10">
+            <div className="relative p-4 md:p-5 rounded-2xl border border-emerald-800/40 bg-emerald-950/10">
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <p className="text-xs text-emerald-700 uppercase tracking-widest mb-1">Option B</p>
@@ -458,13 +515,27 @@ function RoiMath() {
                   <li key={i} className="text-xs text-emerald-700/80 flex gap-2"><span className="text-emerald-800 shrink-0">+</span>{t}</li>
                 ))}
               </ul>
+              {/* Mobile Arrow down */}
+              <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 lg:hidden text-emerald-800">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+              </div>
             </div>
             <p className="text-xs text-neutral-600 text-center pt-1">Same function. 45% lower cost. No management overhead. Scales.</p>
           </div>
         </FadeUp>
+        
+        {/* Desktop Arrow right */}
+        <FadeUp delay={0.14} className="hidden lg:flex items-center justify-center translate-y-8 z-10 w-full">
+          <svg width="40" height="24" viewBox="0 0 40 24" fill="none" className="text-emerald-800/60 drop-shadow-lg mx-auto overflow-visible">
+            <path d="M0 12 L36 12" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
+            <path d="M28 4 L38 12 L28 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </FadeUp>
+
+        {/* Right: Value components */}
         <FadeUp delay={0.18}>
-          <p className="text-xs text-neutral-600 uppercase tracking-widest font-medium mb-3">Value generated (pilot data)</p>
-          <div className="space-y-2 md:space-y-3">
+          <p className="text-xs text-neutral-600 uppercase tracking-widest font-medium mb-3 lg:pl-3">Value generated (pilot data)</p>
+          <div className="space-y-2 md:space-y-3 lg:pl-3">
             {[
               { label: "Coordination overhead eliminated", value: "$120k", sub: "2.5 hrs/day per delivery lead at $80k loaded cost", color: "text-emerald-400", bar: 43 },
               { label: "Revenue capacity unlocked", value: "$120k", sub: "Delivery leads handle 2x more accounts without extra hires", color: "text-emerald-400", bar: 43 },
@@ -483,13 +554,13 @@ function RoiMath() {
                 <p className="text-[11px] text-neutral-700 hidden md:block">{row.sub}</p>
               </div>
             ))}
-            <div className="p-3 md:p-4 rounded-xl border border-emerald-700/40 bg-emerald-950/20 flex items-center justify-between">
+            <div className="p-3 md:p-4 rounded-xl border border-emerald-700/40 bg-emerald-950/20 flex items-center justify-between shadow-[0_0_20px_rgba(16,185,129,0.1)]">
               <div>
                 <p className="text-xs text-neutral-500">Total value generated</p>
-                <p className="text-xs text-neutral-700 mt-0.5">vs. $100k investment</p>
+                <p className="text-xs text-emerald-900 mt-0.5">vs. $100k investment</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-emerald-300">$280k</p>
+                <p className="text-2xl font-bold text-emerald-300 drop-shadow-md">$280k</p>
                 <p className="text-xs text-emerald-700">2.8x ROI - year one</p>
               </div>
             </div>
@@ -501,9 +572,13 @@ function RoiMath() {
   );
 }
 
+/* ══ SLIDE 8 - PRICING ══ */
 function Pricing() {
   return (
-    <S id="s8" idx={8} wide>
+    <S id="s8" idx={8} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-0 right-0 w-[600px] h-[800px] bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.05),transparent_60%)]" />
+      </div>
       <FadeUp className="mb-6">
         <Tag color="sky">Pricing &amp; Business Model</Tag>
         <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white">
@@ -516,27 +591,33 @@ function Pricing() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-5">
         {[
           { tier: "Free", price: "$0", period: "forever", cta: "Self-hosted",
+            icon: <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>,
             features: ["Open-source workspace interface","Unlimited users","Open data model - own all data","Basic coordination signals","Community support"],
             accent: "border-neutral-700", highlight: false },
           { tier: "SME", price: "from $2k", period: "/month", cta: "Hosted",
+            icon: <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>,
             features: ["Full coordination control suite","Decision graph + follow-through","On-the-fly embedding pipeline","Basic quotas - scales with usage","Dedicated onboarding"],
             accent: "border-indigo-700/60", highlight: true },
-          { tier: "Enterprise", price: "Custom", period: "", cta: "On-prem / Air-gapped",
+          { tier: "Enterprise", price: "Custom", period: "via form", cta: "On-prem / Air-gapped",
+            icon: <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
             features: ["ppmlx offline inference (on-device)","Custom classifier fine-tuning","Unlimited workspaces + users","Org graph export + full API","SLA + dedicated success"],
             accent: "border-emerald-700/60", highlight: false },
         ].map((t, i) => (
           <FadeUp key={i} delay={i * 0.08}>
             <div className={`rounded-2xl border p-5 md:p-6 h-full flex flex-col ${t.accent} ${t.highlight ? "bg-indigo-950/15 ring-1 ring-indigo-600/20" : "bg-neutral-950"}`}>
               <div className="mb-4">
-                <p className="text-[10px] text-neutral-600 uppercase tracking-widest font-medium mb-1">{t.tier} - {t.cta}</p>
-                <div className="flex items-baseline gap-1">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-[10px] text-neutral-600 uppercase tracking-widest font-medium mb-1">{t.tier} - {t.cta}</p>
+                  <div className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 shrink-0">{t.icon}</div>
+                </div>
+                <div className="flex items-baseline gap-1 mt-2">
                   <span className="text-2xl md:text-3xl font-bold text-white">{t.price}</span>
                   <span className="text-sm text-neutral-600">{t.period}</span>
                 </div>
               </div>
-              <ul className="space-y-1.5 flex-1">
+              <ul className="space-y-1.5 flex-1 mt-2">
                 {t.features.map((f, j) => (
-                  <li key={j} className="text-xs text-neutral-500 flex gap-2"><span className="text-emerald-600 shrink-0">+</span>{f}</li>
+                  <li key={j} className="text-xs text-neutral-500 flex gap-2 items-start"><span className="text-emerald-600 shrink-0 mt-0.5">+</span><span className="leading-snug">{f}</span></li>
                 ))}
               </ul>
             </div>
@@ -559,28 +640,39 @@ function Pricing() {
   );
 }
 
+/* ══ SLIDE 9 - MARKET ══ */
 function Market() {
   return (
-    <S id="s9" idx={9} wide>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-end">
+    <S id="s9" idx={9} wide stretch>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute bottom-0 left-[20%] w-[700px] h-[500px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.04),transparent_60%)]" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-end flex-1">
         <FadeUp>
           <Tag color="amber">Market</Tag>
           <h2 className="mt-4 text-[2rem] md:text-[2.8rem] lg:text-[3.2rem] font-semibold tracking-tight leading-[1.02] text-white mb-4">
-            $6 of services<br />per every $1 of software.
+            <span className="text-amber-400 drop-shadow-md">$6 of services</span><br />per every <span className="text-emerald-400 drop-shadow-md">$1 of software.</span>
           </h2>
-          <p className="text-neutral-500 text-sm leading-relaxed mb-4">
+          <p className="text-neutral-500 text-sm leading-relaxed mb-6">
             OpenPing doesn&apos;t compete for the software budget. It competes for the headcount budget that exists solely to coordinate delivery. That budget is 10x larger - and has no incumbent.
           </p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {[
-              { label: "ICP", val: "Founder, COO, Head of Delivery - 50-300 people - multiple clients sharing experts simultaneously" },
-              { label: "Beachhead", val: "~50,000 US agencies, consultancies, and software houses in 50-300 person range" },
-              { label: "ACV", val: "$24k-$150k - priced against coordination headcount, not software seat budgets" },
-              { label: "Verticals", val: "Digital agencies - Consultancies - Software houses - Implementation partners - Managed services" },
+              { label: "ICP", bullets: ["Founder, COO, Head of Delivery","50-300 person headcount","Multiple clients sharing experts simultaneously"] },
+              { label: "Beachhead", bullets: ["~50,000 US agencies & consultancies","Software houses in 50-300 range"] },
+              { label: "ACV", bullets: ["$24k-$150k starting range","Priced against coordination headcount","Not fighting for software seat budgets"] },
+              { label: "Verticals", bullets: ["Digital agencies & Consultancies","Software houses & Implementation partners","Managed services"] },
             ].map((r, i) => (
-              <div key={i} className="flex gap-3 py-2.5 border-b border-neutral-900 last:border-b-0">
-                <span className="text-[10px] text-neutral-700 uppercase tracking-widest font-medium w-16 shrink-0 pt-0.5">{r.label}</span>
-                <span className="text-xs text-neutral-400 leading-relaxed">{r.val}</span>
+              <div key={i} className="flex gap-4 py-3 border-b border-neutral-900/50 last:border-b-0">
+                <span className="text-[10px] text-amber-500/80 uppercase tracking-widest font-bold w-16 shrink-0 pt-0.5">{r.label}</span>
+                <ul className="space-y-1">
+                  {r.bullets.map((b, j) => (
+                    <li key={j} className="text-xs text-neutral-400 flex items-start gap-2">
+                      <span className="text-amber-800 shrink-0 mt-[3px]">•</span>
+                      <span className="leading-snug">{b}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -617,6 +709,7 @@ function Market() {
   );
 }
 
+/* ══ SLIDE 10 - WHY NOW ══ */
 function WhyNow() {
   const forces = [
     { n: "01", title: "Agents are capable but not reliable at long-horizon tasks",
@@ -640,25 +733,28 @@ function WhyNow() {
           Four forces converging.<br /><span className="text-rose-400">None existed 18 months ago.</span>
         </h2>
       </FadeUp>
-      <div className="space-y-3">
+      <div className="space-y-4 max-w-4xl mx-auto w-full">
         {forces.map((f, i) => (
           <FadeUp key={i} delay={i * 0.08}>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-5 p-4 md:p-5 rounded-2xl border border-neutral-800 bg-neutral-950">
-              <div className="md:col-span-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xs font-mono text-neutral-700">{f.n}</span>
-                  <h3 className="text-sm font-semibold text-white">{f.title}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-[70px_1fr_100px] gap-4 md:gap-8 p-5 md:p-7 rounded-3xl border border-neutral-800 bg-neutral-950/80 backdrop-blur-sm items-center hover:bg-neutral-900/80 transition-colors">
+              <div className="text-4xl md:text-5xl font-light text-neutral-800 tracking-tighter hidden lg:block">{f.n}</div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-3 mb-2 lg:hidden">
+                  <span className="text-lg font-bold text-neutral-700">{f.n}</span>
                 </div>
-                <p className="text-xs text-neutral-500 leading-relaxed mb-1.5">{f.body}</p>
-                <p className="text-[11px] text-neutral-700 italic">{f.ref}</p>
+                <h3 className="text-lg md:text-xl font-medium text-white mb-2.5 leading-snug">{f.title}</h3>
+                <p className="text-sm text-neutral-400 leading-relaxed mb-2">{f.body}</p>
+                <p className="text-[11px] text-neutral-600 italic">{f.ref}</p>
               </div>
-              <div className="md:col-span-1 flex flex-col justify-center items-end md:items-center gap-1">
-                <div className="w-full h-5 rounded-lg bg-neutral-900 overflow-hidden">
-                  <motion.div initial={{ width: 0 }} whileInView={{ width: `${f.bar}%` }}
-                    transition={{ duration: 0.9, delay: 0.15, ease: "easeOut" }} viewport={{ once: false, amount: 0.5 }}
-                    className={`h-full rounded-lg ${f.color} opacity-60`} />
+              <div className="flex lg:flex-col justify-between lg:justify-center items-center gap-3 lg:gap-1.5 w-full mt-3 lg:mt-0">
+                <div className="w-full h-8 lg:h-20 lg:w-20 rounded-xl bg-neutral-900 border border-neutral-800 overflow-hidden relative group">
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: `${f.bar}%` }}
+                    transition={{ duration: 1.2, delay: 0.15, type: "spring", stiffness: 60 }} viewport={{ once: false, amount: 0.5 }}
+                    className={`absolute bottom-0 left-0 right-0 ${f.color} opacity-80`} />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm font-bold text-white drop-shadow-md z-10">{f.bar}%</span>
+                  </div>
                 </div>
-                <p className="text-sm font-bold text-white">{f.bar}%</p>
               </div>
             </div>
           </FadeUp>
@@ -668,6 +764,7 @@ function WhyNow() {
   );
 }
 
+/* ══ SLIDE 11 - TRACTION ══ */
 function Traction() {
   return (
     <S id="s11" idx={11} wide>
@@ -699,48 +796,62 @@ function Traction() {
   );
 }
 
+/* ══ SLIDE 12 - CONTACT ══ */
 function Contact() {
   return (
     <S id="s12" idx={12}>
-      <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }} viewport={{ once: false, amount: 0.4 }} className="text-center">
-        <div className="inline-flex items-center gap-2 text-xs text-neutral-700 tracking-[0.15em] uppercase mb-7">
-          <span className="w-8 h-px bg-neutral-800" />The Focus Company - OpenPing<span className="w-8 h-px bg-neutral-800" />
-        </div>
-        <h2 className="text-[2.2rem] md:text-[3rem] lg:text-[4.5rem] font-semibold text-white tracking-tight leading-[0.92] mb-5">
-          The category is being<br />built now. OpenPing<br />
-          <span className="text-emerald-400">is the foundation layer.</span>
-        </h2>
-        <p className="text-base md:text-lg text-neutral-500 max-w-xl mx-auto leading-relaxed mb-10 md:mb-14">
-          The firm that controls coordination data for professional services will be infrastructure for how expert work gets delivered at scale. That position is being established with every deployment.
-        </p>
-        <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 mb-10 md:mb-14">
-          <a href="mailto:hello@thefocus.company"
-            className="px-8 py-4 rounded-full bg-white text-black text-sm font-medium hover:bg-neutral-100 transition-colors w-full md:w-auto text-center">
-            hello@thefocus.company
-          </a>
-          <a href="https://openping.app" target="_blank" rel="noopener noreferrer"
-            className="px-8 py-4 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-neutral-500 hover:text-white transition-colors w-full md:w-auto text-center">
-            openping.app
-          </a>
-        </div>
-        <div className="border-t border-neutral-900 pt-7 grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-8 text-left">
-          {[
-            { label: "Founded", value: "2026" },
-            { label: "Parent company", value: "The Focus Company" },
-            { label: "Stage", value: "Pre-seed - Active pilots" },
-          ].map((item, i) => (
-            <div key={i}>
-              <div className="text-[10px] text-neutral-700 uppercase tracking-widest mb-1">{item.label}</div>
-              <div className="text-sm text-neutral-400">{item.value}</div>
-            </div>
-          ))}
-        </div>
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03),transparent)]" />
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1, type: "spring", stiffness: 50 }} viewport={{ once: false, amount: 0.4 }} className="w-full max-w-3xl flex flex-col items-center justify-center min-h-[50vh]">
+        
+        <FadeUp delay={0.1}>
+          <h2 className="text-[2.2rem] md:text-[3rem] lg:text-[4rem] font-semibold text-white tracking-tight leading-[1.05] text-center mb-6">
+            A new infrastructure<br />layer is forming.<br />
+            <span className="bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">OpenPing is the foundation.</span>
+          </h2>
+        </FadeUp>
+        
+        <FadeUp delay={0.2}>
+          <p className="text-base md:text-lg text-neutral-500 text-center leading-relaxed mb-12">
+            The firm that controls coordination data for professional services will be infrastructure for how expert work gets delivered at scale. That position is being established with every deployment.
+          </p>
+        </FadeUp>
+
+        <FadeUp delay={0.3} className="w-full flex justify-center mb-16">
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <a href="mailto:hi@openping.app"
+              className="px-8 py-4 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-200 transition-colors w-full sm:w-auto text-center shadow-[0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              hi@openping.app
+            </a>
+            <a href="https://openping.app" target="_blank" rel="noopener noreferrer"
+              className="px-8 py-4 rounded-full border border-neutral-700 bg-neutral-900/50 text-neutral-300 text-sm font-medium hover:border-neutral-500 hover:text-white transition-colors w-full sm:w-auto text-center flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              openping.app
+            </a>
+          </div>
+        </FadeUp>
+
+        <FadeUp delay={0.4}>
+          <div className="flex flex-col items-center gap-6 text-center">
+            {[
+              { label: "Founded", value: "2026" },
+              { label: "Parent company", value: "The Focus Company" },
+              { label: "Stage", value: "Pre-seed - Active pilots" },
+            ].map((item, i) => (
+              <div key={i} className="flex flex-col items-center justify-center">
+                <div className="text-[10px] text-neutral-600 uppercase tracking-widest font-medium mb-1.5">{item.label}</div>
+                <div className="text-base text-neutral-300 font-medium">{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </FadeUp>
       </motion.div>
     </S>
   );
 }
 
+/* ══ ROOT ══ */
 export default function PitchDeck() {
   const [active, setActive] = useState(0);
   useEffect(() => {
@@ -760,7 +871,7 @@ export default function PitchDeck() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_30%_at_50%_100%,rgba(16,185,129,0.04),transparent)]" />
       </div>
       <Nav idx={active} />
-      <main id="deck" className="relative h-[100dvh] w-full overflow-y-scroll snap-y snap-mandatory bg-transparent text-white antialiased" style={{ scrollbarWidth: "none" as const }}>
+      <main id="deck" className="relative h-[100dvh] w-full overflow-y-scroll snap-y snap-mandatory bg-transparent text-white antialiased" style={{ scrollbarWidth: "none" }}>
         <Cover />
         <CoordTax />
         <WhatItCosts />

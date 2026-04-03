@@ -19,7 +19,7 @@ import {
 
 export const PAGES = [
   { label: "My Deck",         href: "/inbox",                     icon: Inbox,      shortcut: "G I" },
-  { label: "Direct Messages", href: "/dms",                       icon: MessageSquare },
+  { label: "Conversations",    href: "/conversations",              icon: MessageSquare },
   { label: "Workspace",       href: "/settings/workspace",        icon: Building2 },
   { label: "Profile",         href: "/settings/profile",          icon: User },
   { label: "Team",            href: "/settings/team",             icon: Users },

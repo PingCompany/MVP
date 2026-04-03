@@ -2,12 +2,16 @@ import { internalAction, internalQuery, internalMutation } from "./_generated/se
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-export const getChannelContext = internalQuery({
-  args: { channelId: v.id("channels") },
+export const getConversationContext = internalQuery({
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return null;
-    return { channelName: channel.name, workspaceId: channel.workspaceId };
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return null;
+    return {
+      conversationName: conversation.name ?? "Conversation",
+      workspaceId: conversation.workspaceId,
+      kind: conversation.kind,
+    };
   },
 });
 
@@ -26,22 +30,9 @@ export const getBotUser = internalQuery({
   },
 });
 
-export const getConversationContext = internalQuery({
-  args: { conversationId: v.id("directConversations") },
-  handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return null;
-    return {
-      conversationName: conversation.name ?? "Direct Message",
-      workspaceId: conversation.workspaceId,
-      kind: conversation.kind,
-    };
-  },
-});
-
 export const insertBotMessage = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     authorId: v.id("users"),
     body: v.string(),
     citations: v.optional(
@@ -56,7 +47,7 @@ export const insertBotMessage = internalMutation({
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
@@ -73,7 +64,7 @@ export const insertBotMessage = internalMutation({
 
 export const respond = internalAction({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     query: v.string(),
     triggerMessageId: v.id("messages"),
   },
@@ -86,13 +77,13 @@ export const respond = internalAction({
       return;
     }
 
-    const channelCtx = await ctx.runQuery(internal.bot.getChannelContext, {
-      channelId: args.channelId,
+    const convCtx = await ctx.runQuery(internal.bot.getConversationContext, {
+      conversationId: args.conversationId,
     });
-    if (!channelCtx) return;
+    if (!convCtx) return;
 
     const botUser = await ctx.runQuery(internal.bot.getBotUser, {
-      workspaceId: channelCtx.workspaceId,
+      workspaceId: convCtx.workspaceId,
     });
     if (!botUser) return;
 
@@ -101,7 +92,7 @@ export const respond = internalAction({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        group_ids: [args.channelId],
+        group_ids: [args.conversationId],
         query: args.query,
         max_facts: 10,
       }),
@@ -137,7 +128,7 @@ export const respond = internalAction({
         messages: [
           {
             role: "system",
-            content: `You are mrPING for the #${channelCtx.channelName} channel. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
+            content: `You are mrPING for the ${convCtx.conversationName} conversation. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
           },
           {
             role: "user",
@@ -169,7 +160,7 @@ export const respond = internalAction({
 
     // 4. Insert bot message
     await ctx.runMutation(internal.bot.insertBotMessage, {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       authorId: botUser._id,
       body: answer,
       citations: citations.length > 0 ? citations : undefined,
@@ -179,42 +170,11 @@ export const respond = internalAction({
 
 // ── DM bot support ─────────────────────────────────────────────────
 
-export const insertBotDirectMessage = internalMutation({
-  args: {
-    conversationId: v.id("directConversations"),
-    authorId: v.id("users"),
-    body: v.string(),
-    citations: v.optional(
-      v.array(
-        v.object({
-          text: v.string(),
-          sourceUrl: v.optional(v.string()),
-          sourceTitle: v.optional(v.string()),
-        }),
-      ),
-    ),
-  },
-  handler: async (ctx, args) => {
-    const messageId = await ctx.db.insert("directMessages", {
-      conversationId: args.conversationId,
-      authorId: args.authorId,
-      body: args.body,
-      type: "bot",
-      isEdited: false,
-    });
-
-    // Ingest bot DM into knowledge graph
-    await ctx.scheduler.runAfter(0, internal.ingest.processDirectMessage, {
-      messageId,
-    });
-  },
-});
-
 export const respondDM = internalAction({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     query: v.string(),
-    triggerMessageId: v.id("directMessages"),
+    triggerMessageId: v.id("messages"),
     triggerUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -240,13 +200,13 @@ export const respondDM = internalAction({
     // Build group_ids — DM-scoped by default
     const groupIds: string[] = [`dm-${args.conversationId}`];
 
-    // For agent conversations, expand search to user's channel memberships
+    // For agent conversations, expand search to user's conversation memberships
     if (convCtx.kind === "agent_1to1" || convCtx.kind === "agent_group") {
-      const channelMemberships = await ctx.runQuery(
-        internal.bot.getUserChannelIds,
+      const conversationIds = await ctx.runQuery(
+        internal.bot.getUserConversationIds,
         { userId: args.triggerUserId },
       );
-      groupIds.push(...channelMemberships);
+      groupIds.push(...conversationIds);
     }
 
     // 1. Search Graphiti for relevant facts
@@ -332,7 +292,7 @@ export const respondDM = internalAction({
       }));
 
     // 4. Insert bot message
-    await ctx.runMutation(internal.bot.insertBotDirectMessage, {
+    await ctx.runMutation(internal.bot.insertBotMessage, {
       conversationId: args.conversationId,
       authorId: botUser._id,
       body: answer,
@@ -341,13 +301,13 @@ export const respondDM = internalAction({
   },
 });
 
-export const getUserChannelIds = internalQuery({
+export const getUserConversationIds = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const memberships = await ctx.db
-      .query("channelMembers")
+      .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
-    return memberships.map((m) => m.channelId as string);
+    return memberships.map((m) => m.conversationId as string);
   },
 });

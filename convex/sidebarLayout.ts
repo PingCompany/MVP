@@ -201,17 +201,12 @@ export const toggleSectionCollapse = mutation({
 export const moveItemToSection = mutation({
   args: {
     workspaceId: v.id("workspaces"),
-    channelId: v.optional(v.id("channels")),
-    conversationId: v.optional(v.id("directConversations")),
+    conversationId: v.id("conversations"),
     targetSectionId: v.id("sidebarSections"),
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
-
-    if (!args.channelId && !args.conversationId) {
-      throw new Error("Must specify channelId or conversationId");
-    }
 
     // Verify target section belongs to user
     const section = await ctx.db.get(args.targetSectionId);
@@ -220,22 +215,12 @@ export const moveItemToSection = mutation({
     }
 
     // Find existing sidebarItem
-    let existingItem;
-    if (args.channelId) {
-      existingItem = await ctx.db
-        .query("sidebarItems")
-        .withIndex("by_user_channel", (q) =>
-          q.eq("userId", user._id).eq("channelId", args.channelId),
-        )
-        .first();
-    } else {
-      existingItem = await ctx.db
-        .query("sidebarItems")
-        .withIndex("by_user_conversation", (q) =>
-          q.eq("userId", user._id).eq("conversationId", args.conversationId),
-        )
-        .first();
-    }
+    const existingItem = await ctx.db
+      .query("sidebarItems")
+      .withIndex("by_user_and_conversation", (q) =>
+        q.eq("userId", user._id).eq("conversationId", args.conversationId),
+      )
+      .first();
 
     // Calculate sortOrder if not provided
     let sortOrder = args.sortOrder;
@@ -261,7 +246,6 @@ export const moveItemToSection = mutation({
       userId: user._id,
       workspaceId: args.workspaceId,
       sectionId: args.targetSectionId,
-      channelId: args.channelId,
       conversationId: args.conversationId,
       sortOrder,
     });
@@ -357,8 +341,7 @@ export const bakeCurrentOrder = mutation({
     workspaceId: v.id("workspaces"),
     itemOrder: v.array(
       v.object({
-        channelId: v.optional(v.id("channels")),
-        conversationId: v.optional(v.id("directConversations")),
+        conversationId: v.id("conversations"),
         sectionId: v.id("sidebarSections"),
         sortOrder: v.number(),
       }),
@@ -385,7 +368,6 @@ export const bakeCurrentOrder = mutation({
         userId: user._id,
         workspaceId: args.workspaceId,
         sectionId: entry.sectionId,
-        channelId: entry.channelId,
         conversationId: entry.conversationId,
         sortOrder: entry.sortOrder,
       });

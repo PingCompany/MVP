@@ -8,18 +8,18 @@ export const listChannels = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, { workspaceId }) => {
     const channels = await ctx.db
-      .query("channels")
+      .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .collect();
 
     return channels
-      .filter((c) => !c.isArchived)
+      .filter((c) => !c.isArchived && (c.kind === "group") && !c.deletedAt)
       .map((c) => ({
         _id: c._id,
         name: c.name,
         description: c.description,
-        type: c.type,
-        isPrivate: c.isPrivate ?? false,
+        kind: c.kind,
+        visibility: c.visibility,
         isDefault: c.isDefault,
         _creationTime: c._creationTime,
       }));
@@ -36,8 +36,8 @@ export const createChannel = internalMutation({
   },
   handler: async (ctx, { workspaceId, userId, name, description, isPrivate }) => {
     const existing = await ctx.db
-      .query("channels")
-      .withIndex("by_workspace_name", (q) =>
+      .query("conversations")
+      .withIndex("by_workspace_and_name", (q) =>
         q.eq("workspaceId", workspaceId).eq("name", name),
       )
       .first();
@@ -51,30 +51,30 @@ export const createChannel = internalMutation({
       .unique();
     if (!membership) throw new Error("Not a workspace member");
 
-    const channelId = await ctx.db.insert("channels", {
+    const conversationId = await ctx.db.insert("conversations", {
       name,
       description,
       workspaceId,
       createdBy: userId,
       isDefault: false,
       isArchived: false,
-      isPrivate: isPrivate ?? false,
-      type: isPrivate ? "group" : "public",
+      kind: "group",
+      visibility: isPrivate ? "secret" : "public",
     });
 
-    await ctx.db.insert("channelMembers", {
-      channelId,
+    await ctx.db.insert("conversationMembers", {
+      conversationId,
       userId,
       lastReadAt: Date.now(),
     });
 
-    return { channelId };
+    return { channelId: conversationId };
   },
 });
 
 export const listChannelMembers = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
   },
   handler: async (ctx, { channelId, workspaceId }) => {
@@ -84,8 +84,8 @@ export const listChannelMembers = internalQuery({
     }
 
     const members = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", channelId))
       .collect();
 
     const enriched = await Promise.all(
@@ -111,7 +111,7 @@ export const listChannelMembers = internalQuery({
 
 export const readChannelMessages = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     userId: v.id("users"),
     limit: v.number(),
@@ -128,11 +128,11 @@ export const readChannelMessages = internalQuery({
     }
 
     // For private channels, verify membership
-    if (channel.isPrivate) {
+    if (channel.visibility === "secret") {
       const membership = await ctx.db
-        .query("channelMembers")
-        .withIndex("by_channel_user", (q) =>
-          q.eq("channelId", channelId).eq("userId", userId),
+        .query("conversationMembers")
+        .withIndex("by_conversation_and_user", (q) =>
+          q.eq("conversationId", channelId).eq("userId", userId),
         )
         .first();
       if (!membership) throw new Error("Not a member of this private channel");
@@ -142,7 +142,7 @@ export const readChannelMessages = internalQuery({
     const fetchLimit = Math.min(limit * 2, 200);
     let messages = await ctx.db
       .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", channelId))
       .order("desc")
       .take(fetchLimit);
 
@@ -155,7 +155,7 @@ export const readChannelMessages = internalQuery({
     }
 
     // Filter out thread-only replies (same as existing listByChannel behavior)
-    messages = messages.filter((m) => !m.threadId || m.alsoSentToChannel);
+    messages = messages.filter((m) => !m.threadId || m.alsoSentToConversation);
 
     // Trim to requested limit
     messages = messages.slice(0, limit);
@@ -187,7 +187,7 @@ export const readChannelMessages = internalQuery({
 
 export const sendChannelMessageApi = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     userId: v.id("users"),
     body: v.string(),
@@ -205,9 +205,9 @@ export const sendChannelMessageApi = internalMutation({
 
     // Verify channel membership
     const membership = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", channelId).eq("userId", userId),
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
+        q.eq("conversationId", channelId).eq("userId", userId),
       )
       .first();
     if (!membership) throw new Error("Not a member of this channel");
@@ -217,19 +217,19 @@ export const sendChannelMessageApi = internalMutation({
     if (threadId) {
       parentMessage = await ctx.db.get(threadId);
       if (!parentMessage) throw new Error("Parent message not found");
-      if (parentMessage.channelId !== channelId)
+      if (parentMessage.conversationId! !== channelId)
         throw new Error("Parent message is not in this channel");
       if (parentMessage.threadId)
         throw new Error("Cannot create nested threads");
     }
 
     const messageId = await ctx.db.insert("messages", {
-      channelId,
+      conversationId: channelId,
       authorId: userId,
       body,
       type: messageType,
       isEdited: false,
-      ...(threadId ? { threadId, alsoSentToChannel: false } : {}),
+      ...(threadId ? { threadId, alsoSentToConversation: false } : {}),
     });
 
     // If thread reply, update parent denormalized fields
@@ -249,8 +249,8 @@ export const sendChannelMessageApi = internalMutation({
 
     // Update unread counts for other members
     const allMembers = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", channelId))
       .collect();
 
     for (const member of allMembers) {
@@ -282,7 +282,7 @@ export const listChannelThreadReplies = internalQuery({
     const parent = await ctx.db.get(threadId);
     if (!parent) throw new Error("Parent message not found");
 
-    const channel = await ctx.db.get(parent.channelId);
+    const channel = await ctx.db.get(parent.conversationId!);
     if (!channel || channel.workspaceId !== workspaceId) {
       throw new Error("Channel not found or access denied");
     }
@@ -331,7 +331,7 @@ export const listConversations = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     const memberships = await ctx.db
-      .query("directConversationMembers")
+      .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
@@ -341,7 +341,7 @@ export const listConversations = internalQuery({
         if (!conv || conv.isArchived || conv.deletedAt) return null;
 
         const members = await ctx.db
-          .query("directConversationMembers")
+          .query("conversationMembers")
           .withIndex("by_conversation", (q) =>
             q.eq("conversationId", conv._id),
           )
@@ -397,7 +397,7 @@ export const createConversation = internalMutation({
       const otherUserId = memberIds[0];
 
       const myMemberships = await ctx.db
-        .query("directConversationMembers")
+        .query("conversationMembers")
         .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect();
 
@@ -406,8 +406,8 @@ export const createConversation = internalMutation({
         if (!conv || conv.kind !== "1to1" || conv.deletedAt) continue;
 
         const otherMember = await ctx.db
-          .query("directConversationMembers")
-          .withIndex("by_conversation_user", (q) =>
+          .query("conversationMembers")
+          .withIndex("by_conversation_and_user", (q) =>
             q.eq("conversationId", conv._id).eq("userId", otherUserId),
           )
           .first();
@@ -417,15 +417,16 @@ export const createConversation = internalMutation({
       }
     }
 
-    const conversationId = await ctx.db.insert("directConversations", {
+    const conversationId = await ctx.db.insert("conversations", {
       workspaceId,
       kind,
+      visibility: kind === "1to1" ? "secret" : "secret_can_be_public",
       name: kind === "group" ? name : undefined,
       createdBy: userId,
       isArchived: false,
     });
 
-    await ctx.db.insert("directConversationMembers", {
+    await ctx.db.insert("conversationMembers", {
       conversationId,
       userId,
       isAgent: false,
@@ -434,7 +435,7 @@ export const createConversation = internalMutation({
 
     for (const memberId of memberIds) {
       if (memberId === userId) continue;
-      await ctx.db.insert("directConversationMembers", {
+      await ctx.db.insert("conversationMembers", {
         conversationId,
         userId: memberId,
         isAgent: false,
@@ -447,13 +448,13 @@ export const createConversation = internalMutation({
 
 export const listConversationMembers = internalQuery({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
   },
   handler: async (ctx, { conversationId, userId }) => {
     const callerMembership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q.eq("conversationId", conversationId).eq("userId", userId),
       )
       .first();
@@ -461,7 +462,7 @@ export const listConversationMembers = internalQuery({
       throw new Error("Not a member of this conversation");
 
     const members = await ctx.db
-      .query("directConversationMembers")
+      .query("conversationMembers")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", conversationId),
       )
@@ -489,7 +490,7 @@ export const listConversationMembers = internalQuery({
 
 export const readDMMessages = internalQuery({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
     limit: v.number(),
     startTime: v.optional(v.number()),
@@ -500,8 +501,8 @@ export const readDMMessages = internalQuery({
     { conversationId, userId, limit, startTime, endTime },
   ) => {
     const membership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q.eq("conversationId", conversationId).eq("userId", userId),
       )
       .first();
@@ -510,7 +511,7 @@ export const readDMMessages = internalQuery({
 
     const fetchLimit = Math.min(limit * 2, 200);
     let messages = await ctx.db
-      .query("directMessages")
+      .query("messages")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", conversationId),
       )
@@ -552,19 +553,19 @@ export const readDMMessages = internalQuery({
 
 export const sendDMApi = internalMutation({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
     body: v.string(),
     messageType: v.union(v.literal("user"), v.literal("bot")),
-    threadId: v.optional(v.id("directMessages")),
+    threadId: v.optional(v.id("messages")),
   },
   handler: async (
     ctx,
     { conversationId, userId, body, messageType, threadId },
   ) => {
     const membership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q.eq("conversationId", conversationId).eq("userId", userId),
       )
       .first();
@@ -574,13 +575,13 @@ export const sendDMApi = internalMutation({
     let parent = threadId ? await ctx.db.get(threadId) : null;
     if (threadId) {
       if (!parent) throw new Error("Parent message not found");
-      if (parent.conversationId !== conversationId)
+      if (parent.conversationId! !== conversationId)
         throw new Error("Parent not in this conversation");
       if (parent.threadId)
         throw new Error("Cannot create nested threads");
     }
 
-    const messageId = await ctx.db.insert("directMessages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId,
       authorId: userId,
       body,
@@ -613,7 +614,7 @@ export const sendDMApi = internalMutation({
 
 export const listDMThreadReplies = internalQuery({
   args: {
-    threadId: v.id("directMessages"),
+    threadId: v.id("messages"),
     userId: v.id("users"),
   },
   handler: async (ctx, { threadId, userId }) => {
@@ -621,10 +622,10 @@ export const listDMThreadReplies = internalQuery({
     if (!parent) throw new Error("Parent message not found");
 
     const membership = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_conversation_user", (q) =>
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
         q
-          .eq("conversationId", parent.conversationId)
+          .eq("conversationId", parent.conversationId!)
           .eq("userId", userId),
       )
       .first();
@@ -635,7 +636,7 @@ export const listDMThreadReplies = internalQuery({
       throw new Error("Message is a reply, not a thread parent");
 
     const replies = await ctx.db
-      .query("directMessages")
+      .query("messages")
       .withIndex("by_thread", (q) => q.eq("threadId", threadId))
       .order("asc")
       .take(200);
@@ -682,15 +683,15 @@ export const toggleReaction = internalMutation({
     const message = await ctx.db.get(messageId);
     if (!message) throw new Error("Message not found");
 
-    const channel = await ctx.db.get(message.channelId);
-    if (!channel || channel.workspaceId !== workspaceId) {
+    const conversation = await ctx.db.get(message.conversationId!);
+    if (!conversation || conversation.workspaceId !== workspaceId) {
       throw new Error("Message not found or access denied");
     }
 
     const membership = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", channel._id).eq("userId", userId),
+      .query("conversationMembers")
+      .withIndex("by_conversation_and_user", (q) =>
+        q.eq("conversationId", conversation._id).eq("userId", userId),
       )
       .first();
     if (!membership) throw new Error("Not a member of this channel");

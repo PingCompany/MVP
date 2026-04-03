@@ -14,12 +14,12 @@ export const getGenerationContext = internalQuery({
   handler: async (ctx, args) => {
     // Get all channels the user is a member of
     const memberships = await ctx.db
-      .query("channelMembers")
+      .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
     const channelData: Array<{
-      channelId: Id<"channels">;
+      conversationId: Id<"conversations">;
       channelName: string;
       messages: Array<{
         messageId: Id<"messages">;
@@ -32,14 +32,14 @@ export const getGenerationContext = internalQuery({
     }> = [];
 
     for (const membership of memberships) {
-      const channel = await ctx.db.get(membership.channelId);
-      if (!channel || channel.isArchived) continue;
+      const conversation = await ctx.db.get(membership.conversationId);
+      if (!conversation || conversation.isArchived) continue;
 
       // Get recent messages (last 2 hours)
       const since = Date.now() - 2 * 60 * 60 * 1000;
       const messages = await ctx.db
         .query("messages")
-        .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
         .filter((q) => q.gte(q.field("_creationTime"), since))
         .take(30);
 
@@ -60,8 +60,8 @@ export const getGenerationContext = internalQuery({
       );
 
       channelData.push({
-        channelId: channel._id,
-        channelName: channel.name,
+        conversationId: conversation._id,
+        channelName: conversation.name ?? "",
         messages: enrichedMessages,
       });
     }
@@ -300,14 +300,14 @@ Respond with ONLY valid JSON, no markdown:
     const type = validTypes.includes(generated.type) ? generated.type : "question_answer";
     const category = validCategories.includes(generated.category) ? generated.category : "decide";
 
-    // Resolve channelId from name
-    let channelId: Id<"channels"> | undefined;
+    // Resolve conversationId from name
+    let conversationId: Id<"conversations"> | undefined;
     if (generated.channelName) {
       const matchingChannel = context.channels.find(
         (ch) => ch.channelName === generated.channelName,
       );
       if (matchingChannel) {
-        channelId = matchingChannel.channelId;
+        conversationId = matchingChannel.conversationId;
       }
     }
 
@@ -354,7 +354,7 @@ Respond with ONLY valid JSON, no markdown:
       title: generated.title ?? "New decision needed",
       summary: generated.summary ?? "",
       pingWillDo: generated.pingWillDo,
-      channelId,
+      conversationId,
       orgTrace: orgTrace.length > 0 ? orgTrace : undefined,
       recommendedActions: recommendedActions.length > 0 ? recommendedActions : undefined,
       nextSteps: nextSteps.length > 0 ? nextSteps : undefined,

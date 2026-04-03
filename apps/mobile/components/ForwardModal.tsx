@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,10 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { useQuery, useMutation, useConvex } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { getDMDisplayName } from "@/lib/dmDisplayName";
-import { getInitials } from "@/lib/initials";
 import { X, Send, User, Users, Hash } from "lucide-react-native";
 
 interface ForwardModalProps {
@@ -27,7 +24,6 @@ interface ForwardModalProps {
 
 type ForwardTarget = {
   id: string;
-  type: "channel" | "dm";
   name: string;
   icon: "user" | "users" | "hash";
 };
@@ -39,41 +35,22 @@ export function ForwardModal({
   authorName,
 }: ForwardModalProps) {
   const { workspaceId } = useWorkspace();
-  const { user } = useCurrentUser();
-  const channels = useQuery(api.channels.list, { workspaceId });
-  const conversations = useQuery(api.directConversations.list, { workspaceId });
-  const sendChannelMessage = useMutation(api.messages.send);
-  const sendDM = useMutation(api.directMessages.send);
+  const conversations = useQuery(api.conversations.list, { workspaceId });
+  const sendMessage = useMutation(api.messages.send);
 
   const [query, setQuery] = useState("");
   const [sending, setSending] = useState(false);
 
   const targets: ForwardTarget[] = [];
 
-  if (channels) {
-    for (const ch of channels) {
-      if (!ch.isMember || ch.isArchived) continue;
-      targets.push({
-        id: ch._id,
-        type: "channel",
-        name: `# ${ch.name}`,
-        icon: "hash",
-      });
-    }
-  }
-
   if (conversations) {
     for (const conv of conversations) {
-      const displayName = getDMDisplayName(
-        conv.name,
-        (conv as any).members ?? [],
-        user?._id,
-      );
+      const isChannel = (conv as any).kind === "channel";
+      const isGroup = (conv as any).kind === "group" || (conv as any).kind === "agent_group";
       targets.push({
         id: conv._id,
-        type: "dm",
-        name: displayName,
-        icon: (conv as any).kind === "group" || (conv as any).kind === "agent_group" ? "users" : "user",
+        name: isChannel ? `# ${conv.name}` : conv.name ?? "Conversation",
+        icon: isChannel ? "hash" : isGroup ? "users" : "user",
       });
     }
   }
@@ -87,17 +64,10 @@ export function ForwardModal({
     const forwardedBody = `> *Forwarded from ${authorName}:*\n> ${messageBody.split("\n").join("\n> ")}`;
 
     try {
-      if (target.type === "channel") {
-        await sendChannelMessage({
-          channelId: target.id as Id<"channels">,
-          body: forwardedBody,
-        });
-      } else {
-        await sendDM({
-          conversationId: target.id as Id<"directConversations">,
-          body: forwardedBody,
-        });
-      }
+      await sendMessage({
+        conversationId: target.id as Id<"conversations">,
+        body: forwardedBody,
+      });
       onClose();
     } finally {
       setSending(false);

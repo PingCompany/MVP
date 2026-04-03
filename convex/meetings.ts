@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireUser, requireChannelMember, requireDMmember } from "./auth";
+import { requireUser, requireConversationMember } from "./auth";
 
 function generateRoomName(workspaceSlug: string, contextName: string): string {
   const suffix = Math.random().toString(36).substring(2, 10);
@@ -12,26 +12,26 @@ function generateRoomName(workspaceSlug: string, contextName: string): string {
   return `ping-${workspaceSlug}-${sanitized}-${suffix}`;
 }
 
-export const startInChannel = mutation({
+export const startInConversation = mutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     threadMessageId: v.optional(v.id("messages")),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await requireChannelMember(ctx, args.channelId, user._id);
+    await requireConversationMember(ctx, args.conversationId, user._id);
 
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new Error("Channel not found");
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
 
-    const workspace = await ctx.db.get(channel.workspaceId);
+    const workspace = await ctx.db.get(conversation.workspaceId);
     if (!workspace) throw new Error("Workspace not found");
 
     // Check for existing active meeting in this context
     const existing = await ctx.db
       .query("meetings")
-      .withIndex("by_channel_status", (q) =>
-        q.eq("channelId", args.channelId).eq("status", "active"),
+      .withIndex("by_conversation_and_status", (q) =>
+        q.eq("conversationId", args.conversationId).eq("status", "active"),
       )
       .first();
 
@@ -39,15 +39,33 @@ export const startInChannel = mutation({
       return { meetingId: existing._id, meetingUrl: existing.meetingUrl, alreadyActive: true };
     }
 
-    const roomName = generateRoomName(workspace.slug, channel.name);
+    // Build a title from conversation name or member names
+    let title = "Meeting";
+    if (conversation.name) {
+      title = `Meeting in ${conversation.name}`;
+    } else {
+      const members = await ctx.db
+        .query("conversationMembers")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+        .collect();
+      const memberNames = await Promise.all(
+        members.map(async (m) => {
+          const u = await ctx.db.get(m.userId);
+          return u?.name ?? "Unknown";
+        }),
+      );
+      title = `Meeting with ${memberNames.join(", ")}`;
+    }
+
+    const roomName = generateRoomName(workspace.slug, title);
     const meetingUrl = `https://meet.jit.si/${roomName}`;
     const now = Date.now();
 
     const meetingId = await ctx.db.insert("meetings", {
       workspaceId: workspace._id,
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       threadMessageId: args.threadMessageId,
-      title: `Meeting in #${channel.name}`,
+      title,
       provider: "jitsi",
       meetingUrl,
       status: "active",
@@ -58,13 +76,13 @@ export const startInChannel = mutation({
 
     // Insert system message with meetingId
     const messageId = await ctx.db.insert("messages", {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       authorId: user._id,
       body: `**started a meeting** — [Join meeting](${meetingUrl})`,
       type: "system",
       isEdited: false,
       meetingId,
-      ...(args.threadMessageId ? { threadId: args.threadMessageId, alsoSentToChannel: false } : {}),
+      ...(args.threadMessageId ? { threadId: args.threadMessageId, alsoSentToConversation: false } : {}),
     });
 
     // If posted in a thread, update parent's thread denormalized fields
@@ -85,81 +103,6 @@ export const startInChannel = mutation({
     }
 
     await ctx.db.patch(meetingId, { messageId });
-
-    return { meetingId, meetingUrl, alreadyActive: false };
-  },
-});
-
-export const startInDM = mutation({
-  args: {
-    conversationId: v.id("directConversations"),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    await requireDMmember(ctx, args.conversationId, user._id);
-
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) throw new Error("Conversation not found");
-
-    const workspace = await ctx.db.get(conversation.workspaceId);
-    if (!workspace) throw new Error("Workspace not found");
-
-    // Check for existing active meeting
-    const existing = await ctx.db
-      .query("meetings")
-      .withIndex("by_conversation_status", (q) =>
-        q.eq("conversationId", args.conversationId).eq("status", "active"),
-      )
-      .first();
-
-    if (existing) {
-      return { meetingId: existing._id, meetingUrl: existing.meetingUrl, alreadyActive: true };
-    }
-
-    // Build a title from conversation name or member names
-    let title = "Meeting";
-    if (conversation.name) {
-      title = `Meeting in ${conversation.name}`;
-    } else {
-      const members = await ctx.db
-        .query("directConversationMembers")
-        .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
-        .collect();
-      const memberNames = await Promise.all(
-        members.map(async (m) => {
-          const u = await ctx.db.get(m.userId);
-          return u?.name ?? "Unknown";
-        }),
-      );
-      title = `Meeting with ${memberNames.join(", ")}`;
-    }
-
-    const roomName = generateRoomName(workspace.slug, title);
-    const meetingUrl = `https://meet.jit.si/${roomName}`;
-    const now = Date.now();
-
-    const meetingId = await ctx.db.insert("meetings", {
-      workspaceId: workspace._id,
-      conversationId: args.conversationId,
-      title,
-      provider: "jitsi",
-      meetingUrl,
-      status: "active",
-      startedBy: user._id,
-      startedAt: now,
-      participants: [{ userId: user._id, joinedAt: now }],
-    });
-
-    const dmMessageId = await ctx.db.insert("directMessages", {
-      conversationId: args.conversationId,
-      authorId: user._id,
-      body: `**started a meeting** — [Join meeting](${meetingUrl})`,
-      type: "system",
-      isEdited: false,
-      meetingId,
-    });
-
-    await ctx.db.patch(meetingId, { dmMessageId });
 
     return { meetingId, meetingUrl, alreadyActive: false };
   },
@@ -220,25 +163,17 @@ export const endMeeting = mutation({
 
 export const getActiveMeeting = query({
   args: {
-    channelId: v.optional(v.id("channels")),
-    conversationId: v.optional(v.id("directConversations")),
+    conversationId: v.optional(v.id("conversations")),
   },
   handler: async (ctx, args) => {
     await requireUser(ctx);
 
     let meeting = null;
 
-    if (args.channelId) {
+    if (args.conversationId) {
       meeting = await ctx.db
         .query("meetings")
-        .withIndex("by_channel_status", (q) =>
-          q.eq("channelId", args.channelId!).eq("status", "active"),
-        )
-        .first();
-    } else if (args.conversationId) {
-      meeting = await ctx.db
-        .query("meetings")
-        .withIndex("by_conversation_status", (q) =>
+        .withIndex("by_conversation_and_status", (q) =>
           q.eq("conversationId", args.conversationId!).eq("status", "active"),
         )
         .first();

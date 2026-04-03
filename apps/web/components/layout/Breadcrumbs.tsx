@@ -56,26 +56,34 @@ function getSegments(
   conversationName?: string | null,
 ): Segment[] {
   if (p === "/inbox" || p === "") return [{ label: "My Deck" }];
-  if (p === "/dms") return [{ label: "Communication" }];
-  if (p === "/email") return [{ label: "Communication" }];
+  if (p === "/conversations") return [{ label: "Conversations" }];
+  if (p === "/dms") return [{ label: "Conversations" }];
+  if (p === "/email") return [{ label: "Conversations" }];
+
+  if (p.startsWith("/c/")) {
+    return [
+      { label: "Conversations", href: `${prefix}/conversations` },
+      { label: conversationName ?? channelName ?? "Conversation" },
+    ];
+  }
 
   if (p.startsWith("/dm/")) {
     return [
-      { label: "Communication", href: `${prefix}/dms` },
+      { label: "Conversations", href: `${prefix}/conversations` },
       { label: conversationName ?? "Direct Message" },
     ];
   }
 
   if (p.startsWith("/email/")) {
     return [
-      { label: "Communication", href: `${prefix}/dms` },
+      { label: "Conversations", href: `${prefix}/conversations` },
       { label: conversationName ?? "Email" },
     ];
   }
 
   if (p.startsWith("/channel/")) {
     return [
-      { label: "Channels" },
+      { label: "Conversations", href: `${prefix}/conversations` },
       { label: channelName ? `# ${channelName}` : "Channel" },
     ];
   }

@@ -23,21 +23,21 @@ function alertToCategory(alertType: string, priority: string): "do" | "decide" |
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-export const getRecentChannelMessages = internalQuery({
+export const getRecentConversationMessages = internalQuery({
   args: {
     since: v.number(),
     limit: v.number(),
   },
   handler: async (ctx, args) => {
     const channels = await ctx.db
-      .query("channels")
+      .query("conversations")
       .filter((q) => q.eq(q.field("isArchived"), false))
       .take(50);
 
     const result: Array<{
       messageId: Id<"messages">;
-      channelId: Id<"channels">;
-      channelName: string;
+      conversationId: Id<"conversations">;
+      conversationName: string;
       workspaceId: Id<"workspaces">;
       body: string;
       authorId: Id<"users">;
@@ -48,7 +48,7 @@ export const getRecentChannelMessages = internalQuery({
     for (const channel of channels) {
       const messages = await ctx.db
         .query("messages")
-        .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
+        .withIndex("by_conversation", (q) => q.eq("conversationId", channel._id))
         .filter((q) =>
           q.and(
             q.gte(q.field("_creationTime"), args.since),
@@ -61,8 +61,8 @@ export const getRecentChannelMessages = internalQuery({
         const author = await ctx.db.get(msg.authorId);
         result.push({
           messageId: msg._id,
-          channelId: channel._id,
-          channelName: channel.name,
+          conversationId: channel._id,
+          conversationName: channel.name ?? "Conversation",
           workspaceId: channel.workspaceId,
           body: msg.body,
           authorId: msg.authorId,
@@ -76,12 +76,12 @@ export const getRecentChannelMessages = internalQuery({
   },
 });
 
-export const getChannelMembers = internalQuery({
-  args: { channelId: v.id("channels") },
+export const getConversationMembers = internalQuery({
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     const rows = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .take(1000);
 
     return Promise.all(
@@ -97,22 +97,22 @@ export const getChannelMembers = internalQuery({
 
 export const countRecentItems = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     type: v.string(),
     since: v.number(),
   },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return 0;
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return 0;
 
     const items = await ctx.db
       .query("inboxItems")
       .withIndex("by_workspace_type", (q) =>
-        q.eq("workspaceId", channel.workspaceId).eq("type", args.type as any),
+        q.eq("workspaceId", conversation.workspaceId).eq("type", args.type as any),
       )
       .filter((q) =>
         q.and(
-          q.eq(q.field("channelId"), args.channelId),
+          q.eq(q.field("conversationId"), args.conversationId),
           q.gte(q.field("createdAt"), args.since),
         ),
       )
@@ -123,13 +123,13 @@ export const countRecentItems = internalQuery({
 
 export const insertBotMessage = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     authorId: v.id("users"),
     body: v.string(),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
@@ -273,47 +273,47 @@ export const scanForFactChecks = internalAction({
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const MAX_PER_CHANNEL_PER_HOUR = 2;
 
-    const messages = await ctx.runQuery(internal.proactiveAlerts.getRecentChannelMessages, {
+    const messages = await ctx.runQuery(internal.proactiveAlerts.getRecentConversationMessages, {
       since,
       limit: 20,
     });
 
-    const byChannel = new Map<
+    const byConversation = new Map<
       string,
-      Array<{ body: string; authorName: string; messageId: string; channelId: Id<"channels">; channelName: string; workspaceId: Id<"workspaces"> }>
+      Array<{ body: string; authorName: string; messageId: string; conversationId: Id<"conversations">; conversationName: string; workspaceId: Id<"workspaces"> }>
     >();
 
     for (const msg of messages) {
-      const key = msg.channelId as string;
-      if (!byChannel.has(key)) byChannel.set(key, []);
-      byChannel.get(key)!.push({
+      const key = msg.conversationId as string;
+      if (!byConversation.has(key)) byConversation.set(key, []);
+      byConversation.get(key)!.push({
         body: msg.body,
         authorName: msg.authorName,
         messageId: msg.messageId as string,
-        channelId: msg.channelId,
-        channelName: msg.channelName,
+        conversationId: msg.conversationId,
+        conversationName: msg.conversationName,
         workspaceId: msg.workspaceId,
       });
     }
 
-    for (const [, channelMessages] of byChannel) {
-      const { channelId, workspaceId } = channelMessages[0];
+    for (const [, conversationMessages] of byConversation) {
+      const { conversationId, workspaceId } = conversationMessages[0];
 
       const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentItems, {
-        channelId,
+        conversationId,
         type: "fact_verify",
         since: hourAgo,
       });
       if (recentCount >= MAX_PER_CHANNEL_PER_HOUR) continue;
 
-      const claims = await detectFactualClaims(channelMessages);
+      const claims = await detectFactualClaims(conversationMessages);
 
       for (const { messageIndex, claim } of claims) {
         const { contradiction, confidence } = await checkClaimAgainstKnowledge(claim);
         if (!contradiction || confidence < 0.85) continue;
 
-        const members = await ctx.runQuery(internal.proactiveAlerts.getChannelMembers, {
-          channelId,
+        const members = await ctx.runQuery(internal.proactiveAlerts.getConversationMembers, {
+          conversationId,
         });
         if (members.length === 0) continue;
 
@@ -323,7 +323,7 @@ export const scanForFactChecks = internalAction({
         if (!botUser) continue;
 
         await ctx.runMutation(internal.proactiveAlerts.insertBotMessage, {
-          channelId,
+          conversationId,
           authorId: botUser._id,
           body: `Worth noting: ${contradiction}`,
         });
@@ -337,8 +337,8 @@ export const scanForFactChecks = internalAction({
             title: "Fact check",
             summary: `A claim was made that may contradict known information: "${claim}"`,
             pingWillDo: "Review the context in this channel",
-            sourceMessageId: channelMessages[messageIndex]?.messageId as Id<"messages"> | undefined,
-            channelId,
+            sourceMessageId: conversationMessages[messageIndex]?.messageId as Id<"messages"> | undefined,
+            conversationId,
           });
         }
 
@@ -352,18 +352,18 @@ export const scanForFactChecks = internalAction({
 
 interface CrossTeamMatch {
   summary: string;
-  sourceChannelIndex: number;
-  targetChannelIndices: number[];
+  sourceConversationIndex: number;
+  targetConversationIndices: number[];
 }
 
 async function detectCrossTeamRelevance(
-  channelSummaries: Array<{ channelName: string; messages: string[] }>,
+  conversationSummaries: Array<{ conversationName: string; messages: string[] }>,
 ): Promise<CrossTeamMatch[]> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return [];
 
-  const input = channelSummaries
-    .map((c, i) => `[Channel ${i} #${c.channelName}]:\n${c.messages.slice(-5).join("\n")}`)
+  const input = conversationSummaries
+    .map((c, i) => `[Channel ${i} #${c.conversationName}]:\n${c.messages.slice(-5).join("\n")}`)
     .join("\n\n");
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -385,7 +385,7 @@ Identify decisions, announcements, or status changes in one channel that other c
 Examples: API changes relevant to frontend, deadline changes relevant to engineering, deployment notices relevant to dev channels.
 
 Respond with JSON only:
-{"matches": [{"summary": "brief description of what's relevant", "sourceChannelIndex": 0, "targetChannelIndices": [1, 2]}]}
+{"matches": [{"summary": "brief description of what's relevant", "sourceConversationIndex": 0, "targetConversationIndices": [1, 2]}]}
 
 Return empty array if nothing is cross-team relevant.`,
         },
@@ -408,82 +408,82 @@ export const scanCrossTeamSync = internalAction({
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const MAX_PER_CHANNEL_PER_HOUR = 3;
 
-    const messages = await ctx.runQuery(internal.proactiveAlerts.getRecentChannelMessages, {
+    const messages = await ctx.runQuery(internal.proactiveAlerts.getRecentConversationMessages, {
       since,
       limit: 20,
     });
 
     if (messages.length === 0) return;
 
-    const channelMap = new Map<
+    const conversationMap = new Map<
       string,
-      { channelId: Id<"channels">; channelName: string; workspaceId: Id<"workspaces">; messages: string[] }
+      { conversationId: Id<"conversations">; conversationName: string; workspaceId: Id<"workspaces">; messages: string[] }
     >();
 
     for (const msg of messages) {
-      const key = msg.channelId as string;
-      if (!channelMap.has(key)) {
-        channelMap.set(key, {
-          channelId: msg.channelId,
-          channelName: msg.channelName,
+      const key = msg.conversationId as string;
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, {
+          conversationId: msg.conversationId,
+          conversationName: msg.conversationName,
           workspaceId: msg.workspaceId,
           messages: [],
         });
       }
-      channelMap.get(key)!.messages.push(`[${msg.authorName}]: ${msg.body}`);
+      conversationMap.get(key)!.messages.push(`[${msg.authorName}]: ${msg.body}`);
     }
 
-    const channels = Array.from(channelMap.values());
+    const channels = Array.from(conversationMap.values());
     if (channels.length < 2) return;
 
-    const channelSummaries = channels.map((c) => ({
-      channelName: c.channelName,
+    const conversationSummaries = channels.map((c) => ({
+      conversationName: c.conversationName,
       messages: c.messages,
     }));
 
-    const matches = await detectCrossTeamRelevance(channelSummaries);
+    const matches = await detectCrossTeamRelevance(conversationSummaries);
 
     for (const match of matches) {
-      const sourceChannel = channels[match.sourceChannelIndex];
-      if (!sourceChannel) continue;
+      const sourceConversation = channels[match.sourceConversationIndex];
+      if (!sourceConversation) continue;
 
-      for (const targetIdx of match.targetChannelIndices) {
-        const targetChannel = channels[targetIdx];
-        if (!targetChannel) continue;
+      for (const targetIdx of match.targetConversationIndices) {
+        const targetConversation = channels[targetIdx];
+        if (!targetConversation) continue;
 
         const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentItems, {
-          channelId: targetChannel.channelId,
+          conversationId: targetConversation.conversationId,
           type: "cross_team_ack",
           since: hourAgo,
         });
         if (recentCount >= MAX_PER_CHANNEL_PER_HOUR) continue;
 
-        const members = await ctx.runQuery(internal.proactiveAlerts.getChannelMembers, {
-          channelId: targetChannel.channelId,
+        const members = await ctx.runQuery(internal.proactiveAlerts.getConversationMembers, {
+          conversationId: targetConversation.conversationId,
         });
         if (members.length === 0) continue;
 
         const botUser = await ctx.runQuery(internal.proactiveAlerts.getWorkspaceBotUser, {
-          workspaceId: targetChannel.workspaceId,
+          workspaceId: targetConversation.workspaceId,
         });
         if (!botUser) continue;
 
         await ctx.runMutation(internal.proactiveAlerts.insertBotMessage, {
-          channelId: targetChannel.channelId,
+          conversationId: targetConversation.conversationId,
           authorId: botUser._id,
-          body: `FYI from #${sourceChannel.channelName}: ${match.summary}`,
+          body: `FYI from #${sourceConversation.conversationName}: ${match.summary}`,
         });
 
         for (const member of members) {
           await ctx.runMutation(internal.inboxItems.insertItem, {
             userId: member._id,
-            workspaceId: targetChannel.workspaceId,
+            workspaceId: targetConversation.workspaceId,
             type: "cross_team_ack",
             category: "skip",
-            title: `Update from #${sourceChannel.channelName}`,
+            title: `Update from #${sourceConversation.conversationName}`,
             summary: match.summary,
-            pingWillDo: `Check #${sourceChannel.channelName} for details`,
-            channelId: targetChannel.channelId,
+            pingWillDo: `Check #${sourceConversation.conversationName} for details`,
+            conversationId: targetConversation.conversationId,
           });
         }
       }

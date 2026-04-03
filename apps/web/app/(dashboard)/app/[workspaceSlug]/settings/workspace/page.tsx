@@ -66,7 +66,7 @@ function WorkspacePageContent() {
   const updateWorkspace = useMutation(api.workspaces.update);
   const connectIntegration = useMutation(api.workspaces.connectIntegration);
   const disconnectIntegration = useMutation(api.workspaces.disconnectIntegration);
-  const channels = useQuery(api.channels.list, { workspaceId });
+  const conversations = useQuery(api.conversations.list, { workspaceId });
   const addRouting = useMutation(api.integrations.addRouting);
   const removeRouting = useMutation(api.integrations.removeRouting);
   const routingRules = useQuery(api.integrations.listRoutingByWorkspace, { workspaceId });
@@ -132,11 +132,11 @@ function WorkspacePageContent() {
   };
 
   const handleAddRouting = async (integrationType: "github" | "linear") => {
-    const channelId = selectedChannel[integrationType];
-    if (!channelId) return;
+    const conversationId = selectedChannel[integrationType];
+    if (!conversationId) return;
     try {
       await addRouting({
-        channelId: channelId as Id<"channels">,
+        conversationId: conversationId as Id<"conversations">,
         workspaceId,
         integrationType,
         externalTarget: "*",
@@ -167,9 +167,14 @@ function WorkspacePageContent() {
   const siteUrl = getSiteUrl();
   const githubWebhookUrl = `${siteUrl}/webhooks/github`;
   const linearWebhookUrl = `${siteUrl}/webhooks/linear`;
-  const githubRules = (routingRules ?? []).filter((r) => r.integrationType === "github");
-  const linearRules = (routingRules ?? []).filter((r) => r.integrationType === "linear");
-  const publicChannels = (channels ?? []).filter((c) => !c.type || c.type === "public");
+  const normalizeRule = (r: { _id: string; conversationId?: string; channelId?: string; integrationType: string; externalTargetLabel?: string }) => ({
+    _id: r._id,
+    conversationId: (r.conversationId ?? r.channelId) as string,
+    externalTargetLabel: r.externalTargetLabel,
+  });
+  const githubRules = (routingRules ?? []).filter((r) => r.integrationType === "github").map(normalizeRule);
+  const linearRules = (routingRules ?? []).filter((r) => r.integrationType === "linear").map(normalizeRule);
+  const publicChannels = (conversations ?? []).filter((c) => c.visibility === "public" && c.name);
 
   return (
     <div className="mx-auto max-w-lg animate-fade-in px-6 py-6">
@@ -457,13 +462,13 @@ function RoutingSection({
   channelById,
 }: {
   type: "github" | "linear";
-  rules: Array<{ _id: string; channelId: string; externalTargetLabel?: string }>;
-  channels: Array<{ _id: string; name: string }>;
+  rules: Array<{ _id: string; conversationId: string; externalTargetLabel?: string }>;
+  channels: Array<{ _id: string; name?: string }>;
   selectedChannel: string;
   onSelectChannel: (v: string) => void;
   onAddRouting: () => void;
   onRemoveRouting: (id: string) => void;
-  channelById: (id: string) => { name: string } | undefined;
+  channelById: (id: string) => { name?: string } | undefined;
 }) {
   return (
     <div className="space-y-2">
@@ -482,7 +487,7 @@ function RoutingSection({
               className="flex items-center justify-between rounded bg-surface-2 px-2.5 py-1.5"
             >
               <span className="text-2xs text-foreground/70">
-                # {channelById(rule.channelId)?.name ?? rule.channelId}
+                # {channelById(rule.conversationId)?.name ?? rule.conversationId}
               </span>
               <button
                 onClick={() => onRemoveRouting(rule._id)}

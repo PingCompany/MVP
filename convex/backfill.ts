@@ -26,12 +26,12 @@ export const getUnindexedMessages = internalQuery({
     return Promise.all(
       unindexed.map(async (m) => {
         const author = await ctx.db.get(m.authorId);
-        const channel = await ctx.db.get(m.channelId);
+        const conversation = await ctx.db.get(m.conversationId!);
         return {
           _id: m._id,
           body: m.body,
-          channelId: m.channelId,
-          channelName: channel?.name ?? "",
+          conversationId: m.conversationId!,
+          conversationName: conversation?.name ?? "",
           authorName: author?.name ?? "Unknown",
           createdAt: m._creationTime,
           threadId: m.threadId ?? null,
@@ -44,8 +44,10 @@ export const getUnindexedMessages = internalQuery({
 export const getUnindexedDirectMessages = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    // NOTE: This function is for backward compat with the DM backfill.
+    // With unified messages table, this queries the same table but for DM conversations.
     const messages = await ctx.db
-      .query("directMessages")
+      .query("messages")
       .order("asc")
       .take((args.limit ?? BATCH_SIZE) * 3);
 
@@ -56,11 +58,11 @@ export const getUnindexedDirectMessages = internalQuery({
     return Promise.all(
       unindexed.map(async (m) => {
         const author = await ctx.db.get(m.authorId);
-        const conversation = await ctx.db.get(m.conversationId);
+        const conversation = await ctx.db.get(m.conversationId!);
         return {
           _id: m._id,
           body: m.body,
-          conversationId: m.conversationId,
+          conversationId: m.conversationId!,
           conversationName: conversation?.name ?? "Direct Message",
           authorName: author?.name ?? "Unknown",
           createdAt: m._creationTime,
@@ -85,7 +87,7 @@ export const backfillMessages = internalAction({
     );
 
     if (batch.length === 0) {
-      console.log("[backfill] Channel messages: done, no more to process");
+      console.log("[backfill] Conversation messages: done, no more to process");
       return;
     }
 
@@ -109,15 +111,15 @@ export const backfillMessages = internalAction({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          group_id: msg.channelId,
+          group_id: msg.conversationId,
           messages: [
             {
               content,
               role_type: "user",
               role: msg.authorName,
               timestamp: new Date(msg.createdAt).toISOString(),
-              source_description: `channel:${msg.channelName}`,
-              name: `${msg.authorName} in #${msg.channelName}`,
+              source_description: `conversation:${msg.conversationName}`,
+              name: `${msg.authorName} in #${msg.conversationName}`,
             },
           ],
         }),
@@ -144,7 +146,7 @@ export const backfillMessages = internalAction({
     }
 
     console.log(
-      `[backfill] Channel messages: processed ${processed}/${batch.length}`,
+      `[backfill] Conversation messages: processed ${processed}/${batch.length}`,
     );
 
     // Schedule next batch
@@ -180,7 +182,7 @@ export const backfillDirectMessages = internalAction({
       let content = msg.body;
       if (msg.threadId) {
         const threadCtx = await ctx.runQuery(
-          internal.ingest.getThreadContextDM,
+          internal.ingest.getThreadContext,
           { threadId: msg.threadId },
         );
         if (threadCtx) {
@@ -221,7 +223,7 @@ export const backfillDirectMessages = internalAction({
         continue;
       }
 
-      await ctx.runMutation(internal.ingest.patchDirectMessageEpisodeId, {
+      await ctx.runMutation(internal.ingest.patchEpisodeId, {
         messageId: msg._id,
         graphitiEpisodeId: msg._id,
       });
@@ -246,7 +248,7 @@ export const backfillDirectMessages = internalAction({
 export const startBackfill = internalAction({
   args: {},
   handler: async (ctx) => {
-    console.log("[backfill] Starting backfill for channel messages and DMs");
+    console.log("[backfill] Starting backfill for conversation messages and DMs");
     await ctx.scheduler.runAfter(
       0,
       internal.backfill.backfillMessages,

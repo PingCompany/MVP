@@ -15,17 +15,17 @@ const periodValidator = v.union(
   v.literal("90d"),
 );
 
-async function getWorkspaceChannels(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
+async function getWorkspaceConversations(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
   return ctx.db
-    .query("channels")
+    .query("conversations")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(500);
 }
 
-async function getRecentMessages(ctx: QueryCtx, channelId: Id<"channels">) {
+async function getRecentMessages(ctx: QueryCtx, conversationId: Id<"conversations">) {
   return ctx.db
     .query("messages")
-    .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+    .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
     .order("desc")
     .take(2000);
 }
@@ -44,14 +44,14 @@ export const getKPIs = query({
     const cutoff = now - periodMs;
     const prevCutoff = cutoff - periodMs;
 
-    const channels = await getWorkspaceChannels(ctx, args.workspaceId);
+    const conversations = await getWorkspaceConversations(ctx, args.workspaceId);
 
     let botMessages = 0;
     let prevBotMessages = 0;
     let userMessages = 0;
 
-    for (const channel of channels) {
-      const msgs = await getRecentMessages(ctx, channel._id);
+    for (const conversation of conversations) {
+      const msgs = await getRecentMessages(ctx, conversation._id);
       for (const msg of msgs) {
         if (msg._creationTime < prevCutoff) break;
         if (msg._creationTime >= cutoff) {
@@ -139,12 +139,12 @@ export const getAgentLeaderboard = query({
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
     const cutoff = Date.now() - PERIOD_MS[args.period];
-    const channels = await getWorkspaceChannels(ctx, args.workspaceId);
+    const conversations = await getWorkspaceConversations(ctx, args.workspaceId);
 
     const authorCounts: Record<string, number> = {};
 
-    for (const channel of channels) {
-      const msgs = await getRecentMessages(ctx, channel._id);
+    for (const conversation of conversations) {
+      const msgs = await getRecentMessages(ctx, conversation._id);
       for (const msg of msgs) {
         if (msg._creationTime < cutoff) break;
         if (msg.type === "bot") {
@@ -288,11 +288,11 @@ export const getUserAnalytics = query({
       .sort((a, b) => b.count - a.count);
 
     // --- Cognitive load reduction ---
-    const channels = await getWorkspaceChannels(ctx, args.workspaceId);
+    const conversations = await getWorkspaceConversations(ctx, args.workspaceId);
     let botAssists = 0;
     let prevBotAssists = 0;
-    for (const channel of channels) {
-      const msgs = await getRecentMessages(ctx, channel._id);
+    for (const conversation of conversations) {
+      const msgs = await getRecentMessages(ctx, conversation._id);
       for (const msg of msgs) {
         if (msg._creationTime < prevCutoff) break;
         if (msg._creationTime >= cutoff) {
@@ -361,53 +361,52 @@ export const getWorkspaceAnalytics = query({
       if (u?.lastSeenAt && u.lastSeenAt >= cutoff) activeUsers++;
     }
 
-    // --- Message & channel activity ---
-    const channels = await getWorkspaceChannels(ctx, args.workspaceId);
+    // --- Message & conversation activity ---
+    const conversations = await getWorkspaceConversations(ctx, args.workspaceId);
     let totalMessages = 0;
     let totalBotAssists = 0;
 
-    const channelMessageCounts: Array<{
-      channelId: Id<"channels">;
+    const conversationMessageCounts: Array<{
+      conversationId: Id<"conversations">;
       name: string;
       messageCount: number;
     }> = [];
 
-    for (const channel of channels) {
-      if (channel.isArchived) continue;
-      const msgs = await getRecentMessages(ctx, channel._id);
-      let channelCount = 0;
+    for (const conversation of conversations) {
+      if (conversation.isArchived) continue;
+      const msgs = await getRecentMessages(ctx, conversation._id);
+      let convCount = 0;
       for (const msg of msgs) {
         if (msg._creationTime < cutoff) break;
         totalMessages++;
-        channelCount++;
+        convCount++;
         if (msg.type === "bot") totalBotAssists++;
       }
-      channelMessageCounts.push({
-        channelId: channel._id,
-        name: channel.name,
-        messageCount: channelCount,
+      conversationMessageCounts.push({
+        conversationId: conversation._id,
+        name: conversation.name ?? "Unnamed",
+        messageCount: convCount,
       });
     }
 
-    channelMessageCounts.sort((a, b) => b.messageCount - a.messageCount);
-    const maxChannelCount = channelMessageCounts[0]?.messageCount ?? 1;
-    const channelActivity = channelMessageCounts.slice(0, 8).map((c) => ({
+    conversationMessageCounts.sort((a, b) => b.messageCount - a.messageCount);
+    const maxConvCount = conversationMessageCounts[0]?.messageCount ?? 1;
+    const channelActivity = conversationMessageCounts.slice(0, 8).map((c) => ({
       ...c,
-      pct: Math.round((c.messageCount / maxChannelCount) * 100),
+      pct: Math.round((c.messageCount / maxConvCount) * 100),
     }));
-    const deadChannels = channelMessageCounts.filter(
+    const deadChannels = conversationMessageCounts.filter(
       (c) => c.messageCount === 0,
     ).length;
 
     // --- DMs ---
-    const conversations = await ctx.db
-      .query("directConversations")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(500);
+    // DM conversations are already included in `conversations` above (unified table).
+    // Count messages from 1:1 and group DM conversations separately.
     let totalDMs = 0;
     for (const conv of conversations) {
+      if (conv.kind !== "1to1" && conv.kind !== "group" && conv.kind !== "agent_1to1" && conv.kind !== "agent_group") continue;
       const dms = await ctx.db
-        .query("directMessages")
+        .query("messages")
         .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
         .order("desc")
         .take(500);

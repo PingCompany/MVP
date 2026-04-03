@@ -5,22 +5,29 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
+export type SidebarItemType = "channel" | "dm";
+
 export interface UnifiedSidebarItem {
   id: string;
+  type: SidebarItemType;
   name: string;
-  kind: "1to1" | "group" | "agent_1to1" | "agent_group";
-  visibility: "public" | "secret" | "secret_can_be_public";
   sidebarItemId?: Id<"sidebarItems">;
   sectionId: string;
   sortOrder: number;
+  // Channel-specific
+  isPrivate?: boolean;
   isStarred?: boolean;
   isMember?: boolean;
+  // DM-specific
+  kind?: "1to1" | "group" | "agent_1to1" | "agent_group";
+  visibility?: string;
   members?: Array<{
     userId: string;
     name: string;
     avatarUrl?: string;
     isAgent: boolean;
   }>;
+  // Common
   unreadCount: number;
   unreadMentionCount: number;
   lastActivityAt: number;
@@ -122,17 +129,20 @@ export function useSidebarLayout(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const toSidebarItem = (conv: any, overrides: Partial<UnifiedSidebarItem>): UnifiedSidebarItem => {
+      const isChannel = conv.visibility === "public" && conv.name;
       const otherMembers = conv.members.filter(
         (m: { userId: string }) => m.userId !== user._id,
       );
       return {
         id: conv._id,
+        type: isChannel ? "channel" : "dm",
         name:
           conv.name ||
           otherMembers.map((m: { name: string }) => m.name).join(", ") ||
           "Conversation",
         kind: conv.kind,
         visibility: conv.visibility,
+        isPrivate: conv.visibility !== "public",
         isStarred: conv.isStarred,
         isMember: conv.isMember,
         members: conv.members,
@@ -221,6 +231,5 @@ export function useSidebarLayout(
     }
 
     return { sections: sectionModels, isLoading: false };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- pathname/buildPath not used in memo
-  }, [layout, conversations, user]);
+  }, [layout, conversations, user, pathname, buildPath]);
 }

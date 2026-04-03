@@ -80,6 +80,7 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     role: roleValidator,
     joinedAt: v.number(),
+    onboardingStatus: v.optional(v.union(v.literal("pending"), v.literal("completed"))),
   })
     .index("by_user", ["userId"])
     .index("by_workspace", ["workspaceId"])
@@ -140,22 +141,37 @@ export default defineSchema({
     .index("by_workspace_status", ["workspaceId", "status"])
     .index("by_email_workspace", ["email", "workspaceId"]),
 
-  channels: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
+  // ── Unified conversations (replaces channels + directConversations) ──
+  conversations: defineTable({
     workspaceId: v.id("workspaces"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    kind: v.union(
+      v.literal("1to1"),
+      v.literal("group"),
+      v.literal("agent_1to1"),
+      v.literal("agent_group"),
+    ),
+    visibility: v.union(
+      v.literal("public"),
+      v.literal("secret"),
+      v.literal("secret_can_be_public"),
+    ),
+    isLockedSecret: v.optional(v.boolean()),
     createdBy: v.id("users"),
-    isDefault: v.boolean(),
+    isDefault: v.optional(v.boolean()),
     isArchived: v.boolean(),
-    isPrivate: v.optional(v.boolean()),
-    type: v.optional(v.union(v.literal("public"), v.literal("dm"), v.literal("group"))),
+    archivedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_workspace", ["workspaceId"])
-    .index("by_workspace_name", ["workspaceId", "name"]),
+    .index("by_workspace_and_name", ["workspaceId", "name"]),
 
-  channelMembers: defineTable({
-    channelId: v.id("channels"),
+  // ── Unified conversation members (replaces channelMembers + directConversationMembers) ──
+  conversationMembers: defineTable({
+    conversationId: v.id("conversations"),
     userId: v.id("users"),
+    isAgent: v.optional(v.boolean()),
     lastReadAt: v.optional(v.number()),
     unreadCount: v.optional(v.number()),
     unreadMentionCount: v.optional(v.number()),
@@ -163,12 +179,16 @@ export default defineSchema({
     isMuted: v.optional(v.boolean()),
     folder: v.optional(v.string()),
   })
-    .index("by_channel", ["channelId"])
+    .index("by_conversation", ["conversationId"])
     .index("by_user", ["userId"])
-    .index("by_channel_user", ["channelId", "userId"]),
+    .index("by_conversation_and_user", ["conversationId", "userId"]),
 
+  // ── Unified messages (replaces messages + directMessages) ──
   messages: defineTable({
-    channelId: v.id("channels"),
+    /** After backfill this becomes required again. Legacy docs may have channelId instead. */
+    conversationId: v.optional(v.id("conversations")),
+    /** @deprecated Legacy field — use conversationId instead. Removed after backfill. */
+    channelId: v.optional(v.string()),
     authorId: v.id("users"),
     body: v.string(),
     type: v.union(
@@ -199,18 +219,20 @@ export default defineSchema({
     }))),
     // Thread fields
     threadId: v.optional(v.id("messages")),
+    alsoSentToConversation: v.optional(v.boolean()),
+    /** @deprecated Legacy field — use alsoSentToConversation instead. */
     alsoSentToChannel: v.optional(v.boolean()),
     threadReplyCount: v.optional(v.number()),
     threadLastReplyAt: v.optional(v.number()),
     threadLastReplyAuthorId: v.optional(v.id("users")),
     threadParticipantIds: v.optional(v.array(v.id("users"))),
   })
-    .index("by_channel", ["channelId"])
+    .index("by_conversation", ["conversationId"])
     .index("by_author", ["authorId"])
     .index("by_thread", ["threadId"])
     .searchIndex("search_body", {
       searchField: "body",
-      filterFields: ["channelId"],
+      filterFields: ["conversationId"],
     }),
 
   integrationObjects: defineTable({
@@ -257,7 +279,9 @@ export default defineSchema({
       v.literal("snoozed"),
       v.literal("archived"),
     ),
-    channelId: v.optional(v.id("channels")),
+    conversationId: v.optional(v.id("conversations")),
+    /** @deprecated Legacy field — use conversationId instead. Will be removed after backfill. */
+    channelId: v.optional(v.string()),
     sourceMessageId: v.optional(v.id("messages")),
     sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
     orgTrace: v.optional(
@@ -339,7 +363,7 @@ export default defineSchema({
 
   drafts: defineTable({
     userId: v.id("users"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     body: v.string(),
     replyToMessageId: v.optional(v.id("messages")),
     contextSnapshot: v.string(),
@@ -353,9 +377,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_channel", ["userId", "channelId"])
+    .index("by_user_and_conversation", ["userId", "conversationId"])
     .index("by_user_status", ["userId", "status"]),
-
 
   sessions: defineTable({
     userId: v.id("users"),
@@ -365,76 +388,16 @@ export default defineSchema({
     .index("by_session_id", ["workosSessionId"])
     .index("by_user", ["userId"]),
 
-  directConversations: defineTable({
-    workspaceId: v.id("workspaces"),
-    kind: v.union(
-      v.literal("1to1"),
-      v.literal("group"),
-      v.literal("agent_1to1"),
-      v.literal("agent_group"),
-    ),
-    name: v.optional(v.string()),
-    createdBy: v.id("users"),
-    isArchived: v.boolean(),
-    archivedAt: v.optional(v.number()),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("by_workspace", ["workspaceId"]),
-
-  directConversationMembers: defineTable({
-    conversationId: v.id("directConversations"),
-    userId: v.id("users"),
-    isAgent: v.boolean(),
-    lastReadAt: v.optional(v.number()),
-    isStarred: v.optional(v.boolean()),
-    isMuted: v.optional(v.boolean()),
-    folder: v.optional(v.string()),
-  })
-    .index("by_conversation", ["conversationId"])
-    .index("by_user", ["userId"])
-    .index("by_conversation_user", ["conversationId", "userId"]),
-
-  directMessages: defineTable({
-    conversationId: v.id("directConversations"),
-    authorId: v.id("users"),
-    body: v.string(),
-    type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
-    isEdited: v.boolean(),
-    graphitiEpisodeId: v.optional(v.string()),
-    attachments: v.optional(v.array(attachmentValidator)),
-    meetingId: v.optional(v.id("meetings")),
-    // Thread fields
-    threadId: v.optional(v.id("directMessages")),
-    alsoSentToConversation: v.optional(v.boolean()),
-    threadReplyCount: v.optional(v.number()),
-    threadLastReplyAt: v.optional(v.number()),
-    threadLastReplyAuthorId: v.optional(v.id("users")),
-    threadParticipantIds: v.optional(v.array(v.id("users"))),
-  })
-    .index("by_conversation", ["conversationId"])
-    .index("by_author", ["authorId"])
-    .index("by_thread", ["threadId"])
-    .searchIndex("search_body", {
-      searchField: "body",
-      filterFields: ["conversationId"],
-    }),
-
   typingIndicators: defineTable({
-    channelId: v.optional(v.id("channels")),
-    conversationId: v.optional(v.id("directConversations")),
+    conversationId: v.optional(v.id("conversations")),
     threadMessageId: v.optional(v.id("messages")),
-    threadDmMessageId: v.optional(v.id("directMessages")),
     userId: v.id("users"),
     expiresAt: v.number(),
   })
-    .index("by_channel", ["channelId"])
-    .index("by_channel_user", ["channelId", "userId"])
     .index("by_conversation", ["conversationId"])
-    .index("by_conversation_user", ["conversationId", "userId"])
+    .index("by_conversation_and_user", ["conversationId", "userId"])
     .index("by_thread_message", ["threadMessageId"])
-    .index("by_thread_message_user", ["threadMessageId", "userId"])
-    .index("by_thread_dm", ["threadDmMessageId"])
-    .index("by_thread_dm_user", ["threadDmMessageId", "userId"]),
+    .index("by_thread_message_and_user", ["threadMessageId", "userId"]),
 
   invitations: defineTable({
     workspaceId: v.id("workspaces"),
@@ -451,14 +414,6 @@ export default defineSchema({
 
   reactions: defineTable({
     messageId: v.id("messages"),
-    userId: v.id("users"),
-    emoji: v.string(),
-  })
-    .index("by_message", ["messageId"])
-    .index("by_message_user", ["messageId", "userId"]),
-
-  dmReactions: defineTable({
-    messageId: v.id("directMessages"),
     userId: v.id("users"),
     emoji: v.string(),
   })
@@ -557,7 +512,6 @@ export default defineSchema({
       searchField: "subject",
       filterFields: ["userId"],
     }),
-
 
   emailSenderRules: defineTable({
     userId: v.id("users"),
@@ -688,29 +642,31 @@ export default defineSchema({
     .index("by_agent", ["agentId"])
     .index("by_workspace", ["workspaceId"]),
 
-  agentChannelScopes: defineTable({
+  agentConversationScopes: defineTable({
     agentId: v.id("agents"),
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     permissions: v.union(v.literal("read"), v.literal("read_write")),
     grantedBy: v.id("users"),
     grantedAt: v.number(),
   })
     .index("by_agent", ["agentId"])
-    .index("by_channel", ["channelId"])
-    .index("by_agent_channel", ["agentId", "channelId"]),
+    .index("by_conversation", ["conversationId"])
+    .index("by_agent_and_conversation", ["agentId", "conversationId"]),
 
   integrationRouting: defineTable({
-    channelId: v.id("channels"),
+    conversationId: v.optional(v.id("conversations")),
+    /** @deprecated Legacy field — use conversationId instead. Will be removed after backfill. */
+    channelId: v.optional(v.string()),
     workspaceId: v.id("workspaces"),
     integrationType: v.union(v.literal("github"), v.literal("linear")),
     externalTarget: v.string(),
     externalTargetLabel: v.optional(v.string()),
     createdBy: v.id("users"),
   })
-    .index("by_channel", ["channelId"])
+    .index("by_conversation", ["conversationId"])
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_type", ["workspaceId", "integrationType"])
-    .index("by_channel_type_target", ["channelId", "integrationType", "externalTarget"]),
+    .index("by_conversation_and_type_and_target", ["conversationId", "integrationType", "externalTarget"]),
 
   quickChats: defineTable({
     workspaceId: v.id("workspaces"),
@@ -723,7 +679,7 @@ export default defineSchema({
       v.literal("done"),
       v.literal("error"),
     ),
-    promotedToConversationId: v.optional(v.id("directConversations")),
+    promotedToConversationId: v.optional(v.id("conversations")),
   })
     .index("by_user", ["userId"]),
 
@@ -749,14 +705,12 @@ export default defineSchema({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
     sectionId: v.id("sidebarSections"),
-    channelId: v.optional(v.id("channels")),
-    conversationId: v.optional(v.id("directConversations")),
+    conversationId: v.optional(v.id("conversations")),
     sortOrder: v.number(),
   })
     .index("by_user_workspace", ["userId", "workspaceId"])
     .index("by_section", ["sectionId"])
-    .index("by_user_channel", ["userId", "channelId"])
-    .index("by_user_conversation", ["userId", "conversationId"]),
+    .index("by_user_and_conversation", ["userId", "conversationId"]),
 
   sidebarPreferences: defineTable({
     userId: v.id("users"),
@@ -771,10 +725,8 @@ export default defineSchema({
 
   meetings: defineTable({
     workspaceId: v.id("workspaces"),
-    channelId: v.optional(v.id("channels")),
-    conversationId: v.optional(v.id("directConversations")),
+    conversationId: v.optional(v.id("conversations")),
     threadMessageId: v.optional(v.id("messages")),
-    threadDmMessageId: v.optional(v.id("directMessages")),
     title: v.string(),
     provider: v.union(
       v.literal("jitsi"),
@@ -788,7 +740,6 @@ export default defineSchema({
     startedAt: v.number(),
     endedAt: v.optional(v.number()),
     messageId: v.optional(v.id("messages")),
-    dmMessageId: v.optional(v.id("directMessages")),
     participants: v.optional(
       v.array(
         v.object({
@@ -799,8 +750,7 @@ export default defineSchema({
     ),
   })
     .index("by_workspace", ["workspaceId"])
-    .index("by_channel_status", ["channelId", "status"])
-    .index("by_conversation_status", ["conversationId", "status"]),
+    .index("by_conversation_and_status", ["conversationId", "status"]),
 
   rateLimitCounters: defineTable({
     key: v.string(),
@@ -808,4 +758,21 @@ export default defineSchema({
     count: v.number(),
   })
     .index("by_key", ["key"]),
+
+  trafficEvents: defineTable({
+    source: v.string(),
+    target: v.string(),
+    name: v.string(),
+    callType: v.string(),
+    startMs: v.number(),
+    endMs: v.number(),
+    durationMs: v.number(),
+    status: v.string(),
+    error: v.optional(v.string()),
+    metadata: v.optional(v.string()),
+    sessionId: v.string(),
+    scenarioTag: v.optional(v.string()),
+  })
+    .index("by_session_startMs", ["sessionId", "startMs"])
+    .index("by_startMs", ["startMs"]),
 });

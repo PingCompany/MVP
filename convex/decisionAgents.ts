@@ -134,7 +134,7 @@ type DecisionDoc = {
   };
   sourceIntegrationObjectId?: any;
   sourceMessageId?: any;
-  channelId?: any;
+  conversationId?: any;
   workspaceId: any;
   title: string;
   summary: string;
@@ -260,8 +260,8 @@ async function postBotReply(
   decision: DecisionDoc,
   options: { alwaysPost: boolean },
 ): Promise<string> {
-  if (!decision.channelId) {
-    return "No channel linked; skipped message post.";
+  if (!decision.conversationId) {
+    return "No conversation linked; skipped message post.";
   }
 
   const botUser = await ctx.runQuery(internal.bot.getBotUser, {
@@ -277,14 +277,14 @@ async function postBotReply(
 
   if (body) {
     await ctx.runMutation(internal.bot.insertBotMessage, {
-      channelId: decision.channelId,
+      conversationId: decision.conversationId,
       authorId: botUser._id,
       body,
     });
-    return `Posted "${action}" response in channel.`;
+    return `Posted "${action}" response in conversation.`;
   }
 
-  return `Decision "${action}" recorded (no channel message needed).`;
+  return `Decision "${action}" recorded (no conversation message needed).`;
 }
 
 // ─── Coordinate handler: ticket + group conversation ────────────────────────
@@ -453,12 +453,13 @@ export const createGroupConversation = internalMutation({
     agentMemberIds: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const conversationId = await ctx.db.insert("directConversations", {
+    const conversationId = await ctx.db.insert("conversations", {
       workspaceId: args.workspaceId,
       kind: "agent_group",
       name: args.name,
       createdBy: args.createdBy,
       isArchived: false,
+      visibility: "secret",
     });
 
     const addedUserIds = new Set<string>();
@@ -466,7 +467,7 @@ export const createGroupConversation = internalMutation({
     // Add agent members
     for (const agentId of args.agentMemberIds) {
       if (addedUserIds.has(agentId)) continue;
-      await ctx.db.insert("directConversationMembers", {
+      await ctx.db.insert("conversationMembers", {
         conversationId,
         userId: agentId,
         isAgent: true,
@@ -477,7 +478,7 @@ export const createGroupConversation = internalMutation({
     // Add human members
     for (const memberId of args.memberIds) {
       if (addedUserIds.has(memberId)) continue;
-      await ctx.db.insert("directConversationMembers", {
+      await ctx.db.insert("conversationMembers", {
         conversationId,
         userId: memberId as any,
         isAgent: false,
@@ -491,12 +492,12 @@ export const createGroupConversation = internalMutation({
 
 export const sendGroupMessage = internalMutation({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     authorId: v.id("users"),
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("directMessages", {
+    await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       authorId: args.authorId,
       body: args.body,

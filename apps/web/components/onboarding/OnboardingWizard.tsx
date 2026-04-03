@@ -32,7 +32,11 @@ const MEMBER_LABELS = [
   "Communication",
 ];
 
-export function OnboardingWizard() {
+export function OnboardingWizard({
+  targetWorkspaceSlug,
+}: {
+  targetWorkspaceSlug?: string;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -41,8 +45,11 @@ export function OnboardingWizard() {
     api.workspaceMembers.listMyWorkspaces,
     isAuthenticated ? {} : "skip",
   );
-  const workspaceId = workspaces?.[0]?.workspaceId;
-  const workspaceSlug = workspaces?.[0]?.slug;
+  const selectedWorkspace =
+    workspaces?.find((workspace) => workspace.slug === targetWorkspaceSlug) ??
+    workspaces?.[0];
+  const workspaceId = selectedWorkspace?.workspaceId;
+  const workspaceSlug = selectedWorkspace?.slug;
 
   const state = useQuery(api.onboarding.getOnboardingState, workspaceId ? { workspaceId } : "skip");
   const completeOnboarding = useMutation(api.onboarding.completeOnboarding);

@@ -3,18 +3,19 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { requireUser, requireChannelMember } from "./auth";
+import { paginationOptsValidator } from "convex/server";
+import { requireUser, requireConversationMember } from "./auth";
 import { attachmentValidator } from "./files";
 
-/** Insert a system message into a channel (no unread tracking, no agent dispatch). */
+/** Insert a system message into a conversation (no unread tracking, no agent dispatch). */
 export async function insertSystemMsg(
   ctx: MutationCtx,
-  channelId: Id<"channels">,
+  conversationId: Id<"conversations">,
   authorId: Id<"users">,
   body: string,
 ) {
   await ctx.db.insert("messages", {
-    channelId,
+    conversationId,
     authorId,
     body,
     type: "system",
@@ -24,34 +25,36 @@ export async function insertSystemMsg(
 
 export const insertSystemMessage = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     authorId: v.id("users"),
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    await insertSystemMsg(ctx, args.channelId, args.authorId, args.body);
+    await insertSystemMsg(ctx, args.conversationId, args.authorId, args.body);
   },
 });
 
 export const send = mutation({
   args: {
-    channelId: v.id("channels"),
+    conversationId: v.id("conversations"),
     body: v.string(),
     attachments: v.optional(v.array(attachmentValidator)),
+    threadId: v.optional(v.id("messages")),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await requireChannelMember(ctx, args.channelId, user._id);
+    const membership = await requireConversationMember(ctx, args.conversationId, user._id);
 
     const messageId = await ctx.db.insert("messages", {
-      channelId: args.channelId,
+      conversationId: args.conversationId,
       authorId: user._id,
       body: args.body,
-      type: "user",
+      type: membership.isAgent ? "bot" : "user",
       isEdited: false,
       ...(args.attachments && args.attachments.length > 0
         ? { attachments: args.attachments }
         : {}),
+      ...(args.threadId ? { threadId: args.threadId } : {}),
     });
 
     // Ingest into knowledge graph
@@ -59,21 +62,21 @@ export const send = mutation({
       messageId,
     });
 
-    // Dispatch to agents (@mention or channel-trigger)
-    await ctx.scheduler.runAfter(0, internal.agentRunner.dispatchChannelMention, {
-      channelId: args.channelId,
-      messageId,
-      body: args.body,
-      authorId: user._id,
-    });
+    // Dispatch to agents (@mention or conversation-trigger)
+    if (!membership.isAgent) {
+      await ctx.scheduler.runAfter(0, internal.agentRunner.dispatchChannelMention, {
+        channelId: args.conversationId,
+        messageId,
+        body: args.body,
+        authorId: user._id,
+      });
+    }
 
-    // Update sender's lastReadAt and reset their unreadCount,
-    // then increment unreadCount for all other channel members.
-    // Also track @mention counts.
+    // Update unread counts for all conversation members
     const allMembers = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .collect();
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .take(200);
 
     // Resolve member names for mention detection
     const memberUsers = await Promise.all(
@@ -87,13 +90,14 @@ export const send = mutation({
 
     for (const { membership: member, userName } of memberUsers) {
       if (member.userId === user._id) {
+        // Reset sender's unread
         await ctx.db.patch(member._id, {
           lastReadAt: Date.now(),
           unreadCount: 0,
           unreadMentionCount: 0,
         });
       } else {
-        // Check if this member is @mentioned
+        // Increment unread for others
         const isMentioned = userName && bodyLower.includes(`@${userName.toLowerCase()}`);
         await ctx.db.patch(member._id, {
           unreadCount: (member.unreadCount ?? 0) + 1,
@@ -102,9 +106,85 @@ export const send = mutation({
       }
     }
 
+    // Update thread parent denormalized fields if this is a thread reply
+    if (args.threadId) {
+      const parent = await ctx.db.get(args.threadId);
+      if (parent) {
+        const existingParticipants = parent.threadParticipantIds ?? [];
+        const participantSet = new Set(existingParticipants.map((id) => id as string));
+        participantSet.add(user._id);
+        const participantIds = [...participantSet].slice(0, 20) as Id<"users">[];
+
+        await ctx.db.patch(args.threadId, {
+          threadReplyCount: (parent.threadReplyCount ?? 0) + 1,
+          threadLastReplyAt: Date.now(),
+          threadLastReplyAuthorId: user._id,
+          threadParticipantIds: participantIds,
+        });
+      }
+    }
+
     return messageId;
   },
 });
+
+export const listByConversation = query({
+  args: {
+    conversationId: v.id("conversations"),
+    limit: v.optional(v.number()),
+    paginationOpts: v.optional(paginationOptsValidator),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    // Auth check: for non-public, require membership
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    if (conversation.visibility !== "public") {
+      await requireConversationMember(ctx, args.conversationId, user._id);
+    }
+
+    // Use pagination if provided
+    if (args.paginationOpts) {
+      const results = await ctx.db
+        .query("messages")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+        .order("desc")
+        .paginate(args.paginationOpts);
+
+      // Filter out thread replies unless also sent to conversation
+      const filteredPage = results.page.filter(
+        (msg) => !msg.threadId || msg.alsoSentToConversation,
+      );
+
+      const messagesWithAuthors = await Promise.all(
+        filteredPage.map((msg) => enrichMessage(ctx, msg, args.conversationId)),
+      );
+
+      return { ...results, page: messagesWithAuthors };
+    }
+
+    // Simple take-based query
+    const limit = args.limit ?? 50;
+    const allMessages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .order("desc")
+      .take(limit * 2);
+
+    // Filter out thread replies unless also sent to conversation
+    const messages = allMessages
+      .filter((msg) => !msg.threadId || msg.alsoSentToConversation)
+      .slice(0, limit);
+
+    return Promise.all(
+      messages.map((msg) => enrichMessage(ctx, msg, args.conversationId)),
+    );
+  },
+});
+
+/** @deprecated Use listByConversation instead */
+export const listByChannel = listByConversation;
 
 export const edit = mutation({
   args: {
@@ -120,6 +200,7 @@ export const edit = mutation({
     const trimmed = args.body.trim();
     if (!trimmed) throw new Error("Message body cannot be empty");
 
+    await requireConversationMember(ctx, message.conversationId!, user._id);
     await ctx.db.patch(args.messageId, { body: trimmed, isEdited: true });
   },
 });
@@ -132,14 +213,34 @@ export const remove = mutation({
     const user = await requireUser(ctx);
     const message = await ctx.db.get(args.messageId);
     if (!message) throw new Error("Message not found");
-    if (message.authorId !== user._id) throw new Error("Not authorized");
-    if (message.type !== "user") throw new Error("Only user messages can be deleted");
+
+    // Verify author or admin
+    if (message.authorId !== user._id) {
+      // Check if user is admin in the workspace
+      const conversation = await ctx.db.get(message.conversationId!);
+      if (!conversation) throw new Error("Conversation not found");
+      const wsMembership = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_user_workspace", (q) =>
+          q.eq("userId", user._id).eq("workspaceId", conversation.workspaceId),
+        )
+        .unique();
+      if (wsMembership?.role !== "admin") {
+        throw new Error("Not authorized");
+      }
+    }
+
+    if (message.type !== "user" && message.type !== "bot") {
+      throw new Error("Only user/bot messages can be deleted");
+    }
+
+    await requireConversationMember(ctx, message.conversationId!, user._id);
 
     // Delete reactions for this message
     const reactions = await ctx.db
       .query("reactions")
       .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
-      .collect();
+      .take(200);
     for (const reaction of reactions) {
       await ctx.db.delete(reaction._id);
     }
@@ -148,12 +249,12 @@ export const remove = mutation({
     const replies = await ctx.db
       .query("messages")
       .withIndex("by_thread", (q) => q.eq("threadId", args.messageId))
-      .collect();
+      .take(200);
     for (const reply of replies) {
       const replyReactions = await ctx.db
         .query("reactions")
         .withIndex("by_message", (q) => q.eq("messageId", reply._id))
-        .collect();
+        .take(200);
       for (const r of replyReactions) {
         await ctx.db.delete(r._id);
       }
@@ -167,8 +268,7 @@ export const remove = mutation({
         const remainingReplies = await ctx.db
           .query("messages")
           .withIndex("by_thread", (q) => q.eq("threadId", message.threadId!))
-          .collect();
-        // Exclude the message being deleted
+          .take(200);
         const otherReplies = remainingReplies.filter((r) => r._id !== args.messageId);
 
         if (otherReplies.length === 0) {
@@ -195,120 +295,118 @@ export const remove = mutation({
   },
 });
 
-export const listByChannel = query({
-  args: { channelId: v.id("channels"), limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    await requireUser(ctx);
+// ── Helpers ──
 
-    const allMessages = await ctx.db
-      .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .order("desc")
-      .take((args.limit ?? 50) * 2);
+import { QueryCtx } from "./_generated/server";
+import { Doc } from "./_generated/dataModel";
 
-    // Filter out thread replies unless they were also sent to channel
-    const messages = allMessages
-      .filter((msg) => !msg.threadId || msg.alsoSentToChannel)
-      .slice(0, args.limit ?? 50);
+async function enrichMessage(
+  ctx: QueryCtx,
+  msg: Doc<"messages">,
+  conversationId: Id<"conversations">,
+) {
+  const author = await ctx.db.get(msg.authorId);
 
-    return Promise.all(
-      messages.map(async (msg) => {
-        const author = await ctx.db.get(msg.authorId);
+  // Check if author is an agent in this conversation
+  const memberRecord = await ctx.db
+    .query("conversationMembers")
+    .withIndex("by_conversation_and_user", (q) =>
+      q.eq("conversationId", conversationId).eq("userId", msg.authorId),
+    )
+    .unique();
 
-        // Resolve thread participant info for parent messages
-        let threadParticipants: Array<{
-          _id: string;
-          name: string;
-          avatarUrl?: string | null;
-        }> | undefined;
-        if (msg.threadReplyCount && msg.threadReplyCount > 0 && msg.threadParticipantIds) {
-          const participants = await Promise.all(
-            msg.threadParticipantIds.map((id) => ctx.db.get(id)),
-          );
-          threadParticipants = participants
-            .filter((u) => u !== null)
-            .map((u) => ({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl }));
-        }
-
-        // Resolve integration object metadata for integration messages
-        let integrationObject: {
-          identifier?: string;
-          type?: string;
-          title?: string;
-          status?: string;
-          url?: string;
-          author?: string;
-          metadata?: Record<string, unknown>;
-        } | undefined;
-        if (msg.type === "integration" && msg.integrationObjectId) {
-          const obj = await ctx.db.get(msg.integrationObjectId);
-          if (obj) {
-            integrationObject = {
-              identifier: (obj.metadata as Record<string, unknown>)?.identifier as string | undefined,
-              type: obj.type,
-              title: obj.title,
-              status: obj.status,
-              url: obj.url,
-              author: obj.author,
-              metadata: obj.metadata as Record<string, unknown>,
-            };
-          }
-        }
-
-        // Resolve meeting data for meeting messages
-        let meeting: {
-          _id: string;
-          title: string;
-          provider: string;
-          meetingUrl: string;
-          status: string;
-          startedBy: { name: string; avatarUrl?: string | null };
-          startedAt: number;
-          endedAt?: number;
-          participants: Array<{
-            userId: string;
-            name: string;
-            avatarUrl?: string | null;
-            joinedAt: number;
-          }>;
-        } | undefined;
-        if (msg.meetingId) {
-          const m = await ctx.db.get(msg.meetingId);
-          if (m) {
-            const starter = await ctx.db.get(m.startedBy);
-            const participants = await Promise.all(
-              (m.participants ?? []).map(async (p) => {
-                const u = await ctx.db.get(p.userId);
-                return {
-                  userId: p.userId as string,
-                  name: u?.name ?? "Unknown",
-                  avatarUrl: u?.avatarUrl,
-                  joinedAt: p.joinedAt,
-                };
-              }),
-            );
-            meeting = {
-              _id: m._id,
-              title: m.title,
-              provider: m.provider,
-              meetingUrl: m.meetingUrl,
-              status: m.status,
-              startedBy: { name: starter?.name ?? "Unknown", avatarUrl: starter?.avatarUrl },
-              startedAt: m.startedAt,
-              endedAt: m.endedAt,
-              participants,
-            };
-          }
-        }
-
-        return {
-          ...msg,
-          author: author ? { name: author.name, avatarUrl: author.avatarUrl } : null,
-          threadParticipants,
-          integrationObject,
-          meeting,
-        };
-      }),
+  // Resolve thread participant info for parent messages
+  let threadParticipants: Array<{
+    _id: string;
+    name: string;
+    avatarUrl?: string | null;
+  }> | undefined;
+  if (msg.threadReplyCount && msg.threadReplyCount > 0 && msg.threadParticipantIds) {
+    const participants = await Promise.all(
+      msg.threadParticipantIds.map((id) => ctx.db.get(id)),
     );
-  },
-});
+    threadParticipants = participants
+      .filter((u) => u !== null)
+      .map((u) => ({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl }));
+  }
+
+  // Resolve integration object metadata for integration messages
+  let integrationObject: {
+    identifier?: string;
+    type?: string;
+    title?: string;
+    status?: string;
+    url?: string;
+    author?: string;
+    metadata?: Record<string, unknown>;
+  } | undefined;
+  if (msg.type === "integration" && msg.integrationObjectId) {
+    const obj = await ctx.db.get(msg.integrationObjectId);
+    if (obj) {
+      integrationObject = {
+        identifier: (obj.metadata as Record<string, unknown>)?.identifier as string | undefined,
+        type: obj.type,
+        title: obj.title,
+        status: obj.status,
+        url: obj.url,
+        author: obj.author,
+        metadata: obj.metadata as Record<string, unknown>,
+      };
+    }
+  }
+
+  // Resolve meeting data for meeting messages
+  let meeting: {
+    _id: string;
+    title: string;
+    provider: string;
+    meetingUrl: string;
+    status: string;
+    startedBy: { name: string; avatarUrl?: string | null };
+    startedAt: number;
+    endedAt?: number;
+    participants: Array<{
+      userId: string;
+      name: string;
+      avatarUrl?: string | null;
+      joinedAt: number;
+    }>;
+  } | undefined;
+  if (msg.meetingId) {
+    const m = await ctx.db.get(msg.meetingId);
+    if (m) {
+      const starter = await ctx.db.get(m.startedBy);
+      const participants = await Promise.all(
+        (m.participants ?? []).map(async (p) => {
+          const u = await ctx.db.get(p.userId);
+          return {
+            userId: p.userId as string,
+            name: u?.name ?? "Unknown",
+            avatarUrl: u?.avatarUrl,
+            joinedAt: p.joinedAt,
+          };
+        }),
+      );
+      meeting = {
+        _id: m._id,
+        title: m.title,
+        provider: m.provider,
+        meetingUrl: m.meetingUrl,
+        status: m.status,
+        startedBy: { name: starter?.name ?? "Unknown", avatarUrl: starter?.avatarUrl },
+        startedAt: m.startedAt,
+        endedAt: m.endedAt,
+        participants,
+      };
+    }
+  }
+
+  return {
+    ...msg,
+    author: author ? { name: author.name, avatarUrl: author.avatarUrl } : null,
+    isAgent: memberRecord?.isAgent ?? false,
+    threadParticipants,
+    integrationObject,
+    meeting,
+  };
+}

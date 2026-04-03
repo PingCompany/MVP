@@ -3,8 +3,9 @@ import { v } from "convex/values";
 import { requireAuth, requireUser, getGuestVisibleUserIds } from "./auth";
 
 /**
- * Search channel messages using the full-text search index.
+ * Search messages using the full-text search index.
  * Returns up to 20 matching messages with author info.
+ * Works across all conversations (channels and DMs) the user has access to.
  */
 export const searchMessages = query({
   args: {
@@ -14,102 +15,42 @@ export const searchMessages = query({
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
 
-    // Get channels in this workspace so we only return relevant results
-    const channels = await ctx.db
-      .query("channels")
+    // Get conversations in this workspace so we only return relevant results
+    const conversations = await ctx.db
+      .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(100);
+      .take(200);
 
-    let channelIds = new Set<string>(channels.map((c) => c._id));
+    let conversationIds = new Set<string>(conversations.map((c) => c._id));
 
     if (user.role === "guest") {
       const myMemberships = await ctx.db
-        .query("channelMembers")
+        .query("conversationMembers")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect();
-      const myChannelIds = new Set<string>(myMemberships.map((m) => m.channelId));
-      channelIds = new Set([...channelIds].filter((id) => myChannelIds.has(id)));
+      const myConversationIds = new Set<string>(myMemberships.map((m) => m.conversationId));
+      conversationIds = new Set([...conversationIds].filter((id) => myConversationIds.has(id)));
     }
-    const channelMap = new Map(channels.map((c) => [c._id, c]));
+    const conversationMap = new Map(conversations.map((c) => [c._id, c]));
 
     // Search across all messages (search index doesn't support OR on filterFields,
-    // so we search without filter and post-filter by workspace channels)
+    // so we search without filter and post-filter by workspace conversations)
     const results = await ctx.db
       .query("messages")
       .withSearchIndex("search_body", (q) => q.search("body", args.query))
       .take(50);
 
-    const filtered = results.filter((m) => channelIds.has(m.channelId));
+    const filtered = results.filter((m) => conversationIds.has(m.conversationId!));
 
-    // Enrich with author and channel info
+    // Enrich with author and conversation info
     const enriched = await Promise.all(
       filtered.slice(0, 20).map(async (msg) => {
         const author = await ctx.db.get(msg.authorId);
-        const channel = channelMap.get(msg.channelId);
+        const conversation = conversationMap.get(msg.conversationId!);
         return {
           _id: msg._id,
           body: msg.body,
-          channelId: msg.channelId,
-          channelName: channel?.name ?? null,
-          authorName: author?.name ?? "Unknown",
-          authorAvatarUrl: author?.avatarUrl ?? null,
-          _creationTime: msg._creationTime,
-        };
-      }),
-    );
-
-    return enriched;
-  },
-});
-
-/**
- * Search direct messages using the full-text search index.
- * Only returns messages from conversations the user is a member of.
- */
-export const searchDirectMessages = query({
-  args: {
-    workspaceId: v.id("workspaces"),
-    query: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await requireAuth(ctx, args.workspaceId);
-    const user = await requireUser(ctx);
-
-    // Get user's DM conversations
-    const memberships = await ctx.db
-      .query("directConversationMembers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .take(100);
-
-    // Filter to conversations in this workspace only
-    const conversations = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.conversationId)),
-    );
-    const conversationIds = new Set(
-      conversations
-        .filter((c) => c && c.workspaceId === args.workspaceId)
-        .map((c) => c!._id),
-    );
-
-    // Search DMs and post-filter by membership
-    const results = await ctx.db
-      .query("directMessages")
-      .withSearchIndex("search_body", (q) => q.search("body", args.query))
-      .take(50);
-
-    const filtered = results.filter((m) =>
-      conversationIds.has(m.conversationId),
-    );
-
-    // Enrich with author info
-    const enriched = await Promise.all(
-      filtered.slice(0, 20).map(async (msg) => {
-        const author = await ctx.db.get(msg.authorId);
-        const conversation = await ctx.db.get(msg.conversationId);
-        return {
-          _id: msg._id,
-          body: msg.body,
-          conversationId: msg.conversationId,
+          conversationId: msg.conversationId!,
           conversationName: conversation?.name ?? null,
           authorName: author?.name ?? "Unknown",
           authorAvatarUrl: author?.avatarUrl ?? null,

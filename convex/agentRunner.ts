@@ -19,13 +19,13 @@ export const getAgentWithContext = internalQuery({
 
 export const getRecentChannelMessages = internalQuery({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     limit: v.number(),
   },
   handler: async (ctx, args) => {
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.channelId))
       .order("desc")
       .take(args.limit);
 
@@ -45,12 +45,12 @@ export const getRecentChannelMessages = internalQuery({
 
 export const getRecentDMMessages = internalQuery({
   args: {
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     limit: v.number(),
   },
   handler: async (ctx, args) => {
     const messages = await ctx.db
-      .query("directMessages")
+      .query("messages")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId),
       )
@@ -164,7 +164,7 @@ export const getWorkspaceIntegrations = internalQuery({
 export const respondInChannel = internalAction({
   args: {
     agentId: v.id("agents"),
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     query: v.string(),
     triggerMessageId: v.id("messages"),
   },
@@ -297,7 +297,7 @@ export const respondInChannel = internalAction({
 
       // Insert bot message
       await ctx.runMutation(internal.bot.insertBotMessage, {
-        channelId: args.channelId,
+        conversationId: args.channelId,
         authorId: agent.agentUserId,
         body: answer,
       });
@@ -320,9 +320,9 @@ export const respondInChannel = internalAction({
 export const respondInDM = internalAction({
   args: {
     agentId: v.id("agents"),
-    conversationId: v.id("directConversations"),
+    conversationId: v.id("conversations"),
     query: v.string(),
-    triggerMessageId: v.id("directMessages"),
+    triggerMessageId: v.id("messages"),
     triggerUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -358,12 +358,12 @@ export const respondInDM = internalAction({
       const graphitiUrl = process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
       const groupIds: string[] = [`dm-${args.conversationId}`];
 
-      // Expand search to user's channels
-      const channelIds: string[] = await ctx.runQuery(
-        internal.bot.getUserChannelIds,
+      // Expand search to user's conversations
+      const conversationIds: string[] = await ctx.runQuery(
+        internal.bot.getUserConversationIds,
         { userId: args.triggerUserId },
       );
-      groupIds.push(...channelIds);
+      groupIds.push(...conversationIds);
 
       let factsContext = "";
       try {
@@ -461,7 +461,7 @@ export const respondInDM = internalAction({
         result.choices[0]?.message?.content ??
         "Sorry, I couldn't generate a response.";
 
-      await ctx.runMutation(internal.bot.insertBotDirectMessage, {
+      await ctx.runMutation(internal.bot.insertBotMessage, {
         conversationId: args.conversationId,
         authorId: agent.agentUserId,
         body: answer,
@@ -488,19 +488,19 @@ export const respondInDM = internalAction({
  */
 export const dispatchChannelMention = internalMutation({
   args: {
-    channelId: v.id("channels"),
+    channelId: v.id("conversations"),
     messageId: v.id("messages"),
     body: v.string(),
     authorId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return;
+    const conversation = await ctx.db.get(args.channelId);
+    if (!conversation) return;
 
     // Get all active agents in the workspace
     const agents = await ctx.db
       .query("agents")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", channel.workspaceId))
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", conversation.workspaceId))
       .take(50);
 
     const activeAgents = agents.filter((a) => a.status === "active" && a.agentUserId);
@@ -541,13 +541,13 @@ export const dispatchChannelMention = internalMutation({
 // ── Dispatch: DM to agent ───────────────────────────────────────────
 
 /**
- * Called from directMessages.send — if the conversation has agent members,
+ * Called from messages.send — if the conversation has agent members,
  * schedules each agent to respond.
  */
 export const dispatchDMResponse = internalMutation({
   args: {
-    conversationId: v.id("directConversations"),
-    messageId: v.id("directMessages"),
+    conversationId: v.id("conversations"),
+    messageId: v.id("messages"),
     body: v.string(),
     authorId: v.id("users"),
   },
@@ -560,7 +560,7 @@ export const dispatchDMResponse = internalMutation({
 
     // Get all members of this conversation
     const members = await ctx.db
-      .query("directConversationMembers")
+      .query("conversationMembers")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId),
       )

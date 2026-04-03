@@ -9,12 +9,12 @@ export const MANAGED_AGENTS = [
     slug: "mr-ping",
     name: "mrPING",
     description:
-      "Your AI workspace assistant. Knows your channels, people, and projects.",
+      "Your AI workspace assistant. Knows your conversations, people, and projects.",
     color: "#8B5CF6",
     model: "gpt-5.4",
     scope: "workspace" as const,
     tools: [
-      "read_channels",
+      "read_conversations",
       "search_knowledge",
       "send_messages",
       "summarize",
@@ -31,8 +31,8 @@ Personality:
 - You cite sources when you have knowledge graph facts available, using [n] notation.
 
 Capabilities:
-- You have access to the workspace's knowledge graph and can surface relevant facts from channels, conversations, and integrations.
-- You can help with summarizing discussions, finding information across channels, drafting messages, and answering questions about what's happening in the workspace.
+- You have access to the workspace's knowledge graph and can surface relevant facts from conversations and integrations.
+- You can help with summarizing discussions, finding information across conversations, drafting messages, and answering questions about what's happening in the workspace.
 - When you don't have enough context, say so clearly rather than guessing.
 
 Guidelines:

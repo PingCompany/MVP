@@ -88,16 +88,16 @@ export const review = mutation({
         });
 
         // Auto-join #general
-        const generalChannel = await ctx.db
-          .query("channels")
-          .withIndex("by_workspace_name", (q) =>
+        const generalConversation = await ctx.db
+          .query("conversations")
+          .withIndex("by_workspace_and_name", (q) =>
             q.eq("workspaceId", request.workspaceId).eq("name", "general"),
           )
           .unique();
 
-        if (generalChannel) {
-          await ctx.db.insert("channelMembers", {
-            channelId: generalChannel._id,
+        if (generalConversation) {
+          await ctx.db.insert("conversationMembers", {
+            conversationId: generalConversation._id,
             userId: request.userId,
           });
         }

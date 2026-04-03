@@ -35,30 +35,32 @@ export const seedDefaultData = internalMutation({
       joinedAt: Date.now(),
     });
 
-    // Create default channels
-    const generalId = await ctx.db.insert("channels", {
+    // Create default conversations
+    const generalId = await ctx.db.insert("conversations", {
       name: "general",
       description: "Company-wide announcements and discussion",
       workspaceId,
       createdBy: systemUserId,
       isDefault: true,
       isArchived: false,
-      type: "public",
+      kind: "group",
+      visibility: "public",
     });
 
-    await ctx.db.insert("channels", {
+    await ctx.db.insert("conversations", {
       name: "engineering",
       description: "Engineering team discussions",
       workspaceId,
       createdBy: systemUserId,
       isDefault: true,
       isArchived: false,
-      type: "public",
+      kind: "group",
+      visibility: "public",
     });
 
-    // Add system user to channels
-    await ctx.db.insert("channelMembers", {
-      channelId: generalId,
+    // Add system user to conversations
+    await ctx.db.insert("conversationMembers", {
+      conversationId: generalId,
       userId: systemUserId,
     });
 
@@ -87,13 +89,13 @@ export const seedDecisions = mutation({
 
     const workspaceId = membership.workspaceId;
 
-    // Get or create channels we'll reference
-    const channelMap: Record<string, import("./_generated/dataModel").Id<"channels">> = {};
+    // Get or create conversations we'll reference
+    const channelMap: Record<string, import("./_generated/dataModel").Id<"conversations">> = {};
 
     const channelNames = ["engineering", "product", "general", "support", "ops", "data"];
     for (const name of channelNames) {
       const existing = await ctx.db
-        .query("channels")
+        .query("conversations")
         .filter((q) =>
           q.and(q.eq(q.field("workspaceId"), workspaceId), q.eq(q.field("name"), name)),
         )
@@ -101,12 +103,14 @@ export const seedDecisions = mutation({
       if (existing) {
         channelMap[name] = existing._id;
       } else {
-        channelMap[name] = await ctx.db.insert("channels", {
+        channelMap[name] = await ctx.db.insert("conversations", {
           name,
           workspaceId,
           createdBy: user._id,
           isDefault: false,
           isArchived: false,
+          kind: "group",
+          visibility: "public",
         });
       }
     }
@@ -361,19 +365,19 @@ export const seedDecisions = mutation({
       const uid = userIdByName[msg.authorName];
       if (!cid || !uid) continue;
 
-      // Ensure user is channel member
+      // Ensure user is conversation member
       const existingMember = await ctx.db
-        .query("channelMembers")
+        .query("conversationMembers")
         .filter((q) =>
-          q.and(q.eq(q.field("channelId"), cid), q.eq(q.field("userId"), uid)),
+          q.and(q.eq(q.field("conversationId"), cid), q.eq(q.field("userId"), uid)),
         )
         .first();
       if (!existingMember) {
-        await ctx.db.insert("channelMembers", { channelId: cid, userId: uid });
+        await ctx.db.insert("conversationMembers", { conversationId: cid, userId: uid });
       }
 
       await ctx.db.insert("messages", {
-        channelId: cid,
+        conversationId: cid,
         authorId: uid,
         body: msg.body,
         type: "user" as const,
@@ -392,7 +396,7 @@ export const seedDecisions = mutation({
         title: "Should we approve PR #847 to unblock the staging deploy?",
         summary: "PR #847 refactors the JWT middleware. Staging is blocked until it merges — QA window closes in 2 hours. CI is green, 1 approval still needed.",
         pingWillDo: "Post approval comment, notify QA, trigger staging deploy pipeline",
-        status: "pending", channelId: channelMap["engineering"],
+        status: "pending", conversationId: channelMap["engineering"],
         orgTrace: [
           { name: "Sarah Kim", role: "author", userId: userIdByName["Sarah Kim"] },
           { name: "Alex Chen", role: "assignee", userId: userIdByName["Alex Chen"] },
@@ -424,7 +428,7 @@ export const seedDecisions = mutation({
         title: "Should we raise Acme Corp's API rate limit above their contract?",
         summary: "Acme is hitting 429s. Their contract allows 1,000 req/min but the limiter is set to 200. Marcus escalated — their batch job runs at end of business today.",
         pingWillDo: "Update Acme Corp rate limit to 1,000/min, send confirmation, log audit trail",
-        status: "pending", channelId: channelMap["support"],
+        status: "pending", conversationId: channelMap["support"],
         orgTrace: [
           { name: "Marcus Lee", role: "author", userId: userIdByName["Marcus Lee"] },
           { name: "Priya Patel", role: "mentioned", userId: userIdByName["Priya Patel"] },
@@ -453,7 +457,7 @@ export const seedDecisions = mutation({
         title: "Which ds-v2 Linear tickets belong in Q2 scope?",
         summary: "34 tickets tagged 'ds-v2' are open. Jordan needs the scope locked this week — it affects roadmap planning for product, frontend, and design. Q3 starts in 5 weeks.",
         pingWillDo: "Add selected tickets to Q2 milestone in Linear, move rest to Q3 backlog, post summary in #product",
-        status: "pending", channelId: channelMap["product"],
+        status: "pending", conversationId: channelMap["product"],
         orgTrace: [
           { name: "Jordan Park", role: "assignee", userId: userIdByName["Jordan Park"] },
           { name: "Mia Torres", role: "mentioned", userId: userIdByName["Mia Torres"] },
@@ -485,7 +489,7 @@ export const seedDecisions = mutation({
         title: "How do we unblock the Stripe payment launch?",
         summary: "Integration is code-complete. Legal has had the DPA for 6 days with no response. Launch is on the roadmap for next Monday. Options involve scope trade-offs.",
         pingWillDo: "Escalate to legal with SLA breach notice, set reminder to follow up in 4 hours",
-        status: "pending", channelId: channelMap["ops"],
+        status: "pending", conversationId: channelMap["ops"],
         orgTrace: [
           { name: "Chris Wang", role: "author", userId: userIdByName["Chris Wang"] },
           { name: "Dana Ross", role: "mentioned", userId: userIdByName["Dana Ross"] },
@@ -515,7 +519,7 @@ export const seedDecisions = mutation({
         title: "Should we hold the /v1/users deprecation for mobile?",
         summary: "Backend is dropping v1/users on Friday. Mobile needs 3 more weeks. Backend says the old endpoint is causing incidents in production. One team's timeline has to move.",
         pingWillDo: "Extend deprecation date 3 weeks, notify backend team, create migration guide task in Linear",
-        status: "pending", channelId: channelMap["engineering"],
+        status: "pending", conversationId: channelMap["engineering"],
         orgTrace: [
           { name: "Alex Chen", role: "author", userId: userIdByName["Alex Chen"] },
           { name: "Sarah Kim", role: "mentioned", userId: userIdByName["Sarah Kim"] },
@@ -548,7 +552,7 @@ export const seedDecisions = mutation({
         title: "Which activation metric goes in the board deck?",
         summary: "The board deck says 68% activation but the dashboard shows 61%. One uses 'account created', the other 'first message sent'. The deck goes out Thursday.",
         pingWillDo: "Update board deck metric, add footnote explaining definition",
-        status: "pending", channelId: channelMap["data"],
+        status: "pending", conversationId: channelMap["data"],
         orgTrace: [
           { name: "Dana Ross", role: "author", userId: userIdByName["Dana Ross"] },
           { name: "Priya Patel", role: "mentioned", userId: userIdByName["Priya Patel"] },
@@ -578,7 +582,7 @@ export const seedDecisions = mutation({
         title: "How do we handle the low office move survey response?",
         summary: "12 of 40 responses collected. Deadline is tomorrow. Also: all-hands slide deck needs exec review by EOD Thursday. Two things to address.",
         pingWillDo: "Post reminder in #general, send DM to non-responders",
-        status: "pending", channelId: channelMap["general"],
+        status: "pending", conversationId: channelMap["general"],
         orgTrace: [
           { name: "Marcus Lee", role: "author", userId: userIdByName["Marcus Lee"] },
           { name: "Mia Torres", role: "author", userId: userIdByName["Mia Torres"] },

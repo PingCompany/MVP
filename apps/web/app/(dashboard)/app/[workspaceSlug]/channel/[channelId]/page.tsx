@@ -173,8 +173,7 @@ export default function ChannelPage({ params }: Props) {
     (messageId: string) => {
       openThreadPanel({
         parentMessageId: messageId,
-        messageTable: "messages",
-        channelId,
+        conversationId: channelId,
         contextName: channel?.name ?? channelId,
         workspaceId,
       });

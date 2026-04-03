@@ -482,8 +482,6 @@ function ThreadPanelSlot({
       >
         <ThreadPanel
           parentMessageId={openThread.parentMessageId}
-          messageTable={openThread.messageTable}
-          channelId={openThread.channelId}
           conversationId={openThread.conversationId}
           contextName={openThread.contextName}
           onClose={closeThreadPanel}
@@ -509,8 +507,6 @@ function ThreadPanelSlot({
           <div className="h-full" style={{ width: threadPanelWidth }}>
             <ThreadPanel
               parentMessageId={openThread.parentMessageId}
-              messageTable={openThread.messageTable}
-              channelId={openThread.channelId}
               conversationId={openThread.conversationId}
               contextName={openThread.contextName}
               onClose={closeThreadPanel}

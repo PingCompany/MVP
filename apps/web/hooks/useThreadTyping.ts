@@ -33,31 +33,3 @@ export function useThreadTyping(threadMessageId: Id<"messages">) {
 
   return { typingUsers: typingUsers as TypingUser[], onTyping, onSendClear };
 }
-
-/** Typing indicator for DM message threads. */
-export function useThreadDMTyping(threadDmMessageId: Id<"directMessages">) {
-  const { isAuthenticated } = useConvexAuth();
-  const typingUsers =
-    useQuery(
-      api.typing.getTypingUsersThreadDM,
-      isAuthenticated ? { threadDmMessageId } : "skip",
-    ) ?? [];
-
-  const setTyping = useMutation(api.typing.setTypingThreadDM);
-  const clearTyping = useMutation(api.typing.clearTypingThreadDM);
-  const lastFired = useRef(0);
-
-  const onTyping = useCallback(() => {
-    const now = Date.now();
-    if (now - lastFired.current < THROTTLE_MS) return;
-    lastFired.current = now;
-    setTyping({ threadDmMessageId });
-  }, [setTyping, threadDmMessageId]);
-
-  const onSendClear = useCallback(() => {
-    lastFired.current = 0;
-    clearTyping({ threadDmMessageId });
-  }, [clearTyping, threadDmMessageId]);
-
-  return { typingUsers: typingUsers as TypingUser[], onTyping, onSendClear };
-}

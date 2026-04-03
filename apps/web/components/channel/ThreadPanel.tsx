@@ -11,7 +11,7 @@ import { MessageItem, TypingIndicator, type Message } from "./MessageList";
 import { type ReactionGroup } from "./MessageReactions";
 import { RichTextComposer } from "./RichTextComposer";
 import { FileUpload, uploadAttachments, type PendingAttachment } from "./FileUpload";
-import { useThreadTyping, useThreadDMTyping } from "@/hooks/useThreadTyping";
+import { useThreadTyping } from "@/hooks/useThreadTyping";
 import { useReactions } from "@/hooks/useReactions";
 import { ThreadContentSkeleton } from "@/components/channel/ChannelSkeleton";
 
@@ -26,32 +26,23 @@ function getInitials(name: string): string {
 
 interface ThreadPanelProps {
   parentMessageId: string;
-  messageTable: "messages" | "directMessages";
-  channelId?: string;
-  conversationId?: string;
+  conversationId: string;
   contextName: string;
   onClose: () => void;
   onStartMeeting?: () => void;
   hasActiveMeeting?: boolean;
 }
 
-function ChannelThread({
+export function ThreadPanel({
   parentMessageId,
-  channelId,
+  conversationId,
   contextName,
   onClose,
   onStartMeeting,
   hasActiveMeeting,
-}: {
-  parentMessageId: string;
-  channelId: string;
-  contextName: string;
-  onClose: () => void;
-  onStartMeeting?: () => void;
-  hasActiveMeeting?: boolean;
-}) {
+}: ThreadPanelProps) {
   const threadId = parentMessageId as Id<"messages">;
-  const typedChannelId = channelId as Id<"channels">;
+  const typedConversationId = conversationId as Id<"conversations">;
   const data = useQuery(api.threads.listReplies, { threadId });
   const sendReply = useMutation(api.threads.sendReply);
   const editMessage = useMutation(api.messages.edit);
@@ -72,7 +63,7 @@ function ChannelThread({
   ) => {
     if (!content) return;
     sendReply({
-      channelId: typedChannelId,
+      conversationId: typedConversationId,
       threadId,
       body: content,
       alsoSendToChannel,
@@ -80,7 +71,7 @@ function ChannelThread({
     });
     onSendClear();
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  }, [sendReply, typedChannelId, threadId, alsoSendToChannel, onSendClear]);
+  }, [sendReply, typedConversationId, threadId, alsoSendToChannel, onSendClear]);
 
   const parentMessage: Message | null = data?.parent
     ? {
@@ -133,7 +124,6 @@ function ChannelThread({
   return (
     <ThreadPanelShell
       contextName={contextName}
-      contextPrefix="#"
       onClose={onClose}
       isLoading={data === undefined}
       replyCount={replies.length}
@@ -145,7 +135,7 @@ function ChannelThread({
       bottomRef={bottomRef}
       alsoSendTo={alsoSendToChannel}
       setAlsoSendTo={setAlsoSendToChannel}
-      alsoSendLabel={`Also send to #${contextName}`}
+      alsoSendLabel={`Also send to ${contextName}`}
       onToggleReaction={toggleReaction}
       currentUserId={currentUser?._id}
       reactionsByMessage={reactionsByMessage}
@@ -157,117 +147,8 @@ function ChannelThread({
   );
 }
 
-function DMThread({
-  parentMessageId,
-  conversationId,
-  contextName,
-  onClose,
-  onStartMeeting,
-  hasActiveMeeting,
-}: {
-  parentMessageId: string;
-  conversationId: string;
-  contextName: string;
-  onClose: () => void;
-  onStartMeeting?: () => void;
-  hasActiveMeeting?: boolean;
-}) {
-  const threadId = parentMessageId as Id<"directMessages">;
-  const typedConversationId = conversationId as Id<"directConversations">;
-  const data = useQuery(api.threads.listRepliesDM, { threadId });
-  const sendReply = useMutation(api.threads.sendReplyDM);
-  const editMessage = useMutation(api.directMessages.edit);
-  const deleteMessage = useMutation(api.directMessages.remove);
-  const { typingUsers, onTyping, onSendClear } = useThreadDMTyping(threadId);
-  const currentUser = useQuery(api.users.getMe, {});
-
-  const [alsoSendToConversation, setAlsoSendToConversation] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [data?.replies.length]);
-
-  const handleSend = useCallback((
-    content: string,
-    attachments?: Array<{ storageId: string; filename: string; mimeType: string; size: number }>,
-  ) => {
-    if (!content) return;
-    sendReply({
-      conversationId: typedConversationId,
-      threadId,
-      body: content,
-      alsoSendToConversation,
-      ...(attachments ? { attachments } : {}),
-    });
-    onSendClear();
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  }, [sendReply, typedConversationId, threadId, alsoSendToConversation, onSendClear]);
-
-  const parentMessage: Message | null = data?.parent
-    ? {
-        id: data.parent._id,
-        type: data.parent.type === "bot" ? "bot" : "user",
-        authorId: data.parent.authorId,
-        author: data.parent.author?.name ?? "Unknown",
-        authorInitials: getInitials(data.parent.author?.name ?? "?"),
-        authorAvatarUrl: data.parent.author?.avatarUrl,
-        content: data.parent.body,
-        timestamp: new Date(data.parent._creationTime),
-        isEdited: data.parent.isEdited,
-        attachments: data.parent.attachments as Array<{ storageId: string; filename: string; mimeType: string; size: number }> | undefined,
-      }
-    : null;
-
-  const replies: Message[] = (data?.replies ?? []).map((r) => ({
-    id: r._id,
-    type: r.type === "bot" ? "bot" : "user",
-    authorId: r.authorId,
-    author: r.author?.name ?? "Unknown",
-    authorInitials: getInitials(r.author?.name ?? "?"),
-    authorAvatarUrl: r.author?.avatarUrl,
-    content: r.body,
-    timestamp: new Date(r._creationTime),
-    isEdited: r.isEdited,
-    attachments: r.attachments as Array<{ storageId: string; filename: string; mimeType: string; size: number }> | undefined,
-  }));
-
-  const handleEditMessage = useCallback((messageId: string, newBody: string) => {
-    editMessage({ messageId: messageId as Id<"directMessages">, body: newBody });
-  }, [editMessage]);
-
-  const handleDeleteMessage = useCallback((messageId: string) => {
-    deleteMessage({ messageId: messageId as Id<"directMessages"> });
-  }, [deleteMessage]);
-
-  return (
-    <ThreadPanelShell
-      contextName={contextName}
-      contextPrefix=""
-      onClose={onClose}
-      isLoading={data === undefined}
-      replyCount={replies.length}
-      parentMessage={parentMessage}
-      replies={replies}
-      typingUsers={typingUsers}
-      onTyping={onTyping}
-      onSend={handleSend}
-      bottomRef={bottomRef}
-      alsoSendTo={alsoSendToConversation}
-      setAlsoSendTo={setAlsoSendToConversation}
-      alsoSendLabel={`Also send to ${contextName}`}
-      currentUserId={currentUser?._id}
-      onEditMessage={handleEditMessage}
-      onDeleteMessage={handleDeleteMessage}
-      onStartMeeting={onStartMeeting}
-      hasActiveMeeting={hasActiveMeeting}
-    />
-  );
-}
-
 function ThreadPanelShell({
   contextName,
-  contextPrefix,
   onClose,
   isLoading,
   replyCount,
@@ -289,7 +170,6 @@ function ThreadPanelShell({
   hasActiveMeeting,
 }: {
   contextName: string;
-  contextPrefix: string;
   onClose: () => void;
   isLoading?: boolean;
   replyCount: number;
@@ -363,7 +243,7 @@ function ThreadPanelShell({
           <MessageSquare className="h-4 w-4 text-foreground" />
           <span className="text-sm font-semibold text-foreground">Thread</span>
           <span className="text-2xs text-muted-foreground">
-            in {contextPrefix}{contextName}
+            in {contextName}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -467,43 +347,4 @@ function ThreadPanelShell({
       </div>
     </FileUpload>
   );
-}
-
-export function ThreadPanel({
-  parentMessageId,
-  messageTable,
-  channelId,
-  conversationId,
-  contextName,
-  onClose,
-  onStartMeeting,
-  hasActiveMeeting,
-}: ThreadPanelProps) {
-  if (messageTable === "messages" && channelId) {
-    return (
-      <ChannelThread
-        parentMessageId={parentMessageId}
-        channelId={channelId}
-        contextName={contextName}
-        onClose={onClose}
-        onStartMeeting={onStartMeeting}
-        hasActiveMeeting={hasActiveMeeting}
-      />
-    );
-  }
-
-  if (messageTable === "directMessages" && conversationId) {
-    return (
-      <DMThread
-        parentMessageId={parentMessageId}
-        conversationId={conversationId}
-        contextName={contextName}
-        onClose={onClose}
-        onStartMeeting={onStartMeeting}
-        hasActiveMeeting={hasActiveMeeting}
-      />
-    );
-  }
-
-  return null;
 }

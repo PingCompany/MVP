@@ -125,7 +125,6 @@ export default function DMPage({ params }: Props) {
     (messageId: string) => {
       openThreadPanel({
         parentMessageId: messageId,
-        messageTable: "directMessages",
         conversationId,
         contextName: displayName,
         workspaceId,

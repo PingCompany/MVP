@@ -392,11 +392,11 @@ export default function ChannelPage({ params }: Props) {
           <div className="space-y-3">
             {inviteLink ? (
               <>
-                <div className="flex items-center gap-2 rounded border border-subtle bg-surface-2 px-3 py-2">
+                <div className="flex items-center gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 min-w-0">
                   <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 truncate text-xs text-foreground">
-                    {`${typeof window !== "undefined" ? window.location.origin : ""}/conversation-invite/${inviteLink.token}`}
-                  </span>
+                  <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-2xs text-foreground/70 select-all">
+                    {`/conversation-invite/${inviteLink.token}`}
+                  </code>
                   <button
                     onClick={async () => {
                       await navigator.clipboard.writeText(
@@ -404,7 +404,7 @@ export default function ChannelPage({ params }: Props) {
                       );
                       toast("Link copied", "success");
                     }}
-                    className="rounded p-1 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>

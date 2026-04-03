@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      {
+        source: "/manifesto",
+        destination: "https://docs.openping.app/manifesto",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

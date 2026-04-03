@@ -1,0 +1,1012 @@
+---
+import ManifestoLayout from "../layouts/ManifestoLayout.astro";
+import { knotTextPathD } from "../data/knot-text-path";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<ManifestoLayout
+  title="OpenPing Manifesto — Decision-first workspace"
+  description="We are not building a better chat app. We are building a better way for teams to decide."
+>
+  <!-- Navigation -->
+  <nav id="manifesto-nav">
+    <div class="nav-inner">
+      <a href={`${base}`} class="nav-logo">
+        <img
+          src={`${base}favicon.ico`}
+          alt="OpenPing"
+          class="logo-icon"
+          width="20"
+          height="20"
+        />
+        <span class="logo-text">OpenPing</span>
+      </a>
+      <div class="nav-right">
+        <span class="nav-label">Manifesto</span>
+        <button id="theme-toggle" aria-label="Toggle theme">
+          <svg
+            id="icon-sun"
+            xmlns="http://www.w3.org/2000/svg"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="4"></circle>
+            <path
+              d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+            ></path>
+          </svg>
+          <svg
+            id="icon-moon"
+            xmlns="http://www.w3.org/2000/svg"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero — Supersized Gordian Knot -->
+  <section class="hero-section">
+    <div class="knot-container">
+      <div class="knot-sizer" id="gordian-knot"></div>
+    </div>
+
+    <!-- Radial fade edges -->
+    <div class="hero-fade"></div>
+
+    <!-- Title overlaid on knot -->
+    <div class="hero-text">
+      <h1 class="hero-title">OpenPing</h1>
+      <p class="hero-subtitle">Decision-first workspace</p>
+    </div>
+
+    <!-- Scroll hint -->
+    <div class="scroll-hint">
+      <p class="scroll-label">scroll</p>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- Manifesto content -->
+  <main class="manifesto-main">
+    <!-- Opening thesis -->
+    <p class="opening-thesis">
+      Work tools obsess over three actions: search, send, receive.
+      <br />
+      <span class="thesis-highlight">
+        We are building for the one that actually matters — decide.
+      </span>
+    </p>
+
+    <!-- The problem -->
+    <section class="section">
+      <p class="body-text mb">
+        Today&rsquo;s collaboration software was designed for a world where
+        humans had to do everything manually: notice a message, interpret its
+        urgency, find the missing context, search across tools, summarize for
+        others, and finally — decide what to do.
+      </p>
+      <p class="body-text mb">
+        That model turns capable people into routers of information, collectors
+        of context, and bottlenecks in decision chains.
+      </p>
+      <p class="body-text emphasis">
+        The value is not created when information moves. It is created when
+        <em
+          >the right person makes the right call with the right context at the
+          right time.</em
+        >
+        That is the job. Not chatting. Not scrolling. Decision-making.
+      </p>
+    </section>
+
+    <!-- Human + AI -->
+    <section class="section sidebar-section">
+      <p class="sidebar-text">
+        Context — gathered, synthesized, ranked, traced — can increasingly be
+        handled by AI.
+      </p>
+      <p class="sidebar-text">
+        Judgment, accountability, taste, strategic intuition, the principled risk
+        — those still belong to people.
+      </p>
+      <p class="sidebar-highlight">
+        OpenPing is built on a simple idea: let AI do the assembly. Let humans
+        do the deciding.
+      </p>
+    </section>
+
+    <!-- Three pillars -->
+    <section class="section">
+      <div class="pillars">
+        <div class="pillar">
+          <span class="pillar-num">01</span>
+          <div>
+            <p class="pillar-title">Surfaces the right decisions</p>
+            <p class="body-text">
+              Not everything deserves attention. OpenPing identifies what
+              actually needs a human call — nothing more, nothing less.
+            </p>
+          </div>
+        </div>
+        <div class="pillar">
+          <span class="pillar-num">02</span>
+          <div>
+            <p class="pillar-title">Prepares them with the right context</p>
+            <p class="body-text">
+              Not too much. Not too little. Enough to move with confidence, with
+              depth available on demand.
+            </p>
+          </div>
+        </div>
+        <div class="pillar">
+          <span class="pillar-num">03</span>
+          <div>
+            <p class="pillar-title">Turns decisions into motion</p>
+            <p class="body-text">
+              A decision should not die in a thread. It triggers coordination,
+              delegation, reminders, and execution immediately.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Beliefs -->
+    <section class="section beliefs">
+      <p class="belief">Work software should respect attention.</p>
+      <p class="belief">
+        The message feed is the wrong center of gravity for modern teams.
+      </p>
+      <p class="belief">
+        AI should prepare better decisions, not just answer questions.
+      </p>
+      <p class="belief">
+        Context should come to the decision-maker — not the other way around.
+      </p>
+      <p class="belief">
+        The best systems reduce noise without reducing nuance.
+      </p>
+      <p class="belief">
+        Important decisions should be explainable, traceable, and actionable.
+      </p>
+      <p class="belief">
+        Once a human makes the call, software should help execute it
+        immediately.
+      </p>
+      <p class="belief">
+        The future of collaboration is not more conversation.
+      </p>
+    </section>
+
+    <!-- Closing -->
+    <section class="closing">
+      <p class="closing-title">
+        Clearer judgment. Faster coordinated action.
+      </p>
+      <p class="closing-subtitle">
+        That is what OpenPing is here to build.
+      </p>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="manifesto-footer">
+    <a href={`${base}`} class="footer-link">&larr; Back to OpenPing</a>
+  </footer>
+
+  <!-- Embed knot text path data for script use -->
+  <script
+    id="knot-text-path-data"
+    type="application/json"
+    set:html={JSON.stringify(knotTextPathD)}
+  />
+
+  <style>
+    /* ── Navigation ── */
+    #manifesto-nav {
+      position: fixed;
+      top: 0;
+      z-index: 50;
+      width: 100%;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    html.dark #manifesto-nav {
+      background: rgba(10, 10, 10, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    html:not(.dark) #manifesto-nav {
+      background: rgba(255, 255, 255, 0.8);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .nav-inner {
+      max-width: 72rem;
+      margin: 0 auto;
+      display: flex;
+      height: 3.5rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      height: 1.25rem;
+      width: auto;
+    }
+
+    .logo-text {
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    html.dark .logo-text {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    html:not(.dark) .logo-text {
+      color: rgba(0, 0, 0, 0.9);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .nav-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+    }
+
+    html.dark .nav-label {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    html:not(.dark) .nav-label {
+      color: rgba(0, 0, 0, 0.25);
+    }
+
+    #theme-toggle {
+      display: flex;
+      height: 1.75rem;
+      width: 1.75rem;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: none;
+      background: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    html.dark #theme-toggle {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    html.dark #theme-toggle:hover {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    html:not(.dark) #theme-toggle {
+      color: rgba(0, 0, 0, 0.25);
+    }
+
+    html:not(.dark) #theme-toggle:hover {
+      color: rgba(0, 0, 0, 0.6);
+    }
+
+    /* Show/hide sun/moon icons based on theme */
+    html.dark #icon-sun {
+      display: block;
+    }
+
+    html.dark #icon-moon {
+      display: none;
+    }
+
+    html:not(.dark) #icon-sun {
+      display: none;
+    }
+
+    html:not(.dark) #icon-moon {
+      display: block;
+    }
+
+    /* ── Hero ── */
+    .hero-section {
+      position: relative;
+      display: flex;
+      height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .knot-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .knot-sizer {
+      height: 90vh;
+      width: 90vh;
+      max-height: 90vw;
+      max-width: 90vw;
+    }
+
+    .hero-fade {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    html.dark .hero-fade {
+      background: radial-gradient(
+        ellipse at center,
+        transparent 35%,
+        #0a0a0a 72%
+      );
+    }
+
+    html:not(.dark) .hero-fade {
+      background: radial-gradient(
+        ellipse at center,
+        transparent 35%,
+        white 72%
+      );
+    }
+
+    .hero-text {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .hero-title {
+      font-size: clamp(3.5rem, 10vw, 8rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    html.dark .hero-title {
+      color: white;
+    }
+
+    html:not(.dark) .hero-title {
+      color: black;
+    }
+
+    .hero-subtitle {
+      margin-top: 1rem;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4em;
+    }
+
+    html.dark .hero-subtitle {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    html:not(.dark) .hero-subtitle {
+      color: rgba(0, 0, 0, 0.3);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .scroll-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+    }
+
+    html.dark .scroll-label {
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    html:not(.dark) .scroll-label {
+      color: rgba(0, 0, 0, 0.2);
+    }
+
+    .scroll-line {
+      height: 2rem;
+      width: 1px;
+    }
+
+    html.dark .scroll-line {
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.2),
+        transparent
+      );
+    }
+
+    html:not(.dark) .scroll-line {
+      background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.2),
+        transparent
+      );
+    }
+
+    /* ── Main content ── */
+    .manifesto-main {
+      position: relative;
+      z-index: 10;
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 6rem 1.5rem 8rem;
+    }
+
+    .opening-thesis {
+      margin-bottom: 4rem;
+      text-align: center;
+      font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+      line-height: 1.7;
+    }
+
+    html.dark .opening-thesis {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    html:not(.dark) .opening-thesis {
+      color: rgba(0, 0, 0, 0.5);
+    }
+
+    .thesis-highlight {
+      font-weight: 500;
+    }
+
+    html.dark .thesis-highlight {
+      color: white;
+    }
+
+    html:not(.dark) .thesis-highlight {
+      color: black;
+    }
+
+    .section {
+      margin-bottom: 5rem;
+    }
+
+    .body-text {
+      line-height: 1.7;
+    }
+
+    .body-text.mb {
+      margin-bottom: 1.25rem;
+    }
+
+    .body-text.emphasis {
+      font-weight: 500;
+    }
+
+    html.dark .body-text.emphasis {
+      color: white;
+    }
+
+    html:not(.dark) .body-text.emphasis {
+      color: black;
+    }
+
+    .body-text.emphasis em {
+      font-style: italic;
+    }
+
+    /* ── Sidebar section ── */
+    .sidebar-section {
+      padding-left: 2rem;
+    }
+
+    html.dark .sidebar-section {
+      border-left: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    html:not(.dark) .sidebar-section {
+      border-left: 2px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-text {
+      margin-bottom: 0.75rem;
+      line-height: 1.7;
+    }
+
+    html.dark .sidebar-text {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    html:not(.dark) .sidebar-text {
+      color: rgba(0, 0, 0, 0.6);
+    }
+
+    .sidebar-highlight {
+      font-size: 1.125rem;
+      font-weight: 500;
+    }
+
+    html.dark .sidebar-highlight {
+      color: white;
+    }
+
+    html:not(.dark) .sidebar-highlight {
+      color: black;
+    }
+
+    /* ── Pillars ── */
+    .pillars {
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    .pillar {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .pillar-num {
+      flex-shrink: 0;
+      font-family: "Geist Mono", ui-monospace, monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    html.dark .pillar-num {
+      color: rgba(255, 255, 255, 0.06);
+    }
+
+    html:not(.dark) .pillar-num {
+      color: rgba(0, 0, 0, 0.06);
+    }
+
+    .pillar-title {
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    html.dark .pillar-title {
+      color: white;
+    }
+
+    html:not(.dark) .pillar-title {
+      color: black;
+    }
+
+    /* ── Beliefs ── */
+    .beliefs {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .belief {
+      font-size: 1.125rem;
+      line-height: 1.7;
+    }
+
+    /* ── Closing ── */
+    .closing {
+      text-align: center;
+    }
+
+    .closing-title {
+      font-size: clamp(1.5rem, 3vw, 1.875rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    html.dark .closing-title {
+      color: white;
+    }
+
+    html:not(.dark) .closing-title {
+      color: black;
+    }
+
+    .closing-subtitle {
+      margin-top: 1rem;
+      font-size: 1.125rem;
+    }
+
+    html.dark .closing-subtitle {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    html:not(.dark) .closing-subtitle {
+      color: rgba(0, 0, 0, 0.5);
+    }
+
+    /* ── Footer ── */
+    .manifesto-footer {
+      padding: 3rem 0;
+      text-align: center;
+    }
+
+    html.dark .manifesto-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    html:not(.dark) .manifesto-footer {
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .footer-link {
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    html.dark .footer-link {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    html.dark .footer-link:hover {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    html:not(.dark) .footer-link {
+      color: rgba(0, 0, 0, 0.25);
+    }
+
+    html:not(.dark) .footer-link:hover {
+      color: rgba(0, 0, 0, 0.5);
+    }
+  </style>
+
+  <!-- Gordian Knot animation + theme toggle -->
+  <script is:inline>
+    (function () {
+      /* ── Theme toggle ── */
+      var toggleBtn = document.getElementById("theme-toggle");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", function () {
+          var isDark = document.documentElement.classList.contains("dark");
+          document.documentElement.classList.toggle("dark", !isDark);
+          localStorage.setItem("ping-theme", isDark ? "light" : "dark");
+        });
+      }
+
+      /* ── Gordian Knot ── */
+      var container = document.getElementById("gordian-knot");
+      if (!container) return;
+
+      var cross = function (a, b) {
+        return {
+          x: a.y * b.z - a.z * b.y,
+          y: a.z * b.x - a.x * b.z,
+          z: a.x * b.y - a.y * b.x,
+        };
+      };
+      var dot = function (a, b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+      };
+      var normalize = function (v) {
+        var len = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        if (len === 0) return { x: 0, y: 0, z: 0 };
+        return { x: v.x / len, y: v.y / len, z: v.z / len };
+      };
+      var rotateAroundAxis = function (v, k, theta) {
+        var cos = Math.cos(theta);
+        var sin = Math.sin(theta);
+        var kXv = cross(k, v);
+        var kDotV = dot(k, v);
+        var oneMinusCos = 1 - cos;
+        return {
+          x: v.x * cos + kXv.x * sin + k.x * kDotV * oneMinusCos,
+          y: v.y * cos + kXv.y * sin + k.y * kDotV * oneMinusCos,
+          z: v.z * cos + kXv.z * sin + k.z * kDotV * oneMinusCos,
+        };
+      };
+
+      var spineNodes = 300;
+      var tubeNodes = 8;
+      var tubeRadius = 14;
+      var p = 3;
+      var q = 7;
+      var R = 150;
+      var r0 = 55;
+
+      function getSpinePoint(t) {
+        var r = R + r0 * Math.cos(q * t);
+        var x = r * Math.cos(p * t);
+        var y = r * Math.sin(p * t);
+        var z = r0 * Math.sin(q * t) - 30 * Math.sin(p * t);
+        return { x: x, y: y, z: z };
+      }
+
+      function getTangent(t) {
+        var d = 0.001;
+        var p1 = getSpinePoint(t - d);
+        var p2 = getSpinePoint(t + d);
+        return normalize({
+          x: p2.x - p1.x,
+          y: p2.y - p1.y,
+          z: p2.z - p1.z,
+        });
+      }
+
+      var vertices = [];
+      var edges = [];
+      var frames = [];
+      var prevN = { x: 0, y: 0, z: 1 };
+
+      for (var i = 0; i <= spineNodes; i++) {
+        var t = (i / spineNodes) * Math.PI * 2;
+        var P = getSpinePoint(t);
+        var T = getTangent(t);
+        var N;
+        if (i === 0) {
+          var UP = { x: 0, y: 1, z: 0 };
+          if (Math.abs(T.y) > 0.9) UP = { x: 1, y: 0, z: 0 };
+          N = normalize(cross(T, UP));
+        } else {
+          var dotTN = dot(T, prevN);
+          N = normalize({
+            x: prevN.x - dotTN * T.x,
+            y: prevN.y - dotTN * T.y,
+            z: prevN.z - dotTN * T.z,
+          });
+        }
+        var B = cross(T, N);
+        prevN = N;
+        frames.push({ P: P, T: T, N: N, B: B });
+      }
+
+      var firstFrame = frames[0];
+      var lastFrame = frames[spineNodes];
+      var cosTheta = dot(lastFrame.N, firstFrame.N);
+      var sinTheta = dot(cross(firstFrame.N, lastFrame.N), firstFrame.T);
+      var totalTwist = Math.atan2(sinTheta, cosTheta);
+      if (totalTwist > Math.PI) totalTwist -= Math.PI * 2;
+      if (totalTwist < -Math.PI) totalTwist += Math.PI * 2;
+
+      for (var i = 0; i <= spineNodes; i++) {
+        var correctionAngle = -(i / spineNodes) * totalTwist;
+        frames[i].N = rotateAroundAxis(
+          frames[i].N,
+          frames[i].T,
+          correctionAngle
+        );
+        frames[i].B = cross(frames[i].T, frames[i].N);
+      }
+
+      for (var i = 0; i < spineNodes; i++) {
+        var frame = frames[i];
+        for (var j = 0; j < tubeNodes; j++) {
+          var angle = (j / tubeNodes) * Math.PI * 2;
+          var cx = Math.cos(angle) * tubeRadius;
+          var cy = Math.sin(angle) * tubeRadius;
+          vertices.push({
+            x: frame.P.x + cx * frame.N.x + cy * frame.B.x,
+            y: frame.P.y + cx * frame.N.y + cy * frame.B.y,
+            z: frame.P.z + cx * frame.N.z + cy * frame.B.z,
+          });
+        }
+      }
+
+      for (var i = 0; i < spineNodes; i++) {
+        for (var j = 0; j < tubeNodes; j++) {
+          var current = i * tubeNodes + j;
+          var nextAround = i * tubeNodes + ((j + 1) % tubeNodes);
+          var nextAlong = ((i + 1) % spineNodes) * tubeNodes + j;
+          edges.push({ a: current, b: nextAround });
+          edges.push({ a: current, b: nextAlong });
+        }
+      }
+
+      var isDark = function () {
+        return document.documentElement.classList.contains("dark");
+      };
+
+      var svgNS = "http://www.w3.org/2000/svg";
+      var svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "299");
+      svg.setAttribute("height", "298");
+      svg.setAttribute("viewBox", "0 0 299 298");
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      svg.style.width = "100%";
+      svg.style.height = "100%";
+      svg.style.cursor = "grab";
+
+      var defs = document.createElementNS(svgNS, "defs");
+      defs.innerHTML =
+        '<filter id="knot-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+      svg.appendChild(defs);
+
+      var knotGroup = document.createElementNS(svgNS, "g");
+      knotGroup.setAttribute(
+        "transform",
+        "translate(149.5, 149) scale(0.42)"
+      );
+      svg.appendChild(knotGroup);
+
+      var numBuckets = 20;
+      var pathEls = [];
+
+      // Circular text path
+      var textPath = null;
+      var textPathDataEl = document.getElementById("knot-text-path-data");
+      if (textPathDataEl) {
+        var textPathD = JSON.parse(textPathDataEl.textContent);
+        textPath = document.createElementNS(svgNS, "path");
+        textPath.setAttribute("d", textPathD);
+        svg.appendChild(textPath);
+      }
+
+      function updateColors() {
+        var dark = isDark();
+        if (textPath) {
+          textPath.setAttribute("fill", dark ? "white" : "black");
+          textPath.setAttribute("fill-opacity", dark ? "0.35" : "0.25");
+        }
+        for (var i = 0; i < numBuckets; i++) {
+          var depthRatio = i / (numBuckets - 1);
+          var lightness = dark
+            ? 10 + depthRatio * 80
+            : 90 - depthRatio * 80;
+          var opacity = 0.15 + depthRatio * 0.85;
+          pathEls[i].setAttribute(
+            "stroke",
+            "hsl(0, 0%, " + lightness + "%)"
+          );
+          pathEls[i].setAttribute("stroke-opacity", String(opacity));
+        }
+      }
+
+      for (var i = 0; i < numBuckets; i++) {
+        var pathEl = document.createElementNS(svgNS, "path");
+        var depthRatio = i / (numBuckets - 1);
+        pathEl.setAttribute("fill", "none");
+        pathEl.setAttribute("stroke-width", depthRatio > 0.8 ? "1.5" : "1");
+        pathEl.setAttribute("stroke-linecap", "round");
+        pathEl.setAttribute("stroke-linejoin", "round");
+        if (i > numBuckets - 4)
+          pathEl.setAttribute("filter", "url(#knot-glow)");
+        knotGroup.appendChild(pathEl);
+        pathEls.push(pathEl);
+      }
+
+      updateColors();
+
+      var observer = new MutationObserver(updateColors);
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+
+      container.appendChild(svg);
+
+      var rotationX = 0.4;
+      var rotationY = 0.6;
+      var autoRotateSpeedY = 0.003;
+      var isDragging = false;
+      var prevMouse = { x: 0, y: 0 };
+      var animId;
+
+      var handleDown = function (e) {
+        isDragging = true;
+        svg.style.cursor = "grabbing";
+        var ev = e.touches ? e.touches[0] : e;
+        prevMouse = { x: ev.clientX, y: ev.clientY };
+      };
+      var handleMove = function (e) {
+        if (!isDragging) return;
+        var ev = e.touches ? e.touches[0] : e;
+        rotationY += (ev.clientX - prevMouse.x) * 0.008;
+        rotationX -= (ev.clientY - prevMouse.y) * 0.008;
+        prevMouse = { x: ev.clientX, y: ev.clientY };
+      };
+      var handleUp = function () {
+        isDragging = false;
+        svg.style.cursor = "grab";
+      };
+
+      svg.addEventListener("mousedown", handleDown);
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+      svg.addEventListener("touchstart", handleDown);
+      window.addEventListener("touchmove", handleMove, { passive: false });
+      window.addEventListener("touchend", handleUp);
+
+      var focalLength = 600;
+      var fixedRange = R + r0 + tubeRadius;
+
+      function animate() {
+        if (!isDragging) rotationY += autoRotateSpeedY;
+
+        var sinX = Math.sin(rotationX);
+        var cosX = Math.cos(rotationX);
+        var sinY = Math.sin(rotationY);
+        var cosY = Math.cos(rotationY);
+
+        var rotated = [];
+        for (var k = 0; k < vertices.length; k++) {
+          var v = vertices[k];
+          var x1 = v.x * cosY - v.z * sinY;
+          var z1 = v.z * cosY + v.x * sinY;
+          var y2 = v.y * cosX - z1 * sinX;
+          var z2 = z1 * cosX + v.y * sinX;
+          rotated.push({ x: x1, y: y2, z: z2 });
+        }
+
+        var dStrings = [];
+        for (var k = 0; k < numBuckets; k++) dStrings.push("");
+        var zRange = fixedRange * 2;
+        var minZ = -fixedRange;
+
+        for (var k = 0; k < edges.length; k++) {
+          var edge = edges[k];
+          var vA = rotated[edge.a];
+          var vB = rotated[edge.b];
+          var zAvg = (vA.z + vB.z) / 2;
+          var scaleA = focalLength / (focalLength - vA.z);
+          var scaleB = focalLength / (focalLength - vB.z);
+          var normalizedZ = (zAvg - minZ) / zRange;
+          if (normalizedZ < 0) normalizedZ = 0;
+          if (normalizedZ > 0.999) normalizedZ = 0.999;
+          var bucket = Math.floor(normalizedZ * numBuckets);
+          dStrings[bucket] +=
+            "M " +
+            (vA.x * scaleA).toFixed(1) +
+            " " +
+            (vA.y * scaleA).toFixed(1) +
+            " L " +
+            (vB.x * scaleB).toFixed(1) +
+            " " +
+            (vB.y * scaleB).toFixed(1) +
+            " ";
+        }
+
+        for (var k = 0; k < numBuckets; k++) {
+          pathEls[k].setAttribute("d", dStrings[k]);
+        }
+
+        animId = requestAnimationFrame(animate);
+      }
+
+      animate();
+    })();
+  </script>
+</ManifestoLayout>

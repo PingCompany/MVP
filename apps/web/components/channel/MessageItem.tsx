@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { Bot, MessageSquare, SmilePlus, Pencil, Trash2, Link } from "lucide-react";
 import { RichTextComposer } from "@/components/channel/RichTextComposer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,7 +14,7 @@ import { AttachmentRenderer } from "@/components/channel/AttachmentRenderer";
 import { cn, avatarGradient, formatRelativeTime } from "@/lib/utils";
 import type { MessageItemProps } from "./message-types";
 
-export function MessageItem({ message, showAvatar, showThreadLabel = true, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor, onClickMention, onCopyMessageLink, onJoinMeeting, onEndMeeting }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, showAvatar, showThreadLabel = true, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor, onClickMention, onCopyMessageLink, onJoinMeeting, onEndMeeting }: MessageItemProps) {
   const isBot = message.type === "bot";
   const hasThread = (message.threadReplyCount ?? 0) > 0;
   const isThreadReplyInFeed = message.threadId && message.alsoSentToChannel;
@@ -334,4 +334,4 @@ export function MessageItem({ message, showAvatar, showThreadLabel = true, onOpe
       </Dialog>
     </div>
   );
-}
+});

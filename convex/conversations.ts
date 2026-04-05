@@ -145,6 +145,11 @@ export const create = mutation({
       throw new Error("Guests cannot create conversations");
     }
 
+    // Force secret visibility for DM conversations
+    if (args.kind === "1to1" || args.kind === "group") {
+      args = { ...args, visibility: "secret" };
+    }
+
     const name = args.name?.trim();
     if (name !== undefined && name.length > 80) {
       throw new Error("Conversation name must be between 1 and 80 characters");
@@ -721,6 +726,11 @@ export const updateVisibility = mutation({
     if (!conversation) throw new Error("Conversation not found");
 
     await requireConversationMember(ctx, args.conversationId, user._id);
+
+    // Prevent making DMs public
+    if ((conversation.kind === "1to1" || conversation.kind === "group") && args.visibility === "public") {
+      throw new Error("Cannot make DM conversations public");
+    }
 
     // Must be owner or admin
     const wsUser = await requireAuth(ctx, conversation.workspaceId);

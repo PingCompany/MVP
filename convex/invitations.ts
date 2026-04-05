@@ -11,6 +11,11 @@ export const send = mutation({
     workspaceId: v.id("workspaces"),
   },
   handler: async (ctx, args) => {
+    // Validate email format
+    if (args.email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.email)) {
+      throw new Error("Invalid email address");
+    }
+
     const user = await requireAuth(ctx, args.workspaceId);
     if (user.role !== "admin") {
       throw new Error("Only admins can send invitations");

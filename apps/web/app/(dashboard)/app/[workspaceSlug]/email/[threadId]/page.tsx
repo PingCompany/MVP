@@ -14,25 +14,13 @@ import { Loader2 } from "lucide-react";
  * Sanitize HTML to prevent XSS attacks.
  * Strips script tags, event handlers, and dangerous attributes.
  */
+import DOMPurify from "dompurify";
+
 function sanitizeHtml(html: string): string {
-  // Remove script tags and their content
-  let clean = html.replace(
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    "",
-  );
-  // Remove event handlers (onclick, onerror, onload, etc.)
-  clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "");
-  // Remove javascript: URLs
-  clean = clean.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, "");
-  // Remove data: URLs in src attributes (can be used for XSS)
-  clean = clean.replace(
-    /src\s*=\s*["']data:(?!image\/)[^"']*["']/gi,
-    'src=""',
-  );
-  // Remove iframe, object, embed tags
-  clean = clean.replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, "");
-  clean = clean.replace(/<(iframe|object|embed|form)\b[^>]*\/?\s*>/gi, "");
-  return clean;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ["p", "br", "b", "i", "em", "strong", "a", "ul", "ol", "li", "blockquote", "code", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "img", "table", "thead", "tbody", "tr", "th", "td", "span", "div"],
+    ALLOWED_ATTR: ["href", "src", "alt", "class", "style", "target", "rel"],
+  });
 }
 
 interface Props {

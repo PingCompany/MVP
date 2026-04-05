@@ -1,9 +1,10 @@
 "use client";
 
+import { memo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { TypingUser } from "./message-types";
 
-export function TypingIndicator({ users, showHint = true }: { users: TypingUser[]; showHint?: boolean }) {
+export const TypingIndicator = memo(function TypingIndicator({ users, showHint = true }: { users: TypingUser[]; showHint?: boolean }) {
   const label =
     users.length === 1
       ? `${users[0].name} is typing`
@@ -46,4 +47,4 @@ export function TypingIndicator({ users, showHint = true }: { users: TypingUser[
       </AnimatePresence>
     </div>
   );
-}
+});

@@ -65,19 +65,27 @@ async function callOpenAI(prompt: string): Promise<string> {
     throw new Error("OPENAI_API_KEY environment variable is not set");
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-5.4-nano",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-5.4-nano",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`OpenAI API error: ${response.status}`);
@@ -492,46 +500,47 @@ export const generateChannelSummaries = internalAction({
       }
     }
 
-    // 5. Personalise per user and write summaries
+    // 5. Personalise per user and write summaries (parallelized)
     for (const ch of conversationData) {
       const baseSummary = summaryMap.get(ch.conversationId as string);
       if (!baseSummary) continue;
 
-      for (const member of ch.members) {
-        try {
-          const { role } = await ctx.runQuery(
-            internal.summaries.getUserRoleAndPrefs,
-            { userId: member._id },
-          );
+      await Promise.all(
+        ch.members.map(async (member) => {
+          try {
+            const { role } = await ctx.runQuery(
+              internal.summaries.getUserRoleAndPrefs,
+              { userId: member._id },
+            );
 
-          const personalised = personalizeForUser(baseSummary, member.name, role);
+            const personalised = personalizeForUser(baseSummary, member.name, role);
 
-          const sortedBullets = [...personalised.bullets].sort(
-            (a, b) =>
-              QUADRANT_ORDER.indexOf(a.priority) -
-              QUADRANT_ORDER.indexOf(b.priority),
-          );
+            const sortedBullets = [...personalised.bullets].sort(
+              (a, b) =>
+                QUADRANT_ORDER.indexOf(a.priority) -
+                QUADRANT_ORDER.indexOf(b.priority),
+            );
 
-          await ctx.runMutation(internal.summaries.writeSummary, {
-            userId: member._id,
-            conversationId: ch.conversationId,
-            eisenhowerQuadrant: personalised.eisenhowerQuadrant,
-            bullets: sortedBullets.map((b) => ({
-              text: b.text,
-              priority: b.priority,
-              relatedMessageIds: b.relatedMessageIds as Id<"messages">[],
-            })),
-            messageCount: ch.messages.length,
-            periodStart,
-            periodEnd: now,
-          });
-        } catch (err) {
-          console.error(
-            `[summaries] Failed for user ${member._id} in conversation ${ch.conversationId}:`,
-            err,
-          );
-        }
-      }
+            await ctx.runMutation(internal.summaries.writeSummary, {
+              userId: member._id,
+              conversationId: ch.conversationId,
+              eisenhowerQuadrant: personalised.eisenhowerQuadrant,
+              bullets: sortedBullets.map((b) => ({
+                text: b.text,
+                priority: b.priority,
+                relatedMessageIds: b.relatedMessageIds as Id<"messages">[],
+              })),
+              messageCount: ch.messages.length,
+              periodStart,
+              periodEnd: now,
+            });
+          } catch (err) {
+            console.error(
+              `[summaries] Failed for user ${member._id} in conversation ${ch.conversationId}`
+            );
+          }
+        }),
+      );
     }
   },
 });

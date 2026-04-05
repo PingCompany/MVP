@@ -887,11 +887,39 @@ export const listActivity = query({
     const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .take(500);
+      .take(100);
 
     const conversationIds = memberships.map((m) => m.conversationId);
     const starredSet = new Set(
       memberships.filter((m) => m.isStarred).map((m) => m.conversationId),
+    );
+
+    // Batch fetch conversations
+    const conversations = await Promise.all(
+      conversationIds.map((id) => ctx.db.get(id)),
+    );
+    const activeConversations = conversations.filter(
+      (c): c is NonNullable<typeof c> =>
+        c !== null && !c.isArchived && c.workspaceId === args.workspaceId,
+    );
+    const conversationMap = new Map(activeConversations.map((c) => [c._id, c]));
+
+    // Batch fetch recent messages for all conversations
+    const allMessages = await Promise.all(
+      activeConversations.map((conv) =>
+        ctx.db
+          .query("messages")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+          .order("desc")
+          .take(20),
+      ),
+    );
+
+    // Collect unique author IDs and batch fetch
+    const authorIds = [...new Set(allMessages.flat().map((m) => m.authorId))];
+    const authors = await Promise.all(authorIds.map((id) => ctx.db.get(id)));
+    const authorMap = new Map(
+      authors.filter((a): a is NonNullable<typeof a> => a !== null).map((a) => [a._id, a]),
     );
 
     const items: Array<{
@@ -907,20 +935,13 @@ export const listActivity = query({
       threadReplyCount?: number;
     }> = [];
 
-    for (const conversationId of conversationIds) {
-      const conversation = await ctx.db.get(conversationId);
-      if (!conversation || conversation.isArchived) continue;
-      if (conversation.workspaceId !== args.workspaceId) continue;
-
-      const recentMessages = await ctx.db
-        .query("messages")
-        .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
-        .order("desc")
-        .take(20);
+    for (let i = 0; i < activeConversations.length; i++) {
+      const conversation = activeConversations[i];
+      const recentMessages = allMessages[i];
 
       for (const msg of recentMessages) {
-        const author = await ctx.db.get(msg.authorId);
-        const authorName = author?.name ?? "Unknown";
+        if (msg.deletedAt) continue;
+        const authorName = authorMap.get(msg.authorId)?.name ?? "Unknown";
 
         const isThread = (msg.threadReplyCount ?? 0) > 0;
         const isMention = msg.body.toLowerCase().includes(`@${user.name?.toLowerCase()}`);

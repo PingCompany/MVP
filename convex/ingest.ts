@@ -90,23 +90,31 @@ export const processMessage = internalAction({
       }
     }
 
-    const response = await fetch(`${graphitiUrl}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        group_id: message.conversationId,
-        messages: [
-          {
-            content,
-            role_type: message.type === "bot" ? "assistant" : "user",
-            role: message.authorName,
-            timestamp: new Date(message.createdAt).toISOString(),
-            source_description: `conversation - ${message.conversationName}`,
-            name: `${message.authorName} in ${message.conversationName}`,
-          },
-        ],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let response: Response;
+    try {
+      response = await fetch(`${graphitiUrl}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group_id: message.conversationId,
+          messages: [
+            {
+              content,
+              role_type: message.type === "bot" ? "assistant" : "user",
+              role: message.authorName,
+              timestamp: new Date(message.createdAt).toISOString(),
+              source_description: `conversation - ${message.conversationName}`,
+              name: `${message.authorName} in ${message.conversationName}`,
+            },
+          ],
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const body = await response.text();

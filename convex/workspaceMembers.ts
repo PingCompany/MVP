@@ -1,4 +1,5 @@
 import { query, mutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
 import { cleanupEmptyPersonalWorkspaces } from "./invitations";
@@ -101,7 +102,18 @@ export const updateRole = mutation({
       .unique();
     if (!targetMembership) throw new Error("User is not a member of this workspace");
 
+    const oldRole = targetMembership.role;
     await ctx.db.patch(targetMembership._id, { role: args.role });
+
+    await ctx.runMutation(internal.auditLog.log, {
+      workspaceId: args.workspaceId,
+      actorId: currentUser._id,
+      action: "role.changed",
+      resourceType: "user",
+      resourceId: args.userId as string,
+      metadata: { oldRole, newRole: args.role },
+      timestamp: Date.now(),
+    });
   },
 });
 
@@ -128,6 +140,15 @@ export const removeMember = mutation({
     if (!targetMembership) throw new Error("User is not a member of this workspace");
 
     await ctx.db.delete(targetMembership._id);
+
+    await ctx.runMutation(internal.auditLog.log, {
+      workspaceId: args.workspaceId,
+      actorId: currentUser._id,
+      action: "member.removed",
+      resourceType: "user",
+      resourceId: args.userId as string,
+      timestamp: Date.now(),
+    });
   },
 });
 

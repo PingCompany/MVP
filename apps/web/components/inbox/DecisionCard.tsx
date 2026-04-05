@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   GitPullRequest,
   Ticket,
@@ -118,7 +118,7 @@ interface DecisionCardProps {
   onFocus?: () => void;
 }
 
-export function DecisionCard({ item, onAction, onArchive, onOpen, onFocus }: DecisionCardProps) {
+export const DecisionCard = memo(function DecisionCard({ item, onAction, onArchive, onOpen, onFocus }: DecisionCardProps) {
   const [hovered, setHovered] = useState(false);
   const config = priorityConfig[item.category];
   const typeInfo = typeConfig[item.type] ?? typeConfig.channel_summary;
@@ -244,4 +244,4 @@ export function DecisionCard({ item, onAction, onArchive, onOpen, onFocus }: Dec
       </div>
     </div>
   );
-}
+});

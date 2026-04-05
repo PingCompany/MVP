@@ -9,7 +9,7 @@ import { MessageList, type Message } from "@/components/channel/MessageList";
 import { ChannelTopBar } from "@/components/channel/ChannelTopBar";
 import { ConversationTopBar } from "@/components/channel/ConversationTopBar";
 import { ChannelTopBarSkeleton, ConversationTopBarSkeleton } from "@/components/channel/ChannelSkeleton";
-import { AlertBanner } from "@/components/proactive/AlertBanner";
+
 import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Archive } from "lucide-react";
@@ -69,8 +69,8 @@ export default function ConversationPage({ params }: Props) {
     api.conversations.listMembers,
     isAuthenticated ? { conversationId: typedId } : "skip",
   );
-  const alerts = useQuery(api.inboxItems.list, isAuthenticated ? {} : "skip");
-  const dismissAlert = useMutation(api.inboxItems.archive);
+  // Removed: inboxItems.list subscription was loading 70+ items on every conversation page
+  // Alerts should only be shown on the inbox page
   const startMeeting = useMutation(api.meetings.startInConversation);
   const joinMeetingMut = useMutation(api.meetings.joinMeeting);
   const endMeetingMut = useMutation(api.meetings.endMeeting);
@@ -303,7 +303,6 @@ export default function ConversationPage({ params }: Props) {
     toast("Link copied", "success");
   }, [toast]);
 
-  const firstAlert = alerts?.[0];
 
   return (
     <div className="relative flex h-full flex-col">
@@ -395,16 +394,7 @@ export default function ConversationPage({ params }: Props) {
         </div>
       )}
 
-      {firstAlert && (
-        <AlertBanner
-          title={firstAlert.title}
-          description={firstAlert.summary}
-          actions={[
-            { label: firstAlert.pingWillDo ?? "View", primary: true },
-          ]}
-          onDismiss={() => dismissAlert({ itemId: firstAlert._id })}
-        />
-      )}
+      {/* Alert banner removed — inbox query was causing unnecessary load on conversation pages */}
 
       {conversation?.isArchived && (
         <div className="flex items-center justify-center gap-3 border-t border-subtle bg-surface-2 px-6 py-3">

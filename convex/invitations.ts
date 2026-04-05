@@ -1,4 +1,4 @@
-import { query, mutation, internalQuery, MutationCtx } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuth, requireUser } from "./auth";
@@ -227,5 +227,28 @@ export const accept = mutation({
 
     const workspace = await ctx.db.get(invitation.workspaceId);
     return { workspaceId: invitation.workspaceId, slug: workspace?.slug ?? "" };
+  },
+});
+
+export const cleanupExpired = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expiredInvitations = await ctx.db
+      .query("invitations")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "pending"),
+          q.lt(q.field("expiresAt"), now),
+        ),
+      )
+      .take(500);
+    await Promise.all(expiredInvitations.map((i) => ctx.db.delete(i._id)));
+
+    const expiredConvInvitations = await ctx.db
+      .query("conversationInvitations")
+      .filter((q) => q.lt(q.field("expiresAt"), now))
+      .take(500);
+    await Promise.all(expiredConvInvitations.map((i) => ctx.db.delete(i._id)));
   },
 });

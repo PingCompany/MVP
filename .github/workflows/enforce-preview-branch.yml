@@ -1,0 +1,18 @@
+name: Enforce preview branch
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-source-branch:
+    name: Source branch must be preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source branch
+        run: |
+          if [ "${{ github.head_ref }}" != "preview" ]; then
+            echo "::error::PRs to main must come from the 'preview' branch. Current source: '${{ github.head_ref }}'"
+            exit 1
+          fi
+          echo "✓ Source branch is 'preview'"

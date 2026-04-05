@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ChevronRight, MoreHorizontal, Pencil, Trash2, Plus, Star, ArrowDownAZ, Clock, GripVertical, Check } from "lucide-react";
 import {
   Collapsible,
@@ -61,7 +62,7 @@ interface SidebarSectionProps {
   onChangeSortMode: (sectionId: string, mode: SortMode) => void;
 }
 
-export function SidebarSection({
+export const SidebarSection = memo(function SidebarSection({
   section,
   onlineUserIds,
   userId,
@@ -309,4 +310,4 @@ export function SidebarSection({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});

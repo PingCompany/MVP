@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { Lock, User, Users, Sparkles, Star, GripVertical } from "lucide-react";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -85,7 +86,7 @@ function isDMLike(item: UnifiedSidebarItem): boolean {
   return item.kind === "1to1" || item.kind === "agent_1to1";
 }
 
-export function SidebarItem({
+export const SidebarItem = memo(function SidebarItem({
   item,
   sortMode,
   inFavorites,
@@ -238,4 +239,4 @@ export function SidebarItem({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});

@@ -532,6 +532,9 @@ http.route({
     const auth = await authenticateAgent(ctx, request);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
 
+    const rateLimited = await checkApiRateLimit(ctx, auth.tokenId, true);
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const { channelId, message } = body;
 
@@ -560,6 +563,9 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const auth = await authenticateAgent(ctx, request);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const rateLimited = await checkApiRateLimit(ctx, auth.tokenId, true);
+    if (rateLimited) return rateLimited;
 
     const body = await request.json();
     const { conversationId, message } = body;
@@ -967,6 +973,9 @@ http.route({
     const auth = await authenticateApiCaller(ctx, request);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
 
+    const rateLimited = await checkApiRateLimit(ctx, auth.tokenId, true);
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const { channelId, message, threadId } = body;
     if (!channelId || !message)
@@ -1122,6 +1131,10 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const auth = await authenticateApiCaller(ctx, request);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const rateLimited = await checkApiRateLimit(ctx, auth.tokenId, true);
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const { conversationId, message, threadId } = body;
     if (!conversationId || !message)
@@ -1169,6 +1182,9 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const auth = await authenticateApiCaller(ctx, request);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const rateLimited = await checkApiRateLimit(ctx, auth.tokenId, true);
+    if (rateLimited) return rateLimited;
 
     const body = await request.json();
     const { messageId, emoji } = body;

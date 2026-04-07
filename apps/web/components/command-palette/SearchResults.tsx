@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { User, MessageSquare, ArrowRight } from "lucide-react";
 import {
   CommandGroup,
@@ -100,9 +101,11 @@ export function SearchResults({
                 onSelect={() => onOpenProfile(person._id)}
               >
                 {person.avatarUrl ? (
-                  <img
+                  <Image
                     src={person.avatarUrl}
                     alt=""
+                    width={20}
+                    height={20}
                     className="h-5 w-5 rounded-full object-cover"
                   />
                 ) : (

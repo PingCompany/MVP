@@ -32,6 +32,7 @@ export const listRules = query({
 export const getRule = query({
   args: { senderAddress: v.string() },
   handler: async (ctx, args) => {
+    if (args.senderAddress.length > 320) throw new Error("Sender address too long");
     const user = await requireUser(ctx);
     return await ctx.db
       .query("emailSenderRules")

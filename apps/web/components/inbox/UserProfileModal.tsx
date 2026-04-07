@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -54,7 +55,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
             <div className="flex items-start gap-4 mb-5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-3 text-sm font-semibold text-foreground/70 overflow-hidden">
                 {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                  <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="h-full w-full object-cover" />
                 ) : (
                   initials(user.name)
                 )}

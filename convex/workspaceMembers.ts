@@ -188,6 +188,18 @@ export const inviteByEmail = mutation({
       throw new Error("Only admins can invite members");
     }
 
+    // Check member quota
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (workspace?.maxMembers) {
+      const memberCount = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+        .take(workspace.maxMembers + 1);
+      if (memberCount.length >= workspace.maxMembers) {
+        throw new Error("Workspace member limit reached");
+      }
+    }
+
     // Check if already a member
     const existingUser = await ctx.db
       .query("users")

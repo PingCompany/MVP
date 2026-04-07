@@ -167,18 +167,23 @@ async function detectFactualClaims(
     .map((m, i) => `[${i}] ${m.authorName}: ${m.body}`)
     .join("\n");
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-5.4-nano",
-      messages: [
-        {
-          role: "user",
-          content: `Identify messages that make factual claims about past decisions, technical choices, or historical events (e.g. "We never tried X", "This was decided last month", "We always do Y").
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "gpt-5.4-nano",
+        messages: [
+          {
+            role: "user",
+            content: `Identify messages that make factual claims about past decisions, technical choices, or historical events (e.g. "We never tried X", "This was decided last month", "We always do Y").
 
 Messages:
 ${messageText}
@@ -193,6 +198,11 @@ Only include messages with clear factual claims, not opinions or questions. Retu
       response_format: { type: "json_object" },
     }),
   });
+  } catch {
+    clearTimeout(timeoutId);
+    return [];
+  }
+  clearTimeout(timeoutId);
 
   if (!response.ok) return [];
   const data = await response.json();
@@ -237,18 +247,23 @@ async function checkClaimAgainstKnowledge(
     .map((f, i) => `[${i}] ${f.fact}${f.invalid_at ? " [superseded]" : ""}`)
     .join("\n");
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-5.4-nano",
-      messages: [
-        {
-          role: "user",
-          content: `You are a fact-checker. Given a claim and a set of known facts from a knowledge graph, determine if any fact directly contradicts the claim.
+  const fcController = new AbortController();
+  const fcTimeoutId = setTimeout(() => fcController.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: fcController.signal,
+      body: JSON.stringify({
+        model: "gpt-5.4-nano",
+        messages: [
+          {
+            role: "user",
+            content: `You are a fact-checker. Given a claim and a set of known facts from a knowledge graph, determine if any fact directly contradicts the claim.
 
 Claim: "${claim}"
 
@@ -265,6 +280,11 @@ confidence should be 0.0–1.0 reflecting how clearly the facts contradict the c
       response_format: { type: "json_object" },
     }),
   });
+  } catch {
+    clearTimeout(fcTimeoutId);
+    return { contradiction: null, confidence: 0 };
+  }
+  clearTimeout(fcTimeoutId);
 
   if (!response.ok) return { contradiction: null, confidence: 0 };
 
@@ -376,12 +396,17 @@ async function detectCrossTeamRelevance(
     .map((c, i) => `[Channel ${i} #${c.conversationName}]:\n${c.messages.slice(-5).join("\n")}`)
     .join("\n\n");
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+  const ctController = new AbortController();
+  const ctTimeoutId = setTimeout(() => ctController.abort(), 15000);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: ctController.signal,
     body: JSON.stringify({
       model: "gpt-5.4-nano",
       messages: [
@@ -404,6 +429,11 @@ Return empty array if nothing is cross-team relevant.`,
       response_format: { type: "json_object" },
     }),
   });
+  } catch {
+    clearTimeout(ctTimeoutId);
+    return [];
+  }
+  clearTimeout(ctTimeoutId);
 
   if (!response.ok) return [];
   const data = await response.json();

@@ -755,6 +755,16 @@ http.route({
         return jsonResponse({ error: "refresh_token is required" }, 400);
       }
 
+      // Rate limit by token prefix
+      const refreshRateKey = `mobile-refresh:${String(refresh_token).slice(0, 16)}`;
+      const refreshRateResult = await ctx.runMutation(internal.rateLimit.checkRateLimit, {
+        key: refreshRateKey,
+        maxPerWindow: 10,
+      });
+      if (!refreshRateResult.allowed) {
+        return jsonResponse({ error: "Too many attempts" }, 429);
+      }
+
       const clientId = process.env.WORKOS_CLIENT_ID;
       const clientSecret = process.env.WORKOS_API_KEY;
 

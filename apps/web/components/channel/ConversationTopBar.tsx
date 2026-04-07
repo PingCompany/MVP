@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import {
   Pin,
   Paperclip,
@@ -171,7 +172,7 @@ export function ConversationTopBar({
             {m.isAgent ? (
               <Bot className="h-3 w-3" />
             ) : m.avatarUrl ? (
-              <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
+              <Image src={m.avatarUrl} alt={m.name} width={20} height={20} className="h-full w-full object-cover" />
             ) : (
               getInitials(m.name)
             )}
@@ -299,7 +300,7 @@ export function ConversationTopBar({
                           {m.isAgent ? (
                             <Bot className="h-2.5 w-2.5" />
                           ) : m.avatarUrl ? (
-                            <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
+                            <Image src={m.avatarUrl} alt={m.name} width={20} height={20} className="h-full w-full object-cover" />
                           ) : (
                             getInitials(m.name)
                           )}
@@ -341,7 +342,7 @@ export function ConversationTopBar({
                         >
                           <div className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-2xs font-medium overflow-hidden">
                             {wm.avatarUrl ? (
-                              <img src={wm.avatarUrl} alt={wm.name} className="h-full w-full object-cover" />
+                              <Image src={wm.avatarUrl} alt={wm.name} width={20} height={20} className="h-full w-full object-cover" />
                             ) : (
                               getInitials(wm.name)
                             )}

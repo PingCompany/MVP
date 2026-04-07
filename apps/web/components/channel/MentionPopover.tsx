@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useContext } from "react";
+import Image from "next/image";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Bot } from "lucide-react";
@@ -163,7 +164,7 @@ export function MentionPopover({
               </div>
             ) : user.avatarUrl ? (
               <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full">
-                <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                <Image src={user.avatarUrl} alt={user.name} width={20} height={20} className="h-full w-full object-cover" />
               </div>
             ) : (
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-2xs font-medium text-foreground">

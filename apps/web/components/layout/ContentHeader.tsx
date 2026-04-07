@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   Pin,
   Paperclip,
@@ -113,7 +114,7 @@ export function ContentHeader({
                 {m.isAgent ? (
                   <Bot className="h-3 w-3" />
                 ) : m.avatarUrl ? (
-                  <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
+                  <Image src={m.avatarUrl} alt={m.name} width={24} height={24} className="h-full w-full object-cover" />
                 ) : (
                   getInitials(m.name)
                 )}
@@ -161,7 +162,7 @@ export function ContentHeader({
                         {m.isAgent ? (
                           <Bot className="h-2.5 w-2.5" />
                         ) : m.avatarUrl ? (
-                          <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
+                          <Image src={m.avatarUrl} alt={m.name} width={24} height={24} className="h-full w-full object-cover" />
                         ) : (
                           getInitials(m.name)
                         )}

@@ -22,6 +22,12 @@ pnpm install --frozen-lockfile
 
 echo "--- [4/5] Convex codegen ---"
 export CONVEX_DEPLOYMENT="${CONVEX_DEPLOYMENT:-prod:quick-falcon-481}"
+if [ -z "${CONVEX_DEPLOY_KEY:-}" ]; then
+  echo "ERROR: CONVEX_DEPLOY_KEY is not set."
+  echo "Add it in Xcode Cloud: App Store Connect → Xcode Cloud → Workflows → Default → Environment → Add Variable"
+  echo "Get the key from: dashboard.convex.dev → your project → Settings → Generate Deploy Key"
+  exit 1
+fi
 npx convex codegen --typecheck=disable
 
 echo "--- [5/5] pod install ---"

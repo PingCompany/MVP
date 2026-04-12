@@ -71,19 +71,27 @@ jobs:
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/openping.mobileprovision
 
       - name: Archive
+        env:
+          APP_STORE_API_KEY_ID: ${{ secrets.APP_STORE_API_KEY_ID }}
+          APP_STORE_API_ISSUER_ID: ${{ secrets.APP_STORE_API_ISSUER_ID }}
+          APP_STORE_API_KEY_BASE64: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
         run: |
-          PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/openping.mobileprovision
-          UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_API_KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_API_KEY_ID}.p8
+          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/openping.mobileprovision"
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+          echo "Signing with team: $TEAM_ID"
           xcodebuild archive \
             -workspace ios/OpenPing.xcworkspace \
             -scheme OpenPing \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath build/OpenPing.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE="$UUID" \
-            DEVELOPMENT_TEAM=YAL977BPB2 \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_API_KEY_ID}.p8 \
+            -authenticationKeyID "$APP_STORE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_API_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             -quiet
 
       - name: Export & Upload

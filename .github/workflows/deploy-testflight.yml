@@ -12,7 +12,7 @@ on:
 jobs:
   build-and-upload:
     name: Build & Upload to TestFlight
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: apps/mobile
@@ -92,6 +92,7 @@ jobs:
             -authenticationKeyID "$APP_STORE_API_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_API_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            SWIFT_STRICT_CONCURRENCY=minimal \
             -quiet
 
       - name: Export & Upload

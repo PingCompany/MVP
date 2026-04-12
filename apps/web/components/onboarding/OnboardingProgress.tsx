@@ -6,11 +6,13 @@ import { cn } from "@/lib/utils";
 interface OnboardingProgressProps {
   currentStep: number;
   labels: string[];
+  onStepClick?: (step: number) => void;
 }
 
 export function OnboardingProgress({
   currentStep,
   labels,
+  onStepClick,
 }: OnboardingProgressProps) {
   const totalSteps = labels.length;
 
@@ -20,10 +22,14 @@ export function OnboardingProgress({
         {labels.map((_, i) => {
           const isCompleted = i < currentStep;
           const isCurrent = i === currentStep;
+          const isClickable = isCompleted && onStepClick;
 
           return (
             <div key={i} className="flex items-center">
-              <div
+              <button
+                type="button"
+                disabled={!isClickable}
+                onClick={() => isClickable && onStepClick(i)}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors",
                   isCompleted &&
@@ -32,7 +38,9 @@ export function OnboardingProgress({
                     "border-2 border-ping-purple bg-ping-purple/15 text-ping-purple",
                   !isCompleted &&
                     !isCurrent &&
-                    "border border-subtle bg-surface-1 text-muted-foreground"
+                    "border border-subtle bg-surface-1 text-muted-foreground",
+                  isClickable && "cursor-pointer hover:opacity-80",
+                  !isClickable && !isCurrent && "cursor-default",
                 )}
               >
                 {isCompleted ? (
@@ -40,7 +48,7 @@ export function OnboardingProgress({
                 ) : (
                   i + 1
                 )}
-              </div>
+              </button>
 
               {i < totalSteps - 1 && (
                 <div

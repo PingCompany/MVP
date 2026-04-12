@@ -216,6 +216,18 @@ export const inviteByEmail = mutation({
       if (existingMembership) throw new Error("User is already a member");
     }
 
+    // Expire any existing pending invitations for this email+workspace
+    const existingInvitations = await ctx.db
+      .query("invitations")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .take(100);
+    const pendingDuplicates = existingInvitations.filter(
+      (inv) => inv.workspaceId === args.workspaceId && inv.status === "pending",
+    );
+    await Promise.all(
+      pendingDuplicates.map((inv) => ctx.db.patch(inv._id, { status: "expired" })),
+    );
+
     const token = crypto.randomUUID();
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
 
